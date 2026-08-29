@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** ✅ Live (v1.14.2)
+**Status:** ✅ Live (v1.15.0)
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -44,6 +44,8 @@ Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in 
 ✅ **Lichtbedarf & Notizen** – Freitext für Umtopfen, Schädlinge, Besonderheiten
 ✅ **Pflegeaufgaben** – Düngen (in Tagen), Umtopfen und Schneiden (in Monaten), je Pflanze einzeln einstellbar
 ✅ **Alle auf einmal** – ein Knopf hakt alle fälligen Pflanzen ab, Rückgängig nimmt den ganzen Schwung zurück
+✅ **Gieß-Runde** – führt nach Standort geordnet durch die Wohnung, eine Pflanze nach der anderen
+✅ **Problem-Hilfe** – zehn typische Symptome mit Ursachen und Maßnahmen, abgeglichen mit den Werten der Pflanze
 ✅ **Urlaubsmodus** – Zeitraum eingeben: was vorher zu gießen ist, was währenddessen fällig wird, als Liste zum Weitergeben
 ✅ **Verlauf** – die letzten acht Gieß- und Düngevorgänge je Pflanze
 ✅ **Beispielpflanzen** – acht typische Zimmerpflanzen auf Knopfdruck, angeboten auf dem leeren Startbildschirm
@@ -87,7 +89,7 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
 | Design | iOS-orientiertes Dark UI, System-Schriften, `env(safe-area-inset-*)` |
 | Speicher | `localStorage`, Schlüssel `pg_data` |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v1.14.2` |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v1.15.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
 | Push | Web Push API + VAPID, pywebpush, systemd-Timer alle 15 Minuten |
 | Hosting | LXC Container auf Proxmox |
@@ -152,6 +154,7 @@ Alle Antworten JSON, Sitzung über das HttpOnly-Cookie `gz_session`.
 | POST | `/api/push/subscribe` | Gerät anmelden bzw. Uhrzeit ändern |
 | POST | `/api/push/unsubscribe` | Gerät abmelden |
 | POST | `/api/push/test` | Testnachricht an alle Geräte des Kontos |
+| POST | `/api/push/spaeter` | verschiebt die heutige Erinnerung um n Stunden |
 
 Der Konflikt-Fall (409) ist der Kern des Sync: der Client schickt die Revision, auf der seine Änderung aufsetzt. Stimmt sie nicht mehr, hat ein anderes Gerät geschrieben – die App zeigt dann beide Stände zur Auswahl, statt still zu überschreiben.
 
@@ -251,6 +254,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v1.15.0** | Gieß-Runde, Problem-Hilfe, Erinnerung verschieben |
 | **v1.14.0** | Küchenkräuter ergänzt (79 Arten) |
 | **v1.13.0** | Pflanzenliste auf 75 Arten erweitert, Zweitnamen und Mehrzahl |
 | **v1.12.0** | Namensvorschläge, Standort als Dropdown |

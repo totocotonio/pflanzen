@@ -1,10 +1,10 @@
 /* Grünzeug Service Worker */
-const CACHE = 'gruenzeug-v1.14.2';
+const CACHE = 'gruenzeug-v1.15.0';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=1.14.2',
-  './app.js?v=1.14.2',
+  './style.css?v=1.15.0',
+  './app.js?v=1.15.0',
   './manifest.json',
   './favicon.svg',
   './icon-192.png',
@@ -63,12 +63,27 @@ self.addEventListener('push', e => {
     icon: './icon-192.png',
     badge: './icon-192.png',
     tag: data.tag || 'giessen',
-    data: { url: './index.html' }
+    data: { url: './index.html' },
+    // Wegwischen hieße sonst: heute kommt nichts mehr
+    actions: [{ action: 'spaeter', title: 'In 2 Stunden' }]
   }));
 });
 
 self.addEventListener('notificationclick', e => {
   e.notification.close();
+
+  if (e.action === 'spaeter') {
+    e.waitUntil(
+      fetch('/api/push/spaeter', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stunden: 2 })
+      }).catch(() => { /* ohne Netz bleibt es bei der nächsten regulären Prüfung */ })
+    );
+    return;
+  }
+
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
       for (const c of list) if ('focus' in c) return c.focus();

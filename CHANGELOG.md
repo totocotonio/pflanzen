@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.15.0 - 2026-08-29
+
+- Gieß-Runde: Sind mehr als zwei Pflanzen fällig, führt ein Knopf auf der
+  Startseite durch die Wohnung – nach Standort gruppiert, immer nur eine
+  Pflanze auf dem Schirm, mit Wassermenge und Pflegehinweis. Gegossen wird
+  erst am Ende gespeichert, sodass sich die ganze Runde in einem Zug
+  zurücknehmen lässt.
+- Problem-Hilfe zu zehn typischen Symptomen: gelbe Blätter, braune Spitzen,
+  hängende Blätter, Trauermücken, Schimmel, klebrige Blätter, Spinnmilben,
+  fehlendes Wachstum, Blattfall und ausbleibende Blüten – jeweils mit den
+  wahrscheinlichen Ursachen und konkreten Maßnahmen.
+- Wird die Hilfe aus einer Pflanze heraus geöffnet, prüft sie deren
+  eingetragene Werte: ein Gießintervall, das stark vom Richtwert der Art
+  abweicht, fehlendes Düngen oder lange Überfälligkeit werden vorangestellt.
+- Erinnerungen lassen sich verschieben: Die Benachrichtigung hat jetzt einen
+  Knopf "In 2 Stunden". Vorher hieß Wegwischen, dass an diesem Tag nichts mehr
+  kam.
+- Der Server ergänzt fehlende Datenbankspalten beim Start selbst –
+  `create_all` legt nur fehlende Tabellen an, keine fehlenden Spalten.
+
 ## v1.14.2 - 2026-08-29
 
 - Symbolauswahl beim Anlegen von 15 auf 24 erweitert. Darunter 🍁 – ein

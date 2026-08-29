@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.14.2';
+const VERSION = '1.15.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -401,6 +401,11 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.15.0', datum: '29.08.2026', punkte: [
+    'Gieß-Runde: führt nach Standort geordnet durch die Wohnung, eine Pflanze nach der anderen.',
+    'Problem-Hilfe zu zehn typischen Symptomen, mit Prüfung der eigenen Werte.',
+    'Erinnerung lässt sich um zwei Stunden verschieben.'
+  ]},
   { v: '1.14.2', datum: '29.08.2026', punkte: [
     'Symbolauswahl von 15 auf 24 erweitert, darunter 🍁 als Ersatz für das fehlende Hanf-Emoji.'
   ]},
@@ -807,6 +812,9 @@ function renderHeute() {
     html += `<div class="section-title mit-aktion"><span>Jetzt gießen</span>` +
             (faellig.length > 1 ? `<span class="aktion" data-alle-giessen>Alle ${faellig.length} gießen</span>` : '') +
             `</div>`;
+    if (faellig.length > 2) {
+      html += `<button class="btn" data-runde-start style="margin:0 0 12px">🚿 Gieß-Runde starten</button>`;
+    }
     html += faellig.sort((a, b) => tageBis(a) - tageBis(b)).map(plantRow).join('');
   }
   if (bald.length) {
@@ -1588,6 +1596,258 @@ function zeigeStatistik() {
   box.innerHTML = html;
 }
 
+/* ---------- Gieß-Runde ----------
+   Führt einmal durch die Wohnung, nach Standort gruppiert. Immer nur eine
+   Pflanze auf dem Schirm, damit man beim Gießen nicht in einer Liste sucht.
+   Gegossen wird erst am Ende gespeichert – so lässt sich die ganze Runde
+   in einem Zug zurücknehmen. */
+let runde = null;   // { pflanzen: [], index: 0, erledigt: Set }
+
+function rundeStarten() {
+  const faellig = DB.plants.filter(p => tageBis(p) <= 0);
+  if (!faellig.length) { toast('Gerade ist nichts fällig'); return; }
+
+  // Nach Standort gruppieren, damit man nicht zwischen Zimmern hin und her läuft
+  const nachRaum = {};
+  for (const p of faellig) (nachRaum[p.raum || 'Ohne Standort'] ||= []).push(p);
+  const sortiert = Object.keys(nachRaum).sort((a, b) => a.localeCompare(b, 'de'))
+    .flatMap(raum => nachRaum[raum].sort((a, b) => tageBis(a) - tageBis(b)));
+
+  runde = { pflanzen: sortiert, index: 0, erledigt: new Set() };
+  rundeZeichnen();
+  openSheet('#sheet-runde');
+}
+
+function rundeZeichnen() {
+  if (!runde) return;
+  const box = $('#runde-inhalt');
+
+  if (runde.index >= runde.pflanzen.length) { rundeAbschluss(box); return; }
+
+  const p = runde.pflanzen[runde.index];
+  const nummer = runde.index + 1;
+  const gesamt = runde.pflanzen.length;
+  const anteil = Math.round((runde.index / gesamt) * 100);
+  const naechste = runde.pflanzen[runde.index + 1];
+
+  box.innerHTML = `
+    <div class="runde-fortschritt">
+      <div class="bar"><i style="width:${anteil}%"></i></div>
+      <div class="runde-zaehler">${nummer} von ${gesamt}</div>
+    </div>
+
+    <div class="runde-karte">
+      ${avatarHTML(p, 'gross')}
+      <h3>${esc(p.name)}</h3>
+      <p class="runde-ort">${p.raum ? esc(p.raum) : 'ohne Standort'}</p>
+      ${p.menge ? `<p class="runde-menge">${esc(p.menge)}</p>` : ''}
+      <p class="runde-status"><span class="badge ${statusOf(p)}">${statusText(p)}</span></p>
+      ${p.notiz ? `<p class="runde-notiz">${esc(p.notiz)}</p>` : ''}
+    </div>
+
+    <button class="btn" data-runde="gegossen">💧 Gegossen, weiter</button>
+    <button class="btn sec" data-runde="ueberspringen">Überspringen</button>
+    ${naechste ? `<p class="runde-naechste">Danach: ${esc(naechste.name)}${
+      naechste.raum ? ' · ' + esc(naechste.raum) : ''}</p>` : ''}
+    <button class="btn sec" data-runde="abbruch">Runde beenden</button>`;
+}
+
+function rundeAbschluss(box) {
+  const n = runde.erledigt.size;
+  const offen = runde.pflanzen.length - n;
+  box.innerHTML = `
+    <div class="empty">
+      <div class="big">${n ? '✅' : '🤔'}</div>
+      <p><b>${n === 0 ? 'Nichts gegossen' : n === 1 ? 'Eine Pflanze gegossen' : n + ' Pflanzen gegossen'}</b></p>
+      ${offen ? `<p>${offen} ${offen === 1 ? 'wurde' : 'wurden'} übersprungen und ${
+        offen === 1 ? 'bleibt' : 'bleiben'} fällig.</p>` : '<p>Alles erledigt.</p>'}
+    </div>
+    <button class="btn" data-runde="fertig">Fertig</button>`;
+}
+
+/** Übernimmt die Runde in die Daten – ein Eintrag, damit Rückgängig alles fasst. */
+function rundeSpeichern() {
+  if (!runde || !runde.erledigt.size) { runde = null; closeSheets(); return; }
+  const heute = toISO(new Date());
+  const eintraege = [];
+  for (const id of runde.erledigt) {
+    const p = DB.plants.find(x => x.id === id);
+    if (!p) continue;
+    const logId = uid();
+    eintraege.push({ feld: 'letzt', plantId: id, vorher: p.letzt, logId });
+    p.letzt = heute;
+    DB.logs.push({ id: logId, plantId: id, typ: 'wasser', ts: Date.now() });
+  }
+  const anzahl = eintraege.length;
+  letzteAktion = { eintraege };
+  runde = null;
+  save();
+  renderAll();
+  closeSheets();
+  toast('💧 ' + anzahl + (anzahl === 1 ? ' Pflanze' : ' Pflanzen') + ' gegossen',
+        'Rückgängig', rueckgaengig);
+}
+
+function rundeSchritt(was) {
+  if (!runde) return;
+  if (was === 'abbruch' || was === 'fertig') { rundeSpeichern(); return; }
+  if (was === 'gegossen') {
+    runde.erledigt.add(runde.pflanzen[runde.index].id);
+    if (navigator.vibrate) navigator.vibrate(10);
+  }
+  runde.index++;
+  rundeZeichnen();
+}
+
+/* ---------- Problem-Hilfe ----------
+   Symptom auswählen, mögliche Ursachen und Maßnahmen lesen. Wird die Hilfe aus
+   einer Pflanze heraus geöffnet, prüft `pruefungen` deren tatsächliche Werte
+   und stellt passende Hinweise nach oben. */
+const PROBLEME = [
+  {
+    id: 'gelbe-blaetter', emoji: '🟡', titel: 'Gelbe Blätter',
+    ursachen: [
+      { was: 'Zu viel Wasser', tun: 'Häufigste Ursache. Erde antrocknen lassen, Untersetzer leeren, Intervall verlängern. Riecht die Erde faulig, umtopfen und faule Wurzeln abschneiden.' },
+      { was: 'Zu wenig Wasser', tun: 'Ist die Erde staubtrocken und der Ballen von der Topfwand abgelöst: durchdringend wässern oder eine halbe Stunde tauchen.' },
+      { was: 'Nährstoffmangel', tun: 'Gleichmäßig hellgelbe Blätter bei grünen Adern deuten auf Eisenmangel. In der Wachstumszeit alle zwei bis vier Wochen düngen.' },
+      { was: 'Natürliche Alterung', tun: 'Einzelne untere Blätter gelb und dann braun: normal, einfach entfernen.' }
+    ]
+  },
+  {
+    id: 'braune-spitzen', emoji: '🟤', titel: 'Braune Blattspitzen',
+    ursachen: [
+      { was: 'Trockene Luft', tun: 'Typisch im Winter über der Heizung. Luftfeuchte erhöhen, Pflanze umstellen, Blätter besprühen (nicht bei samtigen Blättern).' },
+      { was: 'Kalk im Wasser', tun: 'Abgestandenes, weiches Wasser nehmen oder Regenwasser sammeln. Betrifft besonders Grünlilie, Drachenbaum und Calathea.' },
+      { was: 'Zu viel Dünger', tun: 'Salzränder auf der Erde? Ein bis zwei Monate nicht düngen, den Ballen mit klarem Wasser durchspülen.' }
+    ]
+  },
+  {
+    id: 'haengende-blaetter', emoji: '🥀', titel: 'Blätter hängen',
+    ursachen: [
+      { was: 'Durst', tun: 'Erde trocken? Dann gründlich gießen, die meisten Pflanzen erholen sich in wenigen Stunden.' },
+      { was: 'Wurzelfäule', tun: 'Hängende Blätter bei nasser Erde sind ein Alarmzeichen: Die Wurzeln nehmen kein Wasser mehr auf. Austopfen, faule braune Wurzeln entfernen, in frische Erde setzen und erst mal sparsam gießen.' },
+      { was: 'Zugluft oder Kälte', tun: 'Standort neben offenem Fenster oder Tür prüfen, besonders im Winter.' }
+    ]
+  },
+  {
+    id: 'trauermuecken', emoji: '🦟', titel: 'Kleine schwarze Mücken',
+    ursachen: [
+      { was: 'Trauermücken in der Erde', tun: 'Ihre Larven leben in dauerfeuchter Erde. Oberschicht abtrocknen lassen, von unten gießen, Gelbtafeln gegen die Fliegenden aufstellen. Bei starkem Befall Nematoden gießen oder die Erde tauschen.' },
+      { was: 'Zu feuchte Haltung', tun: 'Gießintervall verlängern – die Mücken verschwinden mit der Feuchtigkeit.' }
+    ]
+  },
+  {
+    id: 'schimmel', emoji: '⚪', titel: 'Weißer Belag auf der Erde',
+    ursachen: [
+      { was: 'Schimmel', tun: 'Meist harmlos. Belag abtragen, Erde lockern, weniger gießen und für Luftbewegung sorgen.' },
+      { was: 'Kalkablagerungen', tun: 'Krustig und hart statt flauschig: Kalk aus dem Gießwasser. Oberschicht erneuern, weicheres Wasser nehmen.' }
+    ]
+  },
+  {
+    id: 'klebrig', emoji: '🐛', titel: 'Klebrige Blätter, kleine Tiere',
+    ursachen: [
+      { was: 'Blattläuse', tun: 'Grüne oder schwarze Tierchen an Trieben. Abduschen, danach mit Schmierseifenlösung einsprühen, nach einer Woche wiederholen.' },
+      { was: 'Schildläuse', tun: 'Braune Höcker auf Blattunterseiten und Stielen. Einzeln abkratzen, dann mit Öl-Seifen-Mittel behandeln.' },
+      { was: 'Wollläuse', tun: 'Weiße Wattebäusche in Blattachseln. Mit einem in Spiritus getauchten Wattestäbchen betupfen.' }
+    ]
+  },
+  {
+    id: 'spinnmilben', emoji: '🕸', titel: 'Feine Gespinste, gesprenkelte Blätter',
+    ursachen: [
+      { was: 'Spinnmilben', tun: 'Kommen bei trockener Heizungsluft. Pflanze kräftig abbrausen, Luftfeuchte erhöhen, notfalls mit Rapsöl-Präparat behandeln. Befallene Pflanzen von anderen trennen.' }
+    ]
+  },
+  {
+    id: 'kein-wachstum', emoji: '🌱', titel: 'Wächst nicht, wird lang und dünn',
+    ursachen: [
+      { was: 'Zu wenig Licht', tun: 'Lange dünne Triebe mit weiten Abständen zwischen den Blättern: heller stellen. Im Winter reicht vielen Zimmerpflanzen das Licht am Fenster kaum.' },
+      { was: 'Topf zu klein', tun: 'Wurzeln wachsen unten aus dem Topf oder drehen sich im Kreis: in einen zwei bis vier Zentimeter größeren Topf umsetzen.' },
+      { was: 'Nährstoffe fehlen', tun: 'Steht sie länger als ein Jahr in derselben Erde ohne Dünger, ist alles aufgebraucht.' }
+    ]
+  },
+  {
+    id: 'blattfall', emoji: '🍂', titel: 'Plötzlicher Blattfall',
+    ursachen: [
+      { was: 'Standortwechsel', tun: 'Besonders Ficus reagiert empfindlich. Zurückstellen oder Geduld: Nach der Umgewöhnung treibt er neu aus.' },
+      { was: 'Kalte Füße', tun: 'Topf auf kaltem Steinboden oder Fensterbrett. Untersetzer aus Kork oder Filz darunter legen.' },
+      { was: 'Trockenstress', tun: 'Einmal komplett ausgetrocknet? Dann wirft die Pflanze Blätter ab, um zu überleben.' }
+    ]
+  },
+  {
+    id: 'keine-blueten', emoji: '🌸', titel: 'Blüht nicht',
+    ursachen: [
+      { was: 'Zu wenig Licht', tun: 'Blühpflanzen brauchen deutlich mehr Licht als Grünpflanzen.' },
+      { was: 'Falscher Dünger', tun: 'Stickstoffbetonter Dünger fördert Blätter statt Blüten. Blühpflanzendünger mit mehr Phosphor nehmen.' },
+      { was: 'Ruhephase fehlt', tun: 'Viele Arten – Weihnachtskaktus, Orchidee, Amaryllis – brauchen im Winter einige Wochen kühler und trockener, um Blüten anzusetzen.' }
+    ]
+  }
+];
+
+/** Auffälligkeiten aus den eingetragenen Werten der Pflanze selbst. */
+function pflanzenPruefung(p) {
+  if (!p) return [];
+  const hinweise = [];
+  const art = artFinden(p.name) || artFinden(p.art);
+  const iv = Number(p.intervall) || 0;
+
+  if (art && iv) {
+    if (iv <= art.iv / 2) {
+      hinweise.push(`Du gießt alle ${iv} Tage – für ${art.n} sind etwa ${art.iv} Tage üblich. ` +
+        `Zu häufiges Gießen ist die häufigste Ursache für gelbe Blätter und Trauermücken.`);
+    } else if (iv >= art.iv * 2) {
+      hinweise.push(`Du gießt alle ${iv} Tage – für ${art.n} sind etwa ${art.iv} Tage üblich. ` +
+        `Das könnte zu trocken sein.`);
+    }
+    if (art.licht && p.licht && art.licht !== p.licht) {
+      hinweise.push(`Notiert ist „${esc(p.licht)}“, üblich für ${art.n} wäre „${esc(art.licht)}“.`);
+    }
+  }
+
+  if (!Number(p.duengerInt)) {
+    hinweise.push('Für diese Pflanze ist kein Düngen eingetragen. In der Wachstumszeit ' +
+      'braucht fast jede Zimmerpflanze alle zwei bis vier Wochen Nährstoffe.');
+  }
+
+  const t = tageBis(p);
+  if (t < -7) hinweise.push(`Die Pflanze ist seit ${Math.abs(t)} Tagen überfällig.`);
+  return hinweise;
+}
+
+/** Öffnet die Hilfe, optional im Bezug auf eine bestimmte Pflanze. */
+function hilfeOeffnen(pid) {
+  const p = pid ? DB.plants.find(x => x.id === pid) : null;
+  const pruefung = pflanzenPruefung(p);
+
+  $('#hilfe-titel').textContent = p ? 'Hilfe zu ' + p.name : 'Was ist los mit der Pflanze?';
+  $('#hilfe-inhalt').innerHTML =
+    (pruefung.length
+      ? `<div class="section-title">Aufgefallen</div>` +
+        pruefung.map(h => `<div class="card" style="border-left:3px solid var(--orange)">${h}</div>`).join('')
+      : '') +
+    `<div class="section-title">Was beobachtest du?</div>` +
+    PROBLEME.map(pr => `
+      <button class="problem" data-problem="${pr.id}">
+        <span class="problem-emoji">${pr.emoji}</span>
+        <span class="problem-titel">${esc(pr.titel)}</span>
+        <span class="problem-pfeil">›</span>
+      </button>`).join('');
+  openSheet('#sheet-hilfe');
+}
+
+function problemZeigen(id) {
+  const pr = PROBLEME.find(x => x.id === id);
+  if (!pr) return;
+  $('#hilfe-titel').textContent = pr.emoji + ' ' + pr.titel;
+  $('#hilfe-inhalt').innerHTML =
+    `<div class="section-title">Mögliche Ursachen</div>` +
+    pr.ursachen.map(u => `
+      <div class="card">
+        <b style="display:block;margin-bottom:5px">${esc(u.was)}</b>
+        <span style="color:var(--text-2);font-size:15px;line-height:1.45">${esc(u.tun)}</span>
+      </div>`).join('') +
+    `<button class="btn sec" data-problem-zurueck>Zurück zur Übersicht</button>`;
+}
+
 /* ---------- Sheets ---------- */
 function openSheet(sel) { $(sel).classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeSheets() { $$('.sheet').forEach(s => s.classList.remove('open')); document.body.style.overflow = ''; }
@@ -1712,6 +1972,7 @@ function openDetail(id) {
       <div class="log-item"><span>${logText(l.typ)}</span>
       <span>${new Date(l.ts).toLocaleDateString('de-DE')}</span></div>`).join('') + `</div>` : ''}
 
+    <button class="btn sec" data-hilfe="${p.id}">🩺 Problem mit dieser Pflanze?</button>
     <button class="btn sec" data-edit="${p.id}">Bearbeiten</button>
     <button class="btn danger" data-del="${p.id}">Pflanze löschen</button>
     <button class="btn sec" data-close>Schließen</button>
@@ -2040,6 +2301,7 @@ function bind() {
     $('#suchfeld').focus();
   };
   $('#zeile-historie').onclick = zeigeHistorie;
+  $('#zeile-hilfe').onclick = () => hilfeOeffnen(null);
   $('#zeile-statistik').onclick = () => { zeigeStatistik(); openSheet('#sheet-statistik'); };
   $('#f-raum-wahl').onchange = e => {
     const neu = e.target.value === '__neu';
@@ -2112,7 +2374,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -2127,6 +2389,11 @@ function bind() {
     if (t.dataset.dueng) { e.stopPropagation(); duengen(t.dataset.dueng); return; }
     if (t.dataset.aufgabe) { e.stopPropagation(); aufgabeErledigt(t.dataset.pid, t.dataset.aufgabe); return; }
     if (t.dataset.alleGiessen !== undefined) { e.stopPropagation(); alleGiessen(); return; }
+    if (t.dataset.rundeStart !== undefined) { e.stopPropagation(); rundeStarten(); return; }
+    if (t.dataset.runde) { e.stopPropagation(); rundeSchritt(t.dataset.runde); return; }
+    if (t.dataset.hilfe) { e.stopPropagation(); closeSheets(); setTimeout(() => hilfeOeffnen(t.dataset.hilfe), 180); return; }
+    if (t.dataset.problem) { e.stopPropagation(); problemZeigen(t.dataset.problem); return; }
+    if (t.dataset.problemZurueck !== undefined) { e.stopPropagation(); hilfeOeffnen(null); return; }
     if (t.dataset.fotoWeg) { e.stopPropagation(); fotoLoeschen(t.dataset.fpid, t.dataset.fotoWeg); return; }
     if (t.dataset.foto) { e.stopPropagation(); fotoAnsehen(t.dataset.fpid, t.dataset.foto); return; }
     if (t.dataset.fotoNeu) {

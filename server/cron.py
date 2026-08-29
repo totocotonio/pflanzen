@@ -70,6 +70,15 @@ def main_lauf():
             uebersprungen += 1
             continue
 
+        # Auf "In 2 Stunden" gedrückt? Dann bis dahin Ruhe.
+        if abo.nicht_vor:
+            try:
+                if jetzt < datetime.fromisoformat(abo.nicht_vor):
+                    uebersprungen += 1
+                    continue
+            except ValueError:
+                abo.nicht_vor = ""
+
         try:
             stunde, minute = (int(x) for x in abo.zeit.split(":"))
         except ValueError:
@@ -101,6 +110,7 @@ def main_lauf():
         erfolg, hinweis = push.senden(abo, titel, text)
         if erfolg:
             abo.zuletzt = heute_iso
+            abo.nicht_vor = ""
             gesendet += 1
         elif hinweis == "abgemeldet":
             s.delete(abo)

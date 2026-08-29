@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=1.14.2">
+<link rel="stylesheet" href="style.css?v=1.15.0">
 </head>
 <body>
 
@@ -172,6 +172,9 @@
     <div class="group">
       <div class="field"><label>Version</label><span class="hint" id="about-version">–</span></div>
       <div class="field"><label>Speicher</label><span class="hint">localStorage + Server</span></div>
+      <div class="field" id="zeile-hilfe" style="cursor:pointer">
+        <label>Problem mit einer Pflanze?</label><span class="hint">Hilfe ›</span>
+      </div>
       <div class="field" id="zeile-statistik" style="cursor:pointer">
         <label>Statistik</label><span class="hint">Zahlen und Verlauf ›</span>
       </div>
@@ -265,6 +268,27 @@
     <button class="btn" id="btn-save">Speichern</button>
     <button class="btn sec" data-close>Abbrechen</button>
     <button class="btn danger" id="btn-delete" style="display:none">Pflanze löschen</button>
+  </div>
+</div>
+
+<!-- ===== Sheet: Gieß-Runde ===== -->
+<div class="sheet" id="sheet-runde">
+  <div class="backdrop" data-close></div>
+  <div class="panel">
+    <div class="grabber"></div>
+    <h2>Gieß-Runde</h2>
+    <div id="runde-inhalt"></div>
+  </div>
+</div>
+
+<!-- ===== Sheet: Problem-Hilfe ===== -->
+<div class="sheet" id="sheet-hilfe">
+  <div class="backdrop" data-close></div>
+  <div class="panel">
+    <div class="grabber"></div>
+    <h2 id="hilfe-titel">Hilfe</h2>
+    <div id="hilfe-inhalt"></div>
+    <button class="btn sec" data-close>Schließen</button>
   </div>
 </div>
 
@@ -362,6 +386,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=1.14.2"></script>
+<script src="app.js?v=1.15.0"></script>
 </body>
 </html>

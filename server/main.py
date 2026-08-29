@@ -67,6 +67,34 @@ PushAbo = push.modell_anlegen(Base)
 Base.metadata.create_all(engine)
 
 
+def spalten_ergaenzen() -> None:
+    """Ergänzt nachträglich hinzugekommene Spalten.
+
+    `create_all` legt nur fehlende Tabellen an, keine fehlenden Spalten. Ohne
+    das hier würde ein Update mit neuem Feld auf einer bestehenden Datenbank
+    beim ersten Zugriff scheitern.
+    """
+    from sqlalchemy import inspect, text
+
+    noetig = {
+        "push_abo": {"nicht_vor": "VARCHAR(20) NOT NULL DEFAULT ''"},
+    }
+    pruefer = inspect(engine)
+    with engine.connect() as conn:
+        for tabelle, spalten in noetig.items():
+            if not pruefer.has_table(tabelle):
+                continue
+            vorhanden = {s["name"] for s in pruefer.get_columns(tabelle)}
+            for name, typ in spalten.items():
+                if name not in vorhanden:
+                    conn.execute(text(f"ALTER TABLE {tabelle} ADD COLUMN {name} {typ}"))
+                    conn.commit()
+                    print(f"Spalte ergänzt: {tabelle}.{name}")
+
+
+spalten_ergaenzen()
+
+
 # --------------------------------------------------------------- Hilfen
 def db() -> Session:
     s = SessionLocal()
@@ -281,6 +309,25 @@ def push_abmelden(daten: AboEnde,
                             PushAbo.user_id == user.id).delete()
     s.commit()
     return {"ok": True}
+
+
+class Verschieben(BaseModel):
+    stunden: float = Field(default=2, ge=0.25, le=24)
+
+
+@app.post("/api/push/spaeter")
+def push_spaeter(daten: Verschieben,
+                 user: User = Depends(aktueller_user),
+                 s: Session = Depends(db)):
+    """Verschiebt die heutige Erinnerung. Ohne das hieße Wegwischen: heute
+    kommt nichts mehr, obwohl die Pflanze weiter Durst hat."""
+    ziel = datetime.now() + timedelta(hours=daten.stunden)
+    abos = s.query(PushAbo).filter(PushAbo.user_id == user.id).all()
+    for abo in abos:
+        abo.nicht_vor = ziel.isoformat(timespec="minutes")
+        abo.zuletzt = ""          # heute darf erneut gesendet werden
+    s.commit()
+    return {"ok": True, "wieder_ab": ziel.strftime("%H:%M")}
 
 
 @app.post("/api/push/test")
