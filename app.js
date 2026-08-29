@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.6.0';
+const VERSION = '1.7.0';
 
 const KEY = 'pg_data';
 const EMOJIS = ['🪴','🌿','🌵','🌱','🌴','🎍','🌺','🌻','🌷','🍀','🌾','🥬','🍋','🌶️','🫒'];
@@ -86,6 +86,12 @@ function duengerTageBis(p) {
   n.setHours(0, 0, 0, 0);
   return tageDiff(heute0(), n);
 }
+/** Fenster für "demnächst": folgt der Vorwarnung, ohne Vorwarnung drei Tage. */
+function vorschauTage() {
+  const v = Number(DB.settings.vorwarn) || 0;
+  return v > 0 ? v : 3;
+}
+
 function statusOf(p) {
   const t = tageBis(p);
   if (t < 0) return 'over';
@@ -377,6 +383,10 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.7.0', datum: '29.08.2026', punkte: [
+    'Vorwarnung jetzt bis 7 Tage einstellbar, nicht mehr nur bis 2.',
+    'Die mittlere Kachel und der Abschnitt "Demnächst" folgen dieser Einstellung.'
+  ]},
   { v: '1.6.0', datum: '29.08.2026', punkte: [
     'Die Kacheln auf der Startseite filtern jetzt: fällig, in zwei Tagen oder alle Pflanzen.',
     'Nochmal auf dieselbe Kachel tippen hebt den Filter wieder auf.'
@@ -675,12 +685,14 @@ function renderHeute() {
   $('#heute-datum').textContent = d.toLocaleDateString('de-DE',
     { weekday: 'long', day: 'numeric', month: 'long' });
 
+  const fenster = vorschauTage();
   const faellig = DB.plants.filter(p => tageBis(p) <= 0);
-  const bald = DB.plants.filter(p => { const t = tageBis(p); return t > 0 && t <= 2; });
+  const bald = DB.plants.filter(p => { const t = tageBis(p); return t > 0 && t <= fenster; });
 
   $('#st-faellig').textContent = faellig.length;
   $('#st-bald').textContent = bald.length;
   $('#st-gesamt').textContent = DB.plants.length;
+  $('#st-bald-text').textContent = fenster === 1 ? 'morgen' : 'in ' + fenster + ' Tagen';
 
   $$('.stat').forEach(k => k.classList.toggle('on', k.dataset.filter === heuteFilter));
 
@@ -699,8 +711,9 @@ function renderHeute() {
       : heuteFilter === 'bald' ? bald
       : DB.plants.slice();
     const ueberschrift = heuteFilter === 'faellig' ? 'Jetzt gießen'
-      : heuteFilter === 'bald' ? 'In den nächsten zwei Tagen'
-      : 'Alle Pflanzen';
+      : heuteFilter === 'bald'
+        ? (fenster === 1 ? 'Morgen fällig' : 'In den nächsten ' + fenster + ' Tagen')
+        : 'Alle Pflanzen';
     const kopf = `<div class="section-title mit-aktion"><span>${ueberschrift}</span>` +
                  `<span class="aktion" data-filter-weg>Filter aufheben</span></div>`;
     if (!auswahl.length) {

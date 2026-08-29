@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.7.0 - 2026-08-29
+
+- Vorwarnung bis 7 Tage einstellbar (bisher höchstens 2).
+- Die mittlere Kachel auf der Startseite und der Abschnitt "Demnächst" richten
+  sich nach dieser Einstellung, statt fest zwei Tage zu zeigen. Die Kachel
+  beschriftet sich entsprechend ("in 5 Tagen", bei einem Tag "morgen").
+- Ohne Vorwarnung zeigt die Kachel weiterhin die nächsten drei Tage als
+  Vorschau, markiert aber nichts orange.
+
 ## v1.6.0 - 2026-08-29
 
 - Die drei Kacheln auf der Startseite filtern jetzt die Liste darunter:

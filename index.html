@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=1.6.0">
+<link rel="stylesheet" href="style.css?v=1.7.0">
 </head>
 <body>
 
@@ -49,7 +49,7 @@
 
     <div class="stat-row">
       <button class="stat" data-filter="faellig"><b id="st-faellig">0</b><span>fällig</span></button>
-      <button class="stat" data-filter="bald"><b id="st-bald">0</b><span>in 2 Tagen</span></button>
+      <button class="stat" data-filter="bald"><b id="st-bald">0</b><span id="st-bald-text">in 2 Tagen</span></button>
       <button class="stat" data-filter="alle"><b id="st-gesamt">0</b><span>Pflanzen</span></button>
     </div>
 
@@ -141,6 +141,10 @@
           <option value="0">keine</option>
           <option value="1">1 Tag vorher</option>
           <option value="2">2 Tage vorher</option>
+          <option value="3">3 Tage vorher</option>
+          <option value="4">4 Tage vorher</option>
+          <option value="5">5 Tage vorher</option>
+          <option value="7">7 Tage vorher</option>
         </select>
       </div>
     </div>
@@ -295,6 +299,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=1.6.0"></script>
+<script src="app.js?v=1.7.0"></script>
 </body>
 </html>

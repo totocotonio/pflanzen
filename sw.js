@@ -1,10 +1,10 @@
 /* Grünzeug Service Worker */
-const CACHE = 'gruenzeug-v1.6.0';
+const CACHE = 'gruenzeug-v1.7.0';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=1.6.0',
-  './app.js?v=1.6.0',
+  './style.css?v=1.7.0',
+  './app.js?v=1.7.0',
   './manifest.json',
   './favicon.svg',
   './icon-192.png',

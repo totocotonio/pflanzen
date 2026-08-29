@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** ✅ Live (v1.6.0)
+**Status:** ✅ Live (v1.7.0)
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -28,7 +28,7 @@ Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in 
 ✅ **Fortschrittsbalken** – zeigt, wie weit das Intervall aufgebraucht ist
 ✅ **Kacheln als Filter** – Tippen auf „fällig", „in 2 Tagen" oder „Pflanzen" zeigt nur diese Auswahl
 ✅ **Winter-Modus** – verlängert alle Intervalle um Faktor 1,5; automatisch von November bis Februar
-✅ **Vorwarnung** – wahlweise 0, 1 oder 2 Tage vor Fälligkeit
+✅ **Vorwarnung** – 0 bis 7 Tage vor Fälligkeit; Kachel und „Demnächst“ folgen der Einstellung
 ✅ **Plan-Ansicht** – die nächsten 14 Tage nach Kalendertagen gruppiert
 
 ### Pflanzen-Datenbank
@@ -80,7 +80,7 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
 | Design | iOS-orientiertes Dark UI, System-Schriften, `env(safe-area-inset-*)` |
 | Speicher | `localStorage`, Schlüssel `pg_data` |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v1.6.0` |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v1.7.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
 | Push | Web Push API + VAPID, pywebpush, systemd-Timer alle 15 Minuten |
 | Hosting | LXC Container auf Proxmox |
@@ -239,6 +239,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v1.7.0** | Vorwarnung bis 7 Tage, Kachel folgt der Einstellung |
 | **v1.6.0** | Kennzahl-Kacheln filtern die Liste auf der Startseite |
 | **v1.5.0** | Push-Erinnerungen mit VAPID, Timer und Testnachricht |
 | **v1.4.0** | Personalisierung: Name, Akzentfarbe, Hintergrund, Symbol, App-Name, Startansicht |
