@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.7.1 - 2026-08-29
+
+- Knopf "Beispielpflanzen anlegen" unter Mehr entfernt. Auf dem leeren
+  Startbildschirm bleibt das Angebot bestehen, dort erscheint es nur, solange
+  noch keine Pflanze angelegt ist.
+
 ## v1.7.0 - 2026-08-29
 
 - Vorwarnung bis 7 Tage einstellbar (bisher höchstens 2).

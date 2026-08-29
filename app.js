@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.7.0';
+const VERSION = '1.7.1';
 
 const KEY = 'pg_data';
 const EMOJIS = ['🪴','🌿','🌵','🌱','🌴','🎍','🌺','🌻','🌷','🍀','🌾','🥬','🍋','🌶️','🫒'];
@@ -383,6 +383,9 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.7.1', datum: '29.08.2026', punkte: [
+    'Knopf "Beispielpflanzen anlegen" unter Mehr entfernt; auf dem leeren Startbildschirm bleibt er.'
+  ]},
   { v: '1.7.0', datum: '29.08.2026', punkte: [
     'Vorwarnung jetzt bis 7 Tage einstellbar, nicht mehr nur bis 2.',
     'Die mittlere Kachel und der Abschnitt "Demnächst" folgen dieser Einstellung.'
@@ -1249,7 +1252,6 @@ function bind() {
   $('#f-foto').onchange = e => { if (e.target.files[0]) fotoVerarbeiten(e.target.files[0]); e.target.value = ''; };
   $('#btn-foto-del').onclick = () => { editFoto = null; $('#btn-foto-del').style.display = 'none'; renderEmojiPick(); };
 
-  $('#btn-beispiele').onclick = beispieleLaden;
   $('#btn-export').onclick = exportieren;
   $('#btn-import').onclick = () => $('#file-import').click();
   $('#file-import').onchange = e => { if (e.target.files[0]) importieren(e.target.files[0]); e.target.value = ''; };
