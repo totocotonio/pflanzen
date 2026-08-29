@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.17.0 - 2026-08-29
+
+- Erinnerungen gelten jetzt für alle Pflegeaufgaben. Bisher meldete der Server
+  nur fällige Gießtermine – Düngen, Umtopfen und Schneiden standen zwar in der
+  App, lösten aber keine Nachricht aus.
+- Die Nachricht bündelt gleiche Tätigkeiten: "Orchidee und Zitrone düngen"
+  statt zweier Sätze. Steht beides an, kommt das Gießen zuerst und die Pflege
+  als "Außerdem: …".
+- Behoben: Der Versand hat archivierte Pflanzen mitgezählt und hätte an
+  Pflanzen erinnert, die in der App gar nicht mehr auftauchen.
+- Behoben: Der Versand rechnete weiter mit dem pauschalen Winterfaktor 1,5 und
+  ignorierte die Winterruhe, die seit v1.16.0 je Pflanze einstellbar ist. Server
+  und App kamen dadurch zu unterschiedlichen Fälligkeiten.
+- Umtopfen und Schneiden rechnen serverseitig jetzt echte Monate, mit
+  Begrenzung aufs Monatsende (31.01. plus ein Monat ist der 28.02.).
+
 ## v1.16.3 - 2026-08-29
 
 - Das Archiv war praktisch nicht zu finden: Sein Chip stand hinter allen

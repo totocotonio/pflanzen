@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** ✅ Live (v1.16.3)
+**Status:** ✅ Live (v1.17.0)
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -59,7 +59,7 @@ Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in 
 ✅ **PWA** – installierbar auf iOS und Android, eigener Startbildschirm, Standalone-Modus
 ✅ **Offline** – Service Worker cached alle Assets (Network-First für HTML, Cache-First für Rest)
 ✅ **Export / Import** – vollständiges JSON-Backup aller Pflanzen, Verläufe und Einstellungen
-✅ **Push-Erinnerungen** – täglich zur frei wählbaren Uhrzeit, aber nur wenn etwas fällig ist
+✅ **Push-Erinnerungen** – täglich zur frei wählbaren Uhrzeit, für Gießen und alle Pflegeaufgaben, aber nur wenn etwas fällig ist
 ✅ **Versionshistorie** – in der App unter Mehr → Über einsehbar
 
 ### Personalisierung
@@ -92,7 +92,7 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
 | Design | iOS-orientiertes Dark UI, System-Schriften, `env(safe-area-inset-*)` |
 | Speicher | `localStorage`, Schlüssel `pg_data` |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v1.16.3` |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v1.17.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
 | Push | Web Push API + VAPID, pywebpush, systemd-Timer alle 15 Minuten |
 | Hosting | LXC Container auf Proxmox |
@@ -128,7 +128,7 @@ server/
 
 Ein systemd-Timer ruft alle 15 Minuten `cron.py` auf. Für jedes angemeldete Gerät wird geprüft, ob die eingestellte Uhrzeit erreicht ist, ob heute schon gesendet wurde und ob überhaupt eine Pflanze fällig ist. Nur dann geht eine Nachricht raus – pro Tag höchstens eine.
 
-Die Fälligkeit rechnet `cron.py` mit derselben Regel wie das Frontend, Winterfaktor eingeschlossen.
+Die Fälligkeit rechnet `cron.py` mit denselben Regeln wie das Frontend – Winterruhe je Pflanze, archivierte Pflanzen ausgenommen, Monatsintervalle für Umtopfen und Schneiden. Weichen beide voneinander ab, erinnert der Server an Dinge, die die App gar nicht als fällig anzeigt.
 
 ```bash
 cd /opt/gruenzeug-api
@@ -258,6 +258,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v1.17.0** | Erinnerungen für alle Pflegeaufgaben |
 | **v1.16.0** | Archiv, Sortierung, Winterruhe je Pflanze, QR-Code |
 | **v1.15.0** | Gieß-Runde, Problem-Hilfe, Erinnerung verschieben |
 | **v1.14.0** | Küchenkräuter ergänzt (79 Arten) |

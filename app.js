@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.16.3';
+const VERSION = '1.17.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -411,6 +411,10 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.17.0', datum: '29.08.2026', punkte: [
+    'Erinnerungen jetzt auch für Düngen, Umtopfen und Schneiden, nicht nur fürs Gießen.',
+    'Behoben: Der Versand hat archivierte Pflanzen mitgezählt und die Winterruhe je Pflanze ignoriert.'
+  ]},
   { v: '1.16.3', datum: '29.08.2026', punkte: [
     'Archiv leichter zu finden: Chip direkt hinter "Alle", zusätzlich eine Zeile unter Mehr.'
   ]},
