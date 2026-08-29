@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.14.1';
+const VERSION = '1.14.2';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -13,7 +13,9 @@ const STANDORTE = ['Wohnzimmer', 'Schlafzimmer', 'Küche', 'Bad', 'Flur',
   'Arbeitszimmer', 'Kinderzimmer', 'Esszimmer', 'Wintergarten', 'Fensterbank',
   'Balkon', 'Terrasse', 'Garten', 'Keller', 'Treppenhaus'];
 
-const EMOJIS = ['🪴','🌿','🌵','🌱','🌴','🎍','🌺','🌻','🌷','🍀','🌾','🥬','🍋','🌶️','🫒'];
+/* Ein Cannabis-Emoji gibt es in Unicode nicht; 🍁 hat fünf Zacken und wird
+   dafür üblicherweise genommen. */
+const EMOJIS = ['🪴','🌿','🌵','🌱','🌴','🎍','🍁','🌺','🌻','🌷','🌸','🌼','🪻','🪷','🍀','🌾','🥬','🍋','🍅','🍓','🌶️','🫒','🌳','🥀'];
 
 /* ---------- State ---------- */
 let DB = {
@@ -399,6 +401,9 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.14.2', datum: '29.08.2026', punkte: [
+    'Symbolauswahl von 15 auf 24 erweitert, darunter 🍁 als Ersatz für das fehlende Hanf-Emoji.'
+  ]},
   { v: '1.14.1', datum: '29.08.2026', punkte: [
     'Hanf mit aufgenommen.'
   ]},

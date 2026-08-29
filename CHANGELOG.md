@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.14.2 - 2026-08-29
+
+- Symbolauswahl beim Anlegen von 15 auf 24 erweitert. Darunter 🍁 – ein
+  Cannabis-Emoji gibt es in Unicode nicht, das Ahornblatt ist mit seinen fünf
+  Zacken der übliche Ersatz. Dazu Blüten, Beeren und ein Baum.
+
 ## v1.14.1 - 2026-08-29
 
 - Hanf (Cannabis sativa) in die Artenliste aufgenommen: alle 3 Tage, Vollsonne,
