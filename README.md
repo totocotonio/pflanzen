@@ -2,8 +2,8 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** 🚧 In Entwicklung (v1.0.0)
-**Live:** _folgt_ (LXC `192.168.178.37`)
+**Status:** ✅ Live (v1.0.0)
+**Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
 ---
@@ -111,12 +111,15 @@ Alles liegt unter dem localStorage-Schlüssel `pg_data`:
 ## Server-Konfiguration
 
 ```
-Server:    LXC Container auf Proxmox
+Server:    LXC 127 auf Proxmox (Debian 13)
 IP:        192.168.178.37
 Pfad:      /opt/gruenzeug/
+Webserver: nginx 1.26 (Site: /etc/nginx/sites-available/gruenzeug)
+Proxy:     Nginx Proxy Manager auf 192.168.178.156 (Docker), Proxy Host 55
+Domain:    pflanzen.michaely.de, Let's Encrypt, Force SSL + HTTP/2
 ```
 
-_Webserver, Service und Domain werden beim Deployment ergänzt._
+Es läuft kein Anwendungscode auf dem Container – Nginx liefert nur statische Dateien aus. Entsprechend gibt es keinen systemd-Service für die App und nach einem Deploy ist kein Neustart nötig.
 
 ---
 

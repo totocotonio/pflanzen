@@ -57,6 +57,8 @@ python deploy.py
 
 ### 4. Proxy Host im NPM anlegen
 
+Der NPM läuft als Docker-Stack auf `192.168.178.156` (`npm-app-1` + MariaDB `npm-db-1`), Admin-UI auf Port 81. Angelegt ist Proxy Host **55** mit Zertifikat **143** (`npm-143`, gültig bis 27.11.2026).
+
 | Feld | Wert |
 |---|---|
 | Domain | `pflanzen.michaely.de` |
@@ -64,7 +66,30 @@ python deploy.py
 | Forward Hostname | `192.168.178.37` |
 | Forward Port | `80` |
 | Block Common Exploits | an |
+| Cache Assets | **aus** (siehe unten) |
 | SSL | Let's Encrypt, Force SSL an, HTTP/2 an |
+
+#### ⚠️ „Cache Assets" muss aus bleiben
+
+Ist die Option an, greift im NPM `conf.d/include/assets.conf`. Die enthält:
+
+```nginx
+proxy_ignore_headers Set-Cookie Cache-Control Expires X-Accel-Expires;
+proxy_hide_header Cache-Control;
+proxy_cache_valid any 30m;
+```
+
+Der NPM wirft damit die Cache-Header vom LXC weg und setzt eigene. Konkret wird `sw.js` – das dort bewusst mit `no-cache` ausgeliefert wird – im Proxy 30 Minuten zwischengespeichert und beim Client mit mehreren Stunden `max-age` versehen. Nach einem Deploy bekommen bestehende Installationen dann stundenlang den alten Service Worker und damit die alte App.
+
+Der LXC setzt die Header bereits sinnvoll (30 Tage für Assets mit `?v=`-Parameter, `no-cache` für `sw.js`, `index.html` und `manifest.json`). Das NPM-Caching bringt hier nichts und schadet.
+
+Prüfen lässt sich das von außen:
+
+```bash
+curl -sI https://pflanzen.michaely.de/sw.js | grep -i cache-control
+# soll:  Cache-Control: no-cache
+# falsch: Cache-Control: max-age=23544
+```
 
 Vorher muss die Subdomain per DNS auf die öffentliche IP zeigen (CNAME auf `serverdienste.selfhost.eu`, wie bei den anderen Projekten).
 
