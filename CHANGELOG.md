@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.6.0 - 2026-08-29
+
+- Die drei Kacheln auf der Startseite filtern jetzt die Liste darunter:
+  "fällig", "in 2 Tagen" oder alle Pflanzen nach Dringlichkeit sortiert.
+  Die aktive Kachel ist in der Akzentfarbe umrandet; ein zweiter Tipp darauf
+  oder "Filter aufheben" bringt die normale Ansicht zurück.
+- Behoben: Der Knopf für das eigene Symbol blieb als leerer Kreis sichtbar,
+  wenn kein Symbol gesetzt war. `.hd-btn` setzt ein eigenes `display` und
+  hat damit das `hidden`-Attribut ausgehebelt.
+
 ## v1.5.0 - 2026-08-29
 
 - Push-Erinnerungen funktionieren jetzt wirklich: ein systemd-Timer prüft alle

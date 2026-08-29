@@ -82,6 +82,9 @@
   }
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+/* Klassen wie .hd-btn setzen ein eigenes display und würden das
+   Standardverhalten von [hidden] sonst aushebeln. */
+[hidden]{display:none !important}
 html,body{margin:0;padding:0;height:100%}
 body{
   background:var(--bg);color:var(--text);
@@ -112,6 +115,9 @@ a{color:var(--blue);text-decoration:none}
 .card{background:var(--surface);border-radius:var(--r-lg);padding:16px;margin-bottom:12px;box-shadow:var(--schatten)}
 .section-title{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;
   color:var(--text-2);margin:22px 4px 8px}
+.section-title.mit-aktion{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.section-title .aktion{color:var(--accent);text-transform:none;letter-spacing:0;
+  font-size:13px;font-weight:600;cursor:pointer}
 
 /* Pflanzen-Zeile */
 .plant{display:flex;align-items:center;gap:14px;background:var(--surface);
@@ -224,7 +230,11 @@ a{color:var(--blue);text-decoration:none}
 .empty p{margin:6px 0}
 
 .stat-row{display:flex;gap:10px;margin-bottom:14px}
-.stat{flex:1;background:var(--surface);border-radius:var(--r);padding:14px 12px;text-align:center}
+.stat{flex:1;background:var(--surface);border-radius:var(--r);padding:14px 12px;text-align:center;
+  border:2px solid transparent;transition:border-color .15s, transform .12s;font:inherit;color:inherit}
+.stat:active{transform:scale(.96)}
+.stat.on{border-color:var(--accent)}
+.stat.on b{color:var(--accent)}
 .stat b{display:block;font-size:26px;font-weight:700;letter-spacing:-.5px}
 .stat span{font-size:12px;color:var(--text-2)}
 

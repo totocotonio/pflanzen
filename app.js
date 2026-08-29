@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.5.0';
+const VERSION = '1.6.0';
 
 const KEY = 'pg_data';
 const EMOJIS = ['🪴','🌿','🌵','🌱','🌴','🎍','🌺','🌻','🌷','🍀','🌾','🥬','🍋','🌶️','🫒'];
@@ -23,6 +23,7 @@ let editId = null;      // null = neue Pflanze
 let editEmoji = '🪴';
 let editFoto = null;
 let raumFilter = 'alle';
+let heuteFilter = null;   // null | 'faellig' | 'bald' | 'alle'
 
 /* ---------- Persistenz ---------- */
 function load() {
@@ -376,6 +377,10 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.6.0', datum: '29.08.2026', punkte: [
+    'Die Kacheln auf der Startseite filtern jetzt: fällig, in zwei Tagen oder alle Pflanzen.',
+    'Nochmal auf dieselbe Kachel tippen hebt den Filter wieder auf.'
+  ]},
   { v: '1.5.0', datum: '29.08.2026', punkte: [
     'Push-Erinnerungen funktionieren: der Server schickt täglich zur eingestellten Zeit eine Nachricht, wenn etwas zu gießen ist.',
     'Testnachricht auf Knopfdruck.',
@@ -677,6 +682,8 @@ function renderHeute() {
   $('#st-bald').textContent = bald.length;
   $('#st-gesamt').textContent = DB.plants.length;
 
+  $$('.stat').forEach(k => k.classList.toggle('on', k.dataset.filter === heuteFilter));
+
   const box = $('#heute-liste');
   if (!DB.plants.length) {
     box.innerHTML = `<div class="empty"><div class="big">🌱</div>
@@ -687,6 +694,25 @@ function renderHeute() {
     $('#btn-beispiele-leer').onclick = beispieleLaden;
     return;
   }
+  if (heuteFilter) {
+    const auswahl = heuteFilter === 'faellig' ? faellig
+      : heuteFilter === 'bald' ? bald
+      : DB.plants.slice();
+    const ueberschrift = heuteFilter === 'faellig' ? 'Jetzt gießen'
+      : heuteFilter === 'bald' ? 'In den nächsten zwei Tagen'
+      : 'Alle Pflanzen';
+    const kopf = `<div class="section-title mit-aktion"><span>${ueberschrift}</span>` +
+                 `<span class="aktion" data-filter-weg>Filter aufheben</span></div>`;
+    if (!auswahl.length) {
+      box.innerHTML = kopf + `<div class="empty"><div class="big">✅</div>
+        <p>Hier ist gerade nichts.</p></div>`;
+      return;
+    }
+    auswahl.sort((a, b) => tageBis(a) - tageBis(b));
+    box.innerHTML = kopf + auswahl.map(plantRow).join('');
+    return;
+  }
+
   if (!faellig.length && !bald.length) {
     const naechst = DB.plants.slice().sort((a, b) => tageBis(a) - tageBis(b))[0];
     box.innerHTML = `<div class="empty"><div class="big">✅</div>
@@ -1256,9 +1282,17 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
+    if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
+    if (t.dataset.filter) {
+      // Dieselbe Kachel noch einmal hebt den Filter wieder auf
+      heuteFilter = heuteFilter === t.dataset.filter ? null : t.dataset.filter;
+      renderHeute();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     if (t.dataset.water) { e.stopPropagation(); giessen(t.dataset.water); if ($('#sheet-detail').classList.contains('open')) openDetail(t.dataset.water); return; }
     if (t.dataset.dueng) { e.stopPropagation(); duengen(t.dataset.dueng); if ($('#sheet-detail').classList.contains('open')) openDetail(t.dataset.dueng); return; }
     if (t.dataset.edit) { closeSheets(); setTimeout(() => openEdit(t.dataset.edit), 180); return; }
