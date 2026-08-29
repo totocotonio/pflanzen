@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.13.1';
+const VERSION = '1.14.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -399,6 +399,9 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.14.0', datum: '29.08.2026', punkte: [
+    'Küchenkräuter ergänzt: Koriander, Dill, Zitronenmelisse und Kresse.'
+  ]},
   { v: '1.13.1', datum: '29.08.2026', punkte: [
     'Pflegehinweise für die restlichen Arten ergänzt, unter anderem Petersilie, Salbei und Oregano.'
   ]},
@@ -1247,6 +1250,10 @@ const ARTEN = [
   { n: 'Minze', art: 'Mentha', alias: 'Pfefferminze', iv: 2, licht: 'Halbschatten', menge: '150 ml', d: 21, um: 12, hinweis: 'Wuchert, am besten allein im Topf.' },
   { n: 'Petersilie', art: 'Petroselinum crispum', alias: '', iv: 2, licht: 'Halbschatten', menge: '150 ml', d: 21, um: 0, hinweis: 'Braucht dauerhaft feuchte Erde, verträgt aber keine Staunässe.' },
   { n: 'Schnittlauch', art: 'Allium schoenoprasum', alias: '', iv: 2, licht: 'Hell, ohne direkte Sonne', menge: '150 ml', d: 21, um: 12, hinweis: 'Nach dem Schnitt kräftig gießen.' },
+  { n: 'Koriander', art: 'Coriandrum sativum', alias: 'Cilantro', iv: 2, licht: 'Hell, ohne direkte Sonne', menge: '150 ml', d: 21, um: 0, hinweis: 'Schießt bei Hitze schnell, lieber nicht in die pralle Mittagssonne.' },
+  { n: 'Dill', art: 'Anethum graveolens', alias: '', iv: 2, licht: 'Vollsonne', menge: '150 ml', d: 21, um: 0, hinweis: 'Tiefer Topf, die Pfahlwurzel braucht Platz.' },
+  { n: 'Zitronenmelisse', art: 'Melissa officinalis', alias: 'Melisse', iv: 3, licht: 'Halbschatten', menge: '200 ml', d: 21, um: 12, hinweis: 'Wächst kräftig, regelmäßig ernten hält sie buschig.' },
+  { n: 'Kresse', art: 'Lepidium sativum', alias: 'Gartenkresse', iv: 1, licht: 'Hell, ohne direkte Sonne', menge: '50 ml', d: 0, um: 0, hinweis: 'Täglich feucht halten, nach dem Schnitt neu aussäen.' },
   { n: 'Rosmarin', art: 'Salvia rosmarinus', alias: '', iv: 7, licht: 'Vollsonne', menge: '150 ml', d: 30, um: 24, hinweis: 'Lieber zu trocken als zu nass.' },
   { n: 'Thymian', art: 'Thymus vulgaris', alias: '', iv: 7, licht: 'Vollsonne', menge: '120 ml', d: 30, um: 24, hinweis: 'Mag durchlässige, eher magere Erde.' },
   { n: 'Salbei', art: 'Salvia officinalis', alias: '', iv: 5, licht: 'Vollsonne', menge: '200 ml', d: 30, um: 24, hinweis: 'Nach der Blüte zurückschneiden, dann treibt er buschig nach.' },

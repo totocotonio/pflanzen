@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.14.0 - 2026-08-29
+
+- Küchenkräuter ergänzt: Koriander, Dill, Zitronenmelisse und Kresse.
+  Damit sind die üblichen Fensterbank-Kräuter vollständig – die Liste umfasst
+  nun 80 Arten.
+
 ## v1.13.1 - 2026-08-29
 
 - Pflegehinweise für die Arten ergänzt, die noch keinen hatten, unter anderem
