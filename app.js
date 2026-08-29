@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.8.0';
+const VERSION = '1.8.1';
 
 const KEY = 'pg_data';
 const EMOJIS = ['🪴','🌿','🌵','🌱','🌴','🎍','🌺','🌻','🌷','🍀','🌾','🥬','🍋','🌶️','🫒'];
@@ -392,6 +392,10 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.8.1', datum: '29.08.2026', punkte: [
+    'Behoben: Die App zeigte Erinnerungen als "aktiv", obwohl kein Gerät angemeldet war.',
+    'Der Testknopf meldet das Gerät jetzt selbst an, wenn der Server es nicht kennt.'
+  ]},
   { v: '1.8.0', datum: '29.08.2026', punkte: [
     'Rückgängig direkt in der Meldung nach Gießen oder Düngen – sechs Sekunden lang.',
     'Nimmt das alte Datum zurück und entfernt den Eintrag aus dem Verlauf.'
@@ -642,6 +646,7 @@ async function starte() {
     speichereSync();
     versteckeLogin();
     await abgleichen();
+    pushZustandPruefen();
   } catch (e) {
     // Kein Netz oder kein Server: wer die App schon nutzt, arbeitet weiter
     SYNC.status = SYNC.user ? 'offline' : 'lokal';
@@ -1142,10 +1147,9 @@ function aboSchluessel(abo, name) {
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-async function pushEin() {
-  const erlaubnis = await Notification.requestPermission();
-  if (erlaubnis !== 'granted') { toast('Berechtigung abgelehnt'); updatePushUI(); return; }
-
+/** Legt das Abo an bzw. erneuert es und meldet es beim Server an.
+    Wird beim Einschalten benutzt und wenn der Server ein Gerät nicht kennt. */
+async function aboAnlegen() {
   const reg = await navigator.serviceWorker.ready;
   const antwort = await api('/push/key');
   if (!antwort.ok) throw new Error('Server liefert keinen Schlüssel');
@@ -1178,11 +1182,43 @@ async function pushEin() {
     })
   });
   if (!r.ok) throw new Error('Server hat das Gerät nicht angenommen (' + r.status + ')');
+  return true;
+}
 
+async function pushEin() {
+  const erlaubnis = await Notification.requestPermission();
+  if (erlaubnis !== 'granted') { toast('Berechtigung abgelehnt'); updatePushUI(); return; }
+  await aboAnlegen();
   DB.settings.pushAktiv = true;
   save();
   updatePushUI();
   toast('Erinnerungen aktiv – täglich um ' + (DB.settings.pushZeit || '09:00'));
+}
+
+/** Gleicht die gespeicherte Einstellung mit der Wirklichkeit ab.
+
+    Frühere Fassungen setzten `pushAktiv` schon nach der Berechtigungsabfrage,
+    weil es noch keinen Push-Server gab. Dieser Wert wurde mitsynchronisiert und
+    lässt die App "aktiv" anzeigen, obwohl kein Gerät angemeldet ist. Ebenso kann
+    ein Abo im Browser vorhanden sein, das der Server nicht (mehr) kennt. */
+async function pushZustandPruefen() {
+  if (!DB.settings.pushAktiv || pushHindernis()) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const abo = await reg.pushManager.getSubscription();
+    if (!abo) {
+      DB.settings.pushAktiv = false;
+      save();
+      updatePushUI();
+      return;
+    }
+    // Abo da, aber vielleicht kennt der Server es nicht – still nachmelden
+    await aboAnlegen();
+  } catch (e) {
+    DB.settings.pushAktiv = false;
+    save();
+    updatePushUI();
+  }
 }
 
 async function pushAus() {
@@ -1254,11 +1290,19 @@ async function pushTesten() {
   const knopf = $('#btn-push-test');
   knopf.disabled = true;
   try {
-    const r = await api('/push/test', { method: 'POST' });
+    let r = await api('/push/test', { method: 'POST' });
+
+    // 400 heißt: der Server kennt kein Gerät. Einmal nachmelden und erneut versuchen.
+    if (r.status === 400) {
+      toast('Gerät wird angemeldet …');
+      await aboAnlegen();
+      r = await api('/push/test', { method: 'POST' });
+    }
+
     if (r.ok) toast('Testnachricht verschickt');
     else toast((await r.json()).detail || 'Versand fehlgeschlagen');
   } catch (e) {
-    toast('Server nicht erreichbar');
+    toast(e.message || 'Server nicht erreichbar');
   } finally {
     knopf.disabled = false;
   }
@@ -1306,6 +1350,7 @@ function bind() {
       versteckeLogin();
       await abgleichen();
       updatePushUI();
+      pushZustandPruefen();
       toast('Angemeldet als ' + SYNC.user);
     } catch (err) {
       $('#lg-fehler').textContent = err.message;

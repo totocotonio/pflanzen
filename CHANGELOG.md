@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.8.1 - 2026-08-29
+
+- Behoben: Die App meldete "Erinnerungen aktiv" und zeigte den Testknopf,
+  obwohl beim Server kein Gerät angemeldet war. Frühere Fassungen setzten
+  `pushAktiv` schon nach der Berechtigungsabfrage, weil es damals noch keinen
+  Push-Server gab; dieser Wert wurde später mitsynchronisiert. Die App prüft
+  den Zustand jetzt beim Start gegen das tatsächlich vorhandene Abo und
+  korrigiert die Anzeige.
+- Der Testknopf meldet das Gerät selbst nach, wenn der Server es nicht kennt,
+  statt nur "kein Gerät angemeldet" zu melden.
+
 ## v1.8.0 - 2026-08-29
 
 - Rückgängig nach Gießen und Düngen: Die Meldung enthält jetzt einen Knopf, der
