@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** ✅ Live (v1.4.0)
+**Status:** ✅ Live (v1.5.0)
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -46,7 +46,7 @@ Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in 
 ✅ **PWA** – installierbar auf iOS und Android, eigener Startbildschirm, Standalone-Modus
 ✅ **Offline** – Service Worker cached alle Assets (Network-First für HTML, Cache-First für Rest)
 ✅ **Export / Import** – vollständiges JSON-Backup aller Pflanzen, Verläufe und Einstellungen
-✅ **Push-Erinnerungen** – Web Push zur frei wählbaren Uhrzeit _(Server-Teil folgt)_
+✅ **Push-Erinnerungen** – täglich zur frei wählbaren Uhrzeit, aber nur wenn etwas fällig ist
 ✅ **Versionshistorie** – in der App unter Mehr → Über einsehbar
 
 ### Personalisierung
@@ -79,9 +79,9 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
 | Design | iOS-orientiertes Dark UI, System-Schriften, `env(safe-area-inset-*)` |
 | Speicher | `localStorage`, Schlüssel `pg_data` |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v1.4.0` |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v1.5.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
-| Push | Web Push API + VAPID (Server folgt) |
+| Push | Web Push API + VAPID, pywebpush, systemd-Timer alle 15 Minuten |
 | Hosting | LXC Container auf Proxmox |
 
 ---
@@ -99,11 +99,32 @@ deploy.py           SFTP-Upload zum LXC (--api lädt auch das Backend hoch)
 devserver.py        Lokaler Testserver: API + statische Dateien auf Port 8777
 
 server/
-  main.py           FastAPI: Anmeldung, Sitzungen, Datensatz je Benutzer
-  manage.py         Benutzer anlegen, Passwort ändern, löschen
-  install_api.sh    Setup auf dem LXC (venv, systemd, Nginx-Site)
-  gruenzeug.service systemd-Unit
+  main.py                 FastAPI: Anmeldung, Sitzungen, Datensatz, Push-Endpunkte
+  push.py                 VAPID-Schlüssel, Abo-Tabelle, Versand
+  cron.py                 ermittelt fällige Pflanzen und verschickt die Erinnerungen
+  manage.py               Benutzer anlegen, Passwort ändern, löschen
+  install_api.sh          Setup auf dem LXC (venv, systemd, Timer, Nginx-Site)
+  gruenzeug.service       systemd-Unit der API
+  gruenzeug-push.timer    alle 15 Minuten
+  gruenzeug-push.service  einmaliger Lauf von cron.py
 ```
+
+---
+
+## Erinnerungen
+
+Ein systemd-Timer ruft alle 15 Minuten `cron.py` auf. Für jedes angemeldete Gerät wird geprüft, ob die eingestellte Uhrzeit erreicht ist, ob heute schon gesendet wurde und ob überhaupt eine Pflanze fällig ist. Nur dann geht eine Nachricht raus – pro Tag höchstens eine.
+
+Die Fälligkeit rechnet `cron.py` mit derselben Regel wie das Frontend, Winterfaktor eingeschlossen.
+
+```bash
+cd /opt/gruenzeug-api
+venv/bin/python cron.py --trocken     # zeigt an, was verschickt würde
+systemctl list-timers gruenzeug-push.timer
+journalctl -u gruenzeug-push -n 20 --no-pager
+```
+
+**Auf dem iPhone** stellt Safari die Notification-API nur bereit, wenn die Seite über „Teilen → Zum Home-Bildschirm" installiert wurde (ab iOS 16.4). Im normalen Safari-Tab gibt es keine Benachrichtigungen; die App erklärt das an Ort und Stelle.
 
 ---
 
@@ -119,6 +140,10 @@ Alle Antworten JSON, Sitzung über das HttpOnly-Cookie `gz_session`.
 | GET | `/api/data` | `{rev, daten, geaendert}` – `daten` ist `null`, solange nichts gespeichert wurde |
 | PUT | `/api/data` | `{rev, daten}` → `{rev}`; bei veralteter `rev` **409** mit dem Serverstand |
 | GET | `/api/health` | Erreichbarkeitsprüfung, ohne Anmeldung |
+| GET | `/api/push/key` | öffentlicher VAPID-Schlüssel (ohne Anmeldung, der Client braucht ihn zum Abonnieren) |
+| POST | `/api/push/subscribe` | Gerät anmelden bzw. Uhrzeit ändern |
+| POST | `/api/push/unsubscribe` | Gerät abmelden |
+| POST | `/api/push/test` | Testnachricht an alle Geräte des Kontos |
 
 Der Konflikt-Fall (409) ist der Kern des Sync: der Client schickt die Revision, auf der seine Änderung aufsetzt. Stimmt sie nicht mehr, hat ein anderes Gerät geschrieben – die App zeigt dann beide Stände zur Auswahl, statt still zu überschreiben.
 
@@ -213,6 +238,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v1.5.0** | Push-Erinnerungen mit VAPID, Timer und Testnachricht |
 | **v1.4.0** | Personalisierung: Name, Akzentfarbe, Hintergrund, Symbol, App-Name, Startansicht |
 | **v1.3.0** | Beispielpflanzen, Löschen direkt in der Detailansicht |
 | **v1.2.0** | Anmeldung und Geräte-Sync über eigenes FastAPI-Backend |

@@ -23,9 +23,12 @@ fi
 
 echo "==> systemd-Service"
 cp "$ZIEL/gruenzeug.service" /etc/systemd/system/gruenzeug.service
+cp "$ZIEL/gruenzeug-push.service" /etc/systemd/system/gruenzeug-push.service
+cp "$ZIEL/gruenzeug-push.timer" /etc/systemd/system/gruenzeug-push.timer
 systemctl daemon-reload
 systemctl enable gruenzeug
 systemctl restart gruenzeug
+systemctl enable --now gruenzeug-push.timer
 
 echo "==> Nginx-Site (statische Dateien + /api an die App)"
 cat > /etc/nginx/sites-available/gruenzeug <<'NGINX'

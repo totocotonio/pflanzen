@@ -4,11 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.4.0';
-
-/* Push-Server – wird gesetzt, sobald der LXC steht */
-const PUSH_SERVER = '';
-const VAPID_PUBLIC = '';
+const VERSION = '1.5.0';
 
 const KEY = 'pg_data';
 const EMOJIS = ['🪴','🌿','🌵','🌱','🌴','🎍','🌺','🌻','🌷','🍀','🌾','🥬','🍋','🌶️','🫒'];
@@ -380,6 +376,11 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.5.0', datum: '29.08.2026', punkte: [
+    'Push-Erinnerungen funktionieren: der Server schickt täglich zur eingestellten Zeit eine Nachricht, wenn etwas zu gießen ist.',
+    'Testnachricht auf Knopfdruck.',
+    'Klare Auskunft, wenn Benachrichtigungen nicht möglich sind – auf dem iPhone mit Anleitung zum Installieren.'
+  ]},
   { v: '1.4.0', datum: '29.08.2026', punkte: [
     'Eigener Name: die Startseite begrüßt dich tageszeitabhängig.',
     'Acht Akzentfarben statt festem Grün.',
@@ -984,61 +985,206 @@ function importieren(file) {
   r.readAsText(file);
 }
 
-/* ---------- Push ---------- */
+/* ---------- Push-Benachrichtigungen ----------
+   Braucht drei Dinge: eine Anmeldung (der Server muss wissen, wessen
+   Pflanzen gemeint sind), die Notification-API und einen Service Worker.
+   Auf dem iPhone stellt Safari die API nur bereit, wenn die Seite als App
+   auf dem Home-Bildschirm liegt – das erklärt die Anzeige entsprechend. */
+
+const istApple = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const alsAppInstalliert = window.matchMedia('(display-mode: standalone)').matches ||
+  navigator.standalone === true;
+
+/** Was der Push-Einrichtung gerade im Weg steht, oder null. */
+function pushHindernis() {
+  if (!SYNC.user) return 'anmeldung';
+  if (!('serviceWorker' in navigator)) return 'kein-sw';
+  if (!('Notification' in window) || !('PushManager' in window)) {
+    return (istApple && !alsAppInstalliert) ? 'ios-installieren' : 'nicht-unterstuetzt';
+  }
+  if (Notification.permission === 'denied') return 'blockiert';
+  return null;
+}
+
 function updatePushUI() {
-  const el = $('#push-status');
-  const btn = $('#btn-push-toggle');
-  if (!('Notification' in window)) {
-    el.textContent = 'nicht unterstützt'; btn.style.display = 'none'; return;
+  const anzeige = $('#push-status');
+  const knopf = $('#btn-push-toggle');
+  const test = $('#btn-push-test');
+  const hindernis = pushHindernis();
+
+  test.style.display = 'none';
+  knopf.style.display = 'block';
+  knopf.className = 'btn';
+
+  if (DB.settings.pushAktiv && !hindernis) {
+    anzeige.textContent = 'aktiv';
+    knopf.textContent = 'Erinnerungen abschalten';
+    knopf.className = 'btn sec';
+    test.style.display = 'block';
+    return;
   }
-  if (DB.settings.pushAktiv && Notification.permission === 'granted') {
-    el.textContent = 'aktiv';
-    btn.textContent = 'Push deaktivieren';
-    btn.className = 'btn sec';
-  } else {
-    el.textContent = Notification.permission === 'denied' ? 'vom Browser blockiert' : 'nicht aktiv';
-    btn.textContent = 'Push aktivieren';
-    btn.className = 'btn';
+
+  switch (hindernis) {
+    case 'anmeldung':
+      anzeige.textContent = 'Anmeldung nötig';
+      knopf.textContent = 'Dafür anmelden';
+      knopf.className = 'btn sec';
+      return;
+    case 'ios-installieren':
+      anzeige.textContent = 'App installieren';
+      knopf.textContent = 'Wie geht das?';
+      knopf.className = 'btn sec';
+      return;
+    case 'blockiert':
+      anzeige.textContent = 'im Browser blockiert';
+      knopf.style.display = 'none';
+      return;
+    case 'nicht-unterstuetzt':
+    case 'kein-sw':
+      anzeige.textContent = 'von diesem Browser nicht unterstützt';
+      knopf.style.display = 'none';
+      return;
+    default:
+      anzeige.textContent = 'nicht aktiv';
+      knopf.textContent = 'Erinnerungen einschalten';
   }
+}
+
+function urlB64ToUint8(s) {
+  const auffuellen = '='.repeat((4 - s.length % 4) % 4);
+  const b64 = (s + auffuellen).replace(/-/g, '+').replace(/_/g, '/');
+  const roh = atob(b64);
+  return Uint8Array.from(roh, c => c.charCodeAt(0));
+}
+
+/** Schlüssel aus einem PushSubscription-Objekt als Base64. */
+function aboSchluessel(abo, name) {
+  const roh = abo.getKey(name);
+  return btoa(String.fromCharCode.apply(null, new Uint8Array(roh)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function pushEin() {
+  const erlaubnis = await Notification.requestPermission();
+  if (erlaubnis !== 'granted') { toast('Berechtigung abgelehnt'); updatePushUI(); return; }
+
+  const reg = await navigator.serviceWorker.ready;
+  const antwort = await api('/push/key');
+  if (!antwort.ok) throw new Error('Server liefert keinen Schlüssel');
+  const { key } = await antwort.json();
+
+  let abo = await reg.pushManager.getSubscription();
+  if (abo) {
+    // Ein Abo mit anderem Schlüssel ist wertlos – neu anlegen
+    const alt = new Uint8Array(abo.options.applicationServerKey || []);
+    const neu = urlB64ToUint8(key);
+    if (alt.length !== neu.length || !alt.every((v, i) => v === neu[i])) {
+      await abo.unsubscribe();
+      abo = null;
+    }
+  }
+  if (!abo) {
+    abo = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlB64ToUint8(key)
+    });
+  }
+
+  const r = await api('/push/subscribe', {
+    method: 'POST',
+    body: JSON.stringify({
+      endpoint: abo.endpoint,
+      p256dh: aboSchluessel(abo, 'p256dh'),
+      auth: aboSchluessel(abo, 'auth'),
+      zeit: DB.settings.pushZeit || '09:00'
+    })
+  });
+  if (!r.ok) throw new Error('Server hat das Gerät nicht angenommen (' + r.status + ')');
+
+  DB.settings.pushAktiv = true;
+  save();
+  updatePushUI();
+  toast('Erinnerungen aktiv – täglich um ' + (DB.settings.pushZeit || '09:00'));
+}
+
+async function pushAus() {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const abo = await reg.pushManager.getSubscription();
+    if (abo) {
+      await api('/push/unsubscribe', { method: 'POST', body: JSON.stringify({ endpoint: abo.endpoint }) });
+      await abo.unsubscribe();
+    }
+  } catch (e) { /* Gerät ist dann ohnehin nicht mehr erreichbar */ }
+  DB.settings.pushAktiv = false;
+  save();
+  updatePushUI();
+  toast('Erinnerungen abgeschaltet');
 }
 
 async function pushToggle() {
-  if (DB.settings.pushAktiv) {
-    DB.settings.pushAktiv = false; save(); updatePushUI();
-    toast('Erinnerungen deaktiviert');
-    return;
-  }
-  if (!('Notification' in window)) { toast('Dieser Browser kann keine Benachrichtigungen'); return; }
-  const perm = await Notification.requestPermission();
-  if (perm !== 'granted') { toast('Berechtigung abgelehnt'); updatePushUI(); return; }
+  const hindernis = pushHindernis();
 
-  if (!PUSH_SERVER || !VAPID_PUBLIC) {
-    DB.settings.pushAktiv = true; save(); updatePushUI();
-    toast('Berechtigung erteilt – Push-Server folgt im nächsten Schritt');
+  if (hindernis === 'anmeldung') {
+    SYNC.lokalOk = false; speichereSync(); zeigeLogin(); return;
+  }
+  if (hindernis === 'ios-installieren') {
+    alert('Auf dem iPhone erlaubt Safari Benachrichtigungen nur, wenn Grünzeug ' +
+          'als App auf dem Home-Bildschirm liegt.\n\n' +
+          'So geht es:\n' +
+          '1. In Safari unten auf das Teilen-Symbol tippen\n' +
+          '2. "Zum Home-Bildschirm" wählen\n' +
+          '3. Grünzeug über das neue Symbol öffnen\n' +
+          '4. Hier die Erinnerungen einschalten');
     return;
   }
+  if (hindernis) { updatePushUI(); return; }
+
+  const knopf = $('#btn-push-toggle');
+  knopf.disabled = true;
   try {
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlB64ToUint8(VAPID_PUBLIC)
-    });
-    await fetch(PUSH_SERVER + '/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subscription: sub, zeit: DB.settings.pushZeit })
-    });
-    DB.settings.pushAktiv = true; save(); updatePushUI();
-    toast('Erinnerungen aktiviert');
+    if (DB.settings.pushAktiv) await pushAus();
+    else await pushEin();
   } catch (e) {
-    toast('Push fehlgeschlagen: ' + e.message);
+    toast(e.message);
+  } finally {
+    knopf.disabled = false;
   }
 }
-function urlB64ToUint8(s) {
-  const pad = '='.repeat((4 - s.length % 4) % 4);
-  const b64 = (s + pad).replace(/-/g, '+').replace(/_/g, '/');
-  const raw = atob(b64);
-  return Uint8Array.from(raw, c => c.charCodeAt(0));
+
+/** Uhrzeit geändert: dem Server Bescheid geben, sonst kommt sie zur alten Zeit. */
+async function pushZeitGeaendert() {
+  if (!DB.settings.pushAktiv || pushHindernis()) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const abo = await reg.pushManager.getSubscription();
+    if (!abo) return;
+    await api('/push/subscribe', {
+      method: 'POST',
+      body: JSON.stringify({
+        endpoint: abo.endpoint,
+        p256dh: aboSchluessel(abo, 'p256dh'),
+        auth: aboSchluessel(abo, 'auth'),
+        zeit: DB.settings.pushZeit
+      })
+    });
+    toast('Erinnerung jetzt um ' + DB.settings.pushZeit);
+  } catch (e) { /* beim nächsten Einschalten korrigiert sich das */ }
+}
+
+async function pushTesten() {
+  const knopf = $('#btn-push-test');
+  knopf.disabled = true;
+  try {
+    const r = await api('/push/test', { method: 'POST' });
+    if (r.ok) toast('Testnachricht verschickt');
+    else toast((await r.json()).detail || 'Versand fehlgeschlagen');
+  } catch (e) {
+    toast('Server nicht erreichbar');
+  } finally {
+    knopf.disabled = false;
+  }
 }
 
 /* ---------- Tabs ---------- */
@@ -1083,6 +1229,7 @@ function bind() {
       $('#lg-pass').value = '';
       versteckeLogin();
       await abgleichen();
+      updatePushUI();
       toast('Angemeldet als ' + SYNC.user);
     } catch (err) {
       $('#lg-fehler').textContent = err.message;
@@ -1104,7 +1251,8 @@ function bind() {
   $('#set-theme').onchange = e => { DB.settings.theme = e.target.value; save(); applyTheme(); };
   $('#set-winter').onchange = e => { DB.settings.winter = e.target.value; save(); renderAll(); };
   $('#set-vorwarn').onchange = e => { DB.settings.vorwarn = Number(e.target.value); save(); renderAll(); };
-  $('#set-pushzeit').onchange = e => { DB.settings.pushZeit = e.target.value; save(); };
+  $('#set-pushzeit').onchange = e => { DB.settings.pushZeit = e.target.value; save(); pushZeitGeaendert(); };
+  $('#btn-push-test').onclick = pushTesten;
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {

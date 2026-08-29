@@ -1,0 +1,8 @@
+[Unit]
+Description=Gruenzeug: Giess-Erinnerungen verschicken
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/gruenzeug-api
+ExecStart=/opt/gruenzeug-api/venv/bin/python cron.py

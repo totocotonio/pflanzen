@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.5.0 - 2026-08-29
+
+- Push-Erinnerungen funktionieren jetzt wirklich: ein systemd-Timer prüft alle
+  15 Minuten, ob bei jemandem die eingestellte Uhrzeit erreicht ist, und schickt
+  eine Nachricht, sofern überhaupt etwas zu gießen ist. Pro Tag höchstens eine.
+- Der Text nennt die Pflanzen: bei bis zu drei mit Namen, darüber gekürzt.
+- Testnachricht auf Knopfdruck, sobald die Erinnerungen aktiv sind.
+- Uhrzeit ändern meldet die neue Zeit sofort an den Server.
+- VAPID-Schlüssel werden serverseitig erzeugt und liegen in `vapid.json`; der
+  Client holt den öffentlichen Teil über `/api/push/key`, statt ihn im Quelltext
+  zu führen.
+- Klare Auskunft statt "nicht unterstützt": Die App unterscheidet jetzt, ob die
+  Anmeldung fehlt, der Browser Benachrichtigungen blockiert, oder ob es ein
+  iPhone ist, auf dem die Seite erst zum Home-Bildschirm hinzugefügt werden muss
+  – dort mit Schritt-für-Schritt-Anleitung.
+- Zeitzone des Servers auf Europe/Berlin gesetzt. Vorher lief er auf UTC, "09:00"
+  wäre also um 11 Uhr deutscher Zeit angekommen.
+
 ## v1.4.0 - 2026-08-29
 
 - Eigener Name: die Startseite begrüßt tageszeitabhängig ("Guten Morgen, Torsten")

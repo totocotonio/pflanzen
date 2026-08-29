@@ -8,3 +8,7 @@ Thumbs.db
 *.db
 server/gruenzeug.db
 __pycache__/
+
+# VAPID-Schluessel gehoeren nur auf den Server
+vapid.json
+server/vapid.json

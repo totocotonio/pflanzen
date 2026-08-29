@@ -174,6 +174,26 @@ ls -la /opt/gruenzeug/                      # was liegt wirklich da?
 
 ---
 
+## Erinnerungen (Push)
+
+Eingerichtet über `install_api.sh`, das den Timer gleich mit aktiviert:
+
+```bash
+systemctl status gruenzeug-push.timer
+systemctl list-timers gruenzeug-push.timer
+cd /opt/gruenzeug-api && venv/bin/python cron.py --trocken
+```
+
+**VAPID-Schlüssel** liegen in `/opt/gruenzeug-api/vapid.json` (Rechte 600) und werden beim ersten Abruf von `/api/push/key` erzeugt. Diese Datei nicht löschen und nicht ins Repo aufnehmen: mit neuen Schlüsseln werden alle bestehenden Abos ungültig und jedes Gerät müsste sich neu anmelden. Beim Sichern der Datenbank gehört sie mit dazu.
+
+**Zeitzone:** Der Container läuft auf `Europe/Berlin`. Das ist keine Kosmetik – `cron.py` vergleicht die eingestellte Uhrzeit mit der lokalen Serverzeit. Stünde er auf UTC, käme eine für 09:00 eingestellte Erinnerung im Sommer um 11 Uhr.
+
+```bash
+timedatectl                      # muss Europe/Berlin zeigen
+```
+
+---
+
 ## Stolperstellen
 
 **Der Service Worker darf die API nicht cachen.** In der ersten Fassung tat er das: `/api/data` kam aus dem Cache, die App rechnete mit einem veralteten Serverstand und meldete „aktuell", obwohl der Server etwas anderes hatte. `sw.js` nimmt Pfade unter `/api/` deshalb ausdrücklich vom Caching aus – diese Zeile nicht entfernen.

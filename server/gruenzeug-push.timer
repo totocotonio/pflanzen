@@ -1,0 +1,9 @@
+[Unit]
+Description=Gruenzeug: Erinnerungen alle 15 Minuten pruefen
+
+[Timer]
+OnCalendar=*:0/15
+Persistent=true
+
+[Install]
+WantedBy=timers.target

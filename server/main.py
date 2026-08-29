@@ -60,6 +60,10 @@ class Datensatz(Base):
     geaendert = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
+import push  # noqa: E402  (braucht Base, deshalb hier)
+
+PushAbo = push.modell_anlegen(Base)
+
 Base.metadata.create_all(engine)
 
 
@@ -230,3 +234,71 @@ def daten_speichern(eingabe: SyncDaten,
 @app.get("/api/health")
 def health():
     return {"ok": True}
+
+
+# --------------------------------------------------------------- Push
+class AboDaten(BaseModel):
+    endpoint: str = Field(min_length=10, max_length=500)
+    p256dh: str = Field(min_length=10, max_length=200)
+    auth: str = Field(min_length=4, max_length=100)
+    zeit: str = Field(default="09:00", pattern=r"^\d{2}:\d{2}$")
+
+
+class AboEnde(BaseModel):
+    endpoint: str
+
+
+@app.get("/api/push/key")
+def push_key():
+    """Öffentlicher VAPID-Schlüssel. Der Client braucht ihn zum Anmelden,
+    deshalb ist er bewusst ohne Anmeldung abrufbar."""
+    return {"key": push.schluessel_laden()["public"]}
+
+
+@app.post("/api/push/subscribe")
+def push_anmelden(daten: AboDaten,
+                  user: User = Depends(aktueller_user),
+                  s: Session = Depends(db)):
+    vorhanden = s.query(PushAbo).filter(PushAbo.endpoint == daten.endpoint).first()
+    if vorhanden:
+        vorhanden.user_id = user.id
+        vorhanden.p256dh = daten.p256dh
+        vorhanden.auth = daten.auth
+        vorhanden.zeit = daten.zeit
+        vorhanden.zuletzt = ""
+    else:
+        s.add(PushAbo(user_id=user.id, endpoint=daten.endpoint, p256dh=daten.p256dh,
+                      auth=daten.auth, zeit=daten.zeit))
+    s.commit()
+    return {"ok": True}
+
+
+@app.post("/api/push/unsubscribe")
+def push_abmelden(daten: AboEnde,
+                  user: User = Depends(aktueller_user),
+                  s: Session = Depends(db)):
+    s.query(PushAbo).filter(PushAbo.endpoint == daten.endpoint,
+                            PushAbo.user_id == user.id).delete()
+    s.commit()
+    return {"ok": True}
+
+
+@app.post("/api/push/test")
+def push_test(user: User = Depends(aktueller_user), s: Session = Depends(db)):
+    """Schickt sofort eine Nachricht an alle Geräte des Benutzers."""
+    abos = s.query(PushAbo).filter(PushAbo.user_id == user.id).all()
+    if not abos:
+        raise HTTPException(400, "Für dieses Konto ist kein Gerät angemeldet")
+    erfolge, fehler = 0, []
+    for abo in abos:
+        ok, hinweis = push.senden(abo, "Grünzeug", "Die Erinnerungen sind eingerichtet.", "test")
+        if ok:
+            erfolge += 1
+        elif hinweis == "abgemeldet":
+            s.delete(abo)
+        else:
+            fehler.append(hinweis)
+    s.commit()
+    if not erfolge:
+        raise HTTPException(502, "Versand fehlgeschlagen: " + ("; ".join(fehler) or "kein Gerät mehr angemeldet"))
+    return {"gesendet": erfolge}

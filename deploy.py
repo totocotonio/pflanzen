@@ -20,7 +20,9 @@ STATISCH = [
 ]
 
 API_ZIEL = "/opt/gruenzeug-api/"
-API = ["main.py", "manage.py", "requirements.txt", "gruenzeug.service", "install_api.sh"]
+API = ["main.py", "push.py", "cron.py", "manage.py", "requirements.txt",
+       "gruenzeug.service", "gruenzeug-push.service", "gruenzeug-push.timer",
+       "install_api.sh"]
 
 mit_api = "--api" in sys.argv
 script_dir = os.path.dirname(os.path.abspath(__file__))
