@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.13.0';
+const VERSION = '1.13.1';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -399,6 +399,9 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.13.1', datum: '29.08.2026', punkte: [
+    'Pflegehinweise für die restlichen Arten ergänzt, unter anderem Petersilie, Salbei und Oregano.'
+  ]},
   { v: '1.13.0', datum: '29.08.2026', punkte: [
     'Pflanzenliste von 32 auf 75 Arten erweitert, mit Sorten von Monstera, Alocasia und Gummibaum.',
     'Zweitnamen werden erkannt: "Benjamini", "Schwiegermutterzunge" oder "Fensterblatt" finden jetzt den richtigen Eintrag.',
@@ -1170,9 +1173,9 @@ const ARTEN = [
   { n: 'Monstera Monkey Mask', art: 'Monstera adansonii', alias: 'Adansonii, Monkey Mask, Fensterblatt klein', iv: 6, licht: 'Hell, ohne direkte Sonne', menge: '200 ml', d: 30, um: 18, hinweis: 'Kleiner und durstiger als die deliciosa, mag eine Rankhilfe.' },
   { n: 'Monstera Variegata', art: 'Monstera deliciosa variegata', alias: 'Variegata, Albo, Thai Constellation', iv: 8, licht: 'Hell, ohne direkte Sonne', menge: '250 ml', d: 45, um: 24, hinweis: 'Weiße Blattteile arbeiten nicht mit: heller stellen, aber nie in die pralle Sonne, sonst verbrennen sie.' },
   { n: 'Efeutute', art: 'Epipremnum aureum', alias: 'Goldene Efeutute, Pothos', iv: 7, licht: 'Halbschatten', menge: '200 ml', d: 30, um: 24, hinweis: 'Verzeiht auch dunklere Ecken.' },
-  { n: 'Philodendron', art: 'Philodendron', alias: 'Baumfreund', iv: 7, licht: 'Halbschatten', menge: '250 ml', d: 30, um: 24, hinweis: '' },
+  { n: 'Philodendron', art: 'Philodendron', alias: 'Baumfreund', iv: 7, licht: 'Halbschatten', menge: '250 ml', d: 30, um: 24, hinweis: 'Rankt gerne, eine Stütze hilft beim Wachsen.' },
   { n: 'Zimmeraralie', art: 'Fatsia japonica', alias: '', iv: 5, licht: 'Halbschatten', menge: '300 ml', d: 30, um: 24, hinweis: 'Mag es kühl, verträgt keine Heizungsluft.' },
-  { n: 'Schefflera', art: 'Schefflera arboricola', alias: 'Strahlenaralie', iv: 8, licht: 'Hell, ohne direkte Sonne', menge: '250 ml', d: 30, um: 24, hinweis: '' },
+  { n: 'Schefflera', art: 'Schefflera arboricola', alias: 'Strahlenaralie', iv: 8, licht: 'Hell, ohne direkte Sonne', menge: '250 ml', d: 30, um: 24, hinweis: 'Zu wenig Licht lässt sie lang und dünn werden.' },
   { n: 'Kolbenfaden', art: 'Aglaonema', alias: '', iv: 8, licht: 'Halbschatten', menge: '200 ml', d: 30, um: 24, hinweis: 'Kommt mit wenig Licht gut zurecht.' },
   { n: 'Dieffenbachia', art: 'Dieffenbachia', alias: '', iv: 6, licht: 'Halbschatten', menge: '250 ml', d: 30, um: 24, hinweis: 'Pflanzensaft reizt Haut und Schleimhäute.' },
   { n: 'Alocasia', art: 'Alocasia', alias: 'Elefantenohr, Pfeilblatt', iv: 5, licht: 'Hell, ohne direkte Sonne', menge: '250 ml', d: 21, um: 18, hinweis: 'Braucht viel Luftfeuchtigkeit. Zieht im Winter oft ein und treibt im Frühjahr wieder aus.' },
@@ -1220,7 +1223,7 @@ const ARTEN = [
   { n: 'Weihnachtskaktus', art: 'Schlumbergera', alias: 'Schlumbergera, Osterkaktus', iv: 10, licht: 'Hell, ohne direkte Sonne', menge: '100 ml', d: 30, um: 24, hinweis: 'Während der Knospenbildung nicht drehen.' },
   { n: 'Geldbaum', art: 'Crassula ovata', alias: 'Pfennigbaum, Jadebaum, Crassula', iv: 18, licht: 'Vollsonne', menge: '150 ml', d: 60, um: 36, hinweis: 'Dicke Blätter speichern Wasser.' },
   { n: 'Echeveria', art: 'Echeveria', alias: 'Sukkulente', iv: 18, licht: 'Vollsonne', menge: '80 ml', d: 60, um: 24, hinweis: 'Nicht über die Rosette gießen.' },
-  { n: 'Haworthia', art: 'Haworthia', alias: '', iv: 18, licht: 'Hell, ohne direkte Sonne', menge: '80 ml', d: 60, um: 36, hinweis: '' },
+  { n: 'Haworthia', art: 'Haworthia', alias: '', iv: 18, licht: 'Hell, ohne direkte Sonne', menge: '80 ml', d: 60, um: 36, hinweis: 'Braucht deutlich weniger Sonne als andere Sukkulenten.' },
   { n: 'Christusdorn', art: 'Euphorbia milii', alias: '', iv: 14, licht: 'Vollsonne', menge: '100 ml', d: 45, um: 36, hinweis: 'Milchsaft ist giftig.' },
 
   // --- Palmen und Grünes ---
@@ -1230,7 +1233,7 @@ const ARTEN = [
   { n: 'Glücksbambus', art: 'Dracaena sanderiana', alias: 'Lucky Bamboo, Zimmerbambus', iv: 4, licht: 'Halbschatten', menge: '200 ml', d: 30, um: 24, hinweis: 'Im Wasserglas den Pegel halten, Wasser wöchentlich wechseln.' },
   { n: 'Zyperngras', art: 'Cyperus alternifolius', alias: 'Papyrus', iv: 2, licht: 'Hell, ohne direkte Sonne', menge: '300 ml', d: 21, um: 12, hinweis: 'Untersetzer darf dauerhaft Wasser enthalten.' },
   { n: 'Farn', art: 'Nephrolepis', alias: 'Schwertfarn, Zimmerfarn', iv: 3, licht: 'Halbschatten', menge: '200 ml', d: 21, um: 24, hinweis: 'Erde darf nie ganz austrocknen.' },
-  { n: 'Efeu', art: 'Hedera helix', alias: 'Zimmerefeu', iv: 5, licht: 'Halbschatten', menge: '200 ml', d: 30, um: 24, hinweis: '' },
+  { n: 'Efeu', art: 'Hedera helix', alias: 'Zimmerefeu', iv: 5, licht: 'Halbschatten', menge: '200 ml', d: 30, um: 24, hinweis: 'Regelmäßig abbrausen, das hält Spinnmilben fern.' },
   { n: 'Zimmerlinde', art: 'Sparrmannia africana', alias: '', iv: 3, licht: 'Hell, ohne direkte Sonne', menge: '400 ml', d: 21, um: 24, hinweis: 'Großer Wasserbedarf im Sommer.' },
   { n: 'Croton', art: 'Codiaeum variegatum', alias: 'Wunderstrauch, Kroton', iv: 5, licht: 'Hell, ohne direkte Sonne', menge: '200 ml', d: 21, um: 24, hinweis: 'Je heller, desto kräftiger die Blattfarben.' },
   { n: 'Buntnessel', art: 'Coleus', alias: 'Plectranthus', iv: 3, licht: 'Hell, ohne direkte Sonne', menge: '200 ml', d: 14, um: 12, hinweis: 'Spitzen ausknipsen für buschigen Wuchs.' },
@@ -1242,12 +1245,12 @@ const ARTEN = [
   { n: 'Kaffeepflanze', art: 'Coffea arabica', alias: 'Kaffeestrauch', iv: 4, licht: 'Hell, ohne direkte Sonne', menge: '250 ml', d: 21, um: 24, hinweis: 'Kalkfreies Wasser, keine pralle Sonne.' },
   { n: 'Basilikum', art: 'Ocimum basilicum', alias: '', iv: 2, licht: 'Vollsonne', menge: '100 ml', d: 14, um: 0, hinweis: 'Von unten gießen, Blätter trocken halten.' },
   { n: 'Minze', art: 'Mentha', alias: 'Pfefferminze', iv: 2, licht: 'Halbschatten', menge: '150 ml', d: 21, um: 12, hinweis: 'Wuchert, am besten allein im Topf.' },
-  { n: 'Petersilie', art: 'Petroselinum crispum', alias: '', iv: 2, licht: 'Halbschatten', menge: '150 ml', d: 21, um: 0, hinweis: '' },
+  { n: 'Petersilie', art: 'Petroselinum crispum', alias: '', iv: 2, licht: 'Halbschatten', menge: '150 ml', d: 21, um: 0, hinweis: 'Braucht dauerhaft feuchte Erde, verträgt aber keine Staunässe.' },
   { n: 'Schnittlauch', art: 'Allium schoenoprasum', alias: '', iv: 2, licht: 'Hell, ohne direkte Sonne', menge: '150 ml', d: 21, um: 12, hinweis: 'Nach dem Schnitt kräftig gießen.' },
   { n: 'Rosmarin', art: 'Salvia rosmarinus', alias: '', iv: 7, licht: 'Vollsonne', menge: '150 ml', d: 30, um: 24, hinweis: 'Lieber zu trocken als zu nass.' },
   { n: 'Thymian', art: 'Thymus vulgaris', alias: '', iv: 7, licht: 'Vollsonne', menge: '120 ml', d: 30, um: 24, hinweis: 'Mag durchlässige, eher magere Erde.' },
-  { n: 'Salbei', art: 'Salvia officinalis', alias: '', iv: 5, licht: 'Vollsonne', menge: '200 ml', d: 30, um: 24, hinweis: '' },
-  { n: 'Oregano', art: 'Origanum vulgare', alias: 'Majoran', iv: 5, licht: 'Vollsonne', menge: '150 ml', d: 30, um: 24, hinweis: '' },
+  { n: 'Salbei', art: 'Salvia officinalis', alias: '', iv: 5, licht: 'Vollsonne', menge: '200 ml', d: 30, um: 24, hinweis: 'Nach der Blüte zurückschneiden, dann treibt er buschig nach.' },
+  { n: 'Oregano', art: 'Origanum vulgare', alias: 'Majoran', iv: 5, licht: 'Vollsonne', menge: '150 ml', d: 30, um: 24, hinweis: 'Je sonniger der Standort, desto kräftiger das Aroma.' },
   { n: 'Lavendel', art: 'Lavandula angustifolia', alias: '', iv: 6, licht: 'Vollsonne', menge: '250 ml', d: 30, um: 24, hinweis: 'Verträgt keine Staunässe, im Frühjahr zurückschneiden.' },
   { n: 'Hortensie', art: 'Hydrangea', alias: '', iv: 2, licht: 'Halbschatten', menge: '500 ml', d: 14, um: 24, hinweis: 'Braucht im Sommer sehr viel Wasser.' },
   { n: 'Geranie', art: 'Pelargonium', alias: 'Pelargonie', iv: 3, licht: 'Vollsonne', menge: '250 ml', d: 14, um: 12, hinweis: 'Verblühtes regelmäßig ausputzen.' },

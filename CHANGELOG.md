@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.13.1 - 2026-08-29
+
+- Pflegehinweise für die Arten ergänzt, die noch keinen hatten, unter anderem
+  Petersilie, Salbei, Oregano, Philodendron, Efeu und Fuchsie.
+
 ## v1.13.0 - 2026-08-29
 
 - Pflanzenliste von 32 auf 75 Arten erweitert: mehr Grünpflanzen, Palmen,
