@@ -20,6 +20,10 @@ from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 
 BASIS = os.path.dirname(os.path.abspath(__file__))
 VAPID_DATEI = os.environ.get("GRUENZEUG_VAPID", os.path.join(BASIS, "vapid.json"))
+# pywebpush kann mit einem PEM-*String* nichts anfangen: es reicht ihn an
+# Vapid.from_string() weiter, das base64-kodiertes DER erwartet. Mit einem
+# Dateipfad greift dagegen Vapid.from_file(), und das liest PEM.
+VAPID_PEM = os.path.splitext(VAPID_DATEI)[0] + "_private.pem"
 # Pflichtangabe des Web-Push-Protokolls: Kontakt des Absenders
 VAPID_KONTAKT = os.environ.get("GRUENZEUG_VAPID_MAIL", "mailto:info@michaely.de")
 
@@ -29,11 +33,21 @@ def _b64(roh: bytes) -> str:
     return base64.urlsafe_b64encode(roh).decode().rstrip("=")
 
 
+def _pem_sicherstellen(pem: str) -> None:
+    """Legt die PEM-Datei an, die pywebpush als Pfad bekommt."""
+    if not os.path.exists(VAPID_PEM):
+        with open(VAPID_PEM, "w", encoding="utf-8") as f:
+            f.write(pem)
+        os.chmod(VAPID_PEM, 0o600)
+
+
 def schluessel_laden() -> dict:
     """Liest das VAPID-Schlüsselpaar, erzeugt es beim ersten Aufruf."""
     if os.path.exists(VAPID_DATEI):
         with open(VAPID_DATEI, encoding="utf-8") as f:
-            return json.load(f)
+            daten = json.load(f)
+        _pem_sicherstellen(daten["private_pem"])
+        return daten
 
     privat = ec.generate_private_key(ec.SECP256R1())
     oeffentlich = privat.public_key().public_bytes(
@@ -50,6 +64,7 @@ def schluessel_laden() -> dict:
     with open(VAPID_DATEI, "w", encoding="utf-8") as f:
         json.dump(daten, f)
     os.chmod(VAPID_DATEI, 0o600)
+    _pem_sicherstellen(pem)
     return daten
 
 
@@ -78,7 +93,7 @@ def senden(abo, titel: str, text: str, marke: str = "giessen") -> tuple[bool, st
     """
     from pywebpush import WebPushException, webpush
 
-    schluessel = schluessel_laden()
+    schluessel_laden()   # stellt vapid.json und die PEM-Datei sicher
     try:
         webpush(
             subscription_info={
@@ -86,7 +101,7 @@ def senden(abo, titel: str, text: str, marke: str = "giessen") -> tuple[bool, st
                 "keys": {"p256dh": abo.p256dh, "auth": abo.auth},
             },
             data=json.dumps({"title": titel, "body": text, "tag": marke}, ensure_ascii=False),
-            vapid_private_key=schluessel["private_pem"],
+            vapid_private_key=VAPID_PEM,
             vapid_claims={"sub": VAPID_KONTAKT},
             ttl=43200,
         )

@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.8.2 - 2026-08-29
+
+- Behoben: Der Versand scheiterte mit "Versand fehlgeschlagen". `pywebpush`
+  bekam den privaten VAPID-Schlüssel als PEM-Text und reichte ihn an
+  `Vapid.from_string()` weiter, das base64-kodiertes DER erwartet – die Folge
+  war ein ASN.1-Parsing-Fehler. Der Schlüssel wird jetzt zusätzlich als Datei
+  `vapid_private.pem` abgelegt und als Pfad übergeben; damit greift
+  `Vapid.from_file()`, das PEM liest. Das Schlüsselpaar bleibt dasselbe,
+  bestehende Abos gelten weiter.
+
 ## v1.8.1 - 2026-08-29
 
 - Behoben: Die App meldete "Erinnerungen aktiv" und zeigte den Testknopf,

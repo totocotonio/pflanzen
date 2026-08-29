@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.8.1';
+const VERSION = '1.8.2';
 
 const KEY = 'pg_data';
 const EMOJIS = ['🪴','🌿','🌵','🌱','🌴','🎍','🌺','🌻','🌷','🍀','🌾','🥬','🍋','🌶️','🫒'];
@@ -392,6 +392,9 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.8.2', datum: '29.08.2026', punkte: [
+    'Behoben: Der Versand der Benachrichtigungen scheiterte am Format des VAPID-Schlüssels.'
+  ]},
   { v: '1.8.1', datum: '29.08.2026', punkte: [
     'Behoben: Die App zeigte Erinnerungen als "aktiv", obwohl kein Gerät angemeldet war.',
     'Der Testknopf meldet das Gerät jetzt selbst an, wenn der Server es nicht kennt.'

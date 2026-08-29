@@ -184,7 +184,9 @@ systemctl list-timers gruenzeug-push.timer
 cd /opt/gruenzeug-api && venv/bin/python cron.py --trocken
 ```
 
-**VAPID-Schlüssel** liegen in `/opt/gruenzeug-api/vapid.json` (Rechte 600) und werden beim ersten Abruf von `/api/push/key` erzeugt. Diese Datei nicht löschen und nicht ins Repo aufnehmen: mit neuen Schlüsseln werden alle bestehenden Abos ungültig und jedes Gerät müsste sich neu anmelden. Beim Sichern der Datenbank gehört sie mit dazu.
+**VAPID-Schlüssel** liegen in `/opt/gruenzeug-api/vapid.json` (Rechte 600) und werden beim ersten Abruf von `/api/push/key` erzeugt. Daneben liegt derselbe private Schlüssel als `vapid_private.pem`.
+
+⚠️ **Der private Schlüssel muss pywebpush als Dateipfad übergeben werden, nicht als PEM-Text.** Bekommt `webpush()` einen mehrzeiligen PEM-String, landet er in `Vapid.from_string()`, das base64-kodiertes DER erwartet – der Versand scheitert dann mit „Could not deserialize key data … ASN.1 parsing error". Mit einem Pfad greift `Vapid.from_file()`, das PEM versteht. `push.py` legt die PEM-Datei deshalb automatisch an. Diese Datei nicht löschen und nicht ins Repo aufnehmen: mit neuen Schlüsseln werden alle bestehenden Abos ungültig und jedes Gerät müsste sich neu anmelden. Beim Sichern der Datenbank gehört sie mit dazu.
 
 **Zeitzone:** Der Container läuft auf `Europe/Berlin`. Das ist keine Kosmetik – `cron.py` vergleicht die eingestellte Uhrzeit mit der lokalen Serverzeit. Stünde er auf UTC, käme eine für 09:00 eingestellte Erinnerung im Sommer um 11 Uhr.
 

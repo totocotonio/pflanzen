@@ -12,3 +12,5 @@ __pycache__/
 # VAPID-Schluessel gehoeren nur auf den Server
 vapid.json
 server/vapid.json
+vapid_private.pem
+server/vapid_private.pem
