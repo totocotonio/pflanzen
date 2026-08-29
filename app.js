@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.10.0';
+const VERSION = '1.11.0';
 
 const KEY = 'pg_data';
 const EMOJIS = ['🪴','🌿','🌵','🌱','🌴','🎍','🌺','🌻','🌷','🍀','🌾','🥬','🍋','🌶️','🫒'];
@@ -24,6 +24,7 @@ let editEmoji = '🪴';
 let editFoto = null;
 let raumFilter = 'alle';
 let heuteFilter = null;   // null | 'faellig' | 'bald' | 'alle'
+let suchText = '';
 let letzteAktion = null;  // für "Rückgängig" nach Gießen/Düngen
 
 /* ---------- Persistenz ---------- */
@@ -392,6 +393,9 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.11.0', datum: '29.08.2026', punkte: [
+    'Suche in der Pflanzenliste – über Name, Art, Standort, Notiz, Licht und Wassermenge.'
+  ]},
   { v: '1.10.0', datum: '29.08.2026', punkte: [
     'Pflegevorschläge: Bei bekannten Arten schlägt die App Intervall, Licht, Menge und Hinweise vor.',
     'Fotoverlauf je Pflanze – bis zu sechs Bilder mit Datum.',
@@ -814,21 +818,38 @@ function plantRow(p) {
   </div>`;
 }
 
+/** Durchsucht Name, Art, Standort und Notiz. */
+function passtZurSuche(p) {
+  if (!suchText) return true;
+  const heuhaufen = [p.name, p.art, p.raum, p.notiz, p.licht, p.menge]
+    .filter(Boolean).join(' ').toLowerCase();
+  // Mehrere Wörter müssen alle vorkommen, Reihenfolge egal
+  return suchText.split(/\s+/).every(wort => heuhaufen.includes(wort));
+}
+
 function renderPflanzen() {
   const raeume = Array.from(new Set(DB.plants.map(p => p.raum).filter(Boolean))).sort();
   $('#pflanzen-sub').textContent = DB.plants.length + (DB.plants.length === 1 ? ' Pflanze' : ' Pflanzen');
 
+  $('#raum-chips').hidden = !!suchText;
   $('#raum-chips').innerHTML = raeume.length
     ? [`<button class="chip ${raumFilter === 'alle' ? 'on' : ''}" data-raum="alle">Alle</button>`]
       .concat(raeume.map(r => `<button class="chip ${raumFilter === r ? 'on' : ''}" data-raum="${esc(r)}">${esc(r)}</button>`))
       .join('')
     : '';
 
-  const liste = raumFilter === 'alle' ? DB.plants : DB.plants.filter(p => p.raum === raumFilter);
+  const liste = DB.plants
+    .filter(p => raumFilter === 'alle' || p.raum === raumFilter)
+    .filter(passtZurSuche);
   const grid = $('#pflanzen-grid');
+  if (suchText) {
+    $('#pflanzen-sub').textContent = liste.length +
+      (liste.length === 1 ? ' Treffer' : ' Treffer');
+  }
   if (!liste.length) {
-    grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="big">🪴</div>
-      <p>Keine Pflanzen in dieser Ansicht.</p></div>`;
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="big">🔍</div>
+      <p>${suchText ? 'Nichts gefunden.' : 'Keine Pflanzen in dieser Ansicht.'}</p>
+      ${suchText ? '<p>Andere Schreibweise versuchen?</p>' : ''}</div>`;
     return;
   }
   grid.innerHTML = liste.slice().sort((a, b) => a.name.localeCompare(b.name, 'de')).map(p => `
@@ -1840,6 +1861,18 @@ function tab(name) {
 function bind() {
   $$('.tabbar button').forEach(b => b.onclick = () => tab(b.dataset.tab));
   bindePersoenlich();
+  $('#suchfeld').oninput = e => {
+    suchText = e.target.value.trim().toLowerCase();
+    $('#suche-weg').hidden = !suchText;
+    renderPflanzen();
+  };
+  $('#suche-weg').onclick = () => {
+    $('#suchfeld').value = '';
+    suchText = '';
+    $('#suche-weg').hidden = true;
+    renderPflanzen();
+    $('#suchfeld').focus();
+  };
   $('#zeile-historie').onclick = zeigeHistorie;
   $('#zeile-statistik').onclick = () => { zeigeStatistik(); openSheet('#sheet-statistik'); };
   $('#f-name').oninput = artVorschlagPruefen;

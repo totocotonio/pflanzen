@@ -190,6 +190,19 @@ a{color:var(--blue);text-decoration:none}
   font-size:24px;display:grid;place-items:center}
 .emoji-pick button.on{background:var(--accent)}
 
+/* Suche */
+.suche{display:flex;align-items:center;gap:8px;background:var(--surface);
+  border-radius:12px;padding:9px 12px;margin-bottom:12px;box-shadow:var(--schatten)}
+.suche-lupe{font-size:15px;opacity:.6;flex:0 0 auto}
+.suche input{flex:1;min-width:0;background:transparent;border:0;outline:none;
+  font-size:16px;color:var(--text);text-align:left;
+  appearance:none;-webkit-appearance:none}
+.suche input::-webkit-search-cancel-button{display:none}
+.suche input::placeholder{color:var(--text-3)}
+.suche-weg{flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:var(--surface-3);
+  color:var(--text-2);font-size:12px;display:grid;place-items:center;line-height:1}
+.suche-weg[hidden]{display:none}
+
 /* Chips */
 .chips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}

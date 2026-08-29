@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.11.0 - 2026-08-29
+
+- Suche in der Pflanzenliste. Durchsucht werden Name, Art, Standort, Notiz,
+  Lichtbedarf und Wassermenge; mehrere Wörter müssen alle vorkommen, die
+  Reihenfolge spielt keine Rolle ("bad orchidee" findet dasselbe wie
+  "orchidee bad").
+- Während einer Suche zeigt die Kopfzeile die Trefferzahl, und die
+  Standort-Chips treten in den Hintergrund.
+
 ## v1.10.0 - 2026-08-29
 
 - Pflegevorschläge: Beim Anlegen erkennt die App gut dreißig verbreitete

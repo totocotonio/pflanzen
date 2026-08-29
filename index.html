@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=1.10.0">
+<link rel="stylesheet" href="style.css?v=1.11.0">
 </head>
 <body>
 
@@ -61,6 +61,12 @@
     <div class="hd">
       <div><h1>Pflanzen</h1><div class="sub" id="pflanzen-sub"></div></div>
       <button class="hd-btn" id="btn-add-2" title="Pflanze hinzufügen">＋</button>
+    </div>
+    <div class="suche">
+      <span class="suche-lupe">🔍</span>
+      <input id="suchfeld" type="search" placeholder="Name, Art, Standort oder Notiz"
+             autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="search">
+      <button class="suche-weg" id="suche-weg" hidden title="Suche leeren">✕</button>
     </div>
     <div class="chips" id="raum-chips"></div>
     <div class="grid" id="pflanzen-grid"></div>
@@ -350,6 +356,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=1.10.0"></script>
+<script src="app.js?v=1.11.0"></script>
 </body>
 </html>
