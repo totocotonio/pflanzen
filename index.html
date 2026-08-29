@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=1.8.2">
+<link rel="stylesheet" href="style.css?v=1.9.0">
 </head>
 <body>
 
@@ -68,7 +68,10 @@
 
   <!-- ===== KALENDER ===== -->
   <section id="view-plan" class="view">
-    <div class="hd"><div><h1>Plan</h1><div class="sub">Die nächsten 14 Tage</div></div></div>
+    <div class="hd">
+      <div><h1>Plan</h1><div class="sub">Die nächsten 14 Tage</div></div>
+      <button class="hd-btn" id="btn-urlaub" title="Urlaub planen">🧳</button>
+    </div>
     <div id="plan-liste"></div>
   </section>
 
@@ -217,6 +220,16 @@
       <div class="field"><label>Zuletzt gedüngt</label><input type="date" id="f-duenger-letzt"></div>
     </div>
 
+    <div class="section-title">Umtopfen und Schneiden (optional)</div>
+    <div class="group">
+      <div class="field"><label>Umtopfen alle … Monate</label>
+        <input type="number" id="f-umtopfen-int" min="0" max="120" value="0" inputmode="numeric" placeholder="0 = aus"></div>
+      <div class="field"><label>Zuletzt umgetopft</label><input type="date" id="f-umtopfen-letzt"></div>
+      <div class="field"><label>Schneiden alle … Monate</label>
+        <input type="number" id="f-schneiden-int" min="0" max="120" value="0" inputmode="numeric" placeholder="0 = aus"></div>
+      <div class="field"><label>Zuletzt geschnitten</label><input type="date" id="f-schneiden-letzt"></div>
+    </div>
+
     <div class="section-title">Pflege</div>
     <div class="group">
       <div class="field">
@@ -235,6 +248,21 @@
     <button class="btn" id="btn-save">Speichern</button>
     <button class="btn sec" data-close>Abbrechen</button>
     <button class="btn danger" id="btn-delete" style="display:none">Pflanze löschen</button>
+  </div>
+</div>
+
+<!-- ===== Sheet: Urlaub ===== -->
+<div class="sheet" id="sheet-urlaub">
+  <div class="backdrop" data-close></div>
+  <div class="panel">
+    <div class="grabber"></div>
+    <h2>Urlaub planen</h2>
+    <div class="group">
+      <div class="field"><label>Abreise</label><input type="date" id="url-von"></div>
+      <div class="field"><label>Rückkehr</label><input type="date" id="url-bis"></div>
+    </div>
+    <div id="urlaub-ergebnis"></div>
+    <button class="btn sec" data-close>Schließen</button>
   </div>
 </div>
 
@@ -298,6 +326,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=1.8.2"></script>
+<script src="app.js?v=1.9.0"></script>
 </body>
 </html>

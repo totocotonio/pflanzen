@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.9.0 - 2026-08-29
+
+- Alle fälligen Pflanzen auf einmal gießen: Im Abschnitt "Jetzt gießen" steht
+  ein Knopf "Alle N gießen", sobald mehr als eine fällig ist. Rückgängig nimmt
+  den ganzen Schwung zurück.
+- Umtopfen und Schneiden als eigene Pflegeaufgaben, Intervall in Monaten.
+  Düngen, Umtopfen und Schneiden verhalten sich jetzt gleich und stehen im Code
+  in einer gemeinsamen Tabelle statt dreimal ausgeschrieben.
+- Der Abschnitt "Düngen fällig" auf der Startseite heißt jetzt "Weitere Pflege"
+  und zeigt alle drei Aufgabenarten.
+- Urlaubsmodus (Koffer-Symbol in der Plan-Ansicht): Zeitraum eingeben, die App
+  zeigt, was vor der Abreise noch gegossen werden muss und welche Pflanze
+  während der Abwesenheit an welchen Tagen dran ist.
+- Die Liste für die Person, die währenddessen gießt, lässt sich per Teilen-Dialog
+  weitergeben oder in die Zwischenablage kopieren – mit Standort, Wassermenge
+  und den Pflegehinweisen.
+
 ## v1.8.2 - 2026-08-29
 
 - Behoben: Der Versand scheiterte mit "Versand fehlgeschlagen". `pywebpush`

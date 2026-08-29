@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.8.2';
+const VERSION = '1.9.0';
 
 const KEY = 'pg_data';
 const EMOJIS = ['🪴','🌿','🌵','🌱','🌴','🎍','🌺','🌻','🌷','🍀','🌾','🥬','🍋','🌶️','🫒'];
@@ -392,6 +392,12 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.9.0', datum: '29.08.2026', punkte: [
+    'Alle fälligen Pflanzen auf einmal gießen – ein Tipp statt vieler.',
+    'Umtopfen und Schneiden als eigene Aufgaben mit Intervall in Monaten.',
+    'Urlaubsmodus: zeigt, was vor der Abreise zu gießen ist und was währenddessen fällig wird.',
+    'Die Liste für die Person, die gießt, lässt sich weitergeben.'
+  ]},
   { v: '1.8.2', datum: '29.08.2026', punkte: [
     'Behoben: Der Versand der Benachrichtigungen scheiterte am Format des VAPID-Schlüssels.'
   ]},
@@ -760,24 +766,27 @@ function renderHeute() {
 
   let html = '';
   if (faellig.length) {
-    html += `<div class="section-title">Jetzt gießen</div>`;
+    html += `<div class="section-title mit-aktion"><span>Jetzt gießen</span>` +
+            (faellig.length > 1 ? `<span class="aktion" data-alle-giessen>Alle ${faellig.length} gießen</span>` : '') +
+            `</div>`;
     html += faellig.sort((a, b) => tageBis(a) - tageBis(b)).map(plantRow).join('');
   }
   if (bald.length) {
     html += `<div class="section-title">Demnächst</div>`;
     html += bald.sort((a, b) => tageBis(a) - tageBis(b)).map(plantRow).join('');
   }
-  const dueng = DB.plants.filter(p => { const t = duengerTageBis(p); return t !== null && t <= 0; });
-  if (dueng.length) {
-    html += `<div class="section-title">Düngen fällig</div>`;
-    html += dueng.map(p => `
-      <div class="plant" data-open="${p.id}">
-        ${avatarHTML(p)}
+  const pflege = faelligeAufgaben();
+  if (pflege.length) {
+    html += `<div class="section-title">Weitere Pflege</div>`;
+    html += pflege.map(({ pflanze, aufgabe }) => `
+      <div class="plant" data-open="${pflanze.id}">
+        ${avatarHTML(pflanze)}
         <div class="info">
-          <div class="nm">${esc(p.name)}</div>
-          <div class="meta">Dünger fällig${p.raum ? ' · ' + esc(p.raum) : ''}</div>
+          <div class="nm">${esc(pflanze.name)}</div>
+          <div class="meta">${aufgabe.name} fällig${pflanze.raum ? ' · ' + esc(pflanze.raum) : ''}</div>
         </div>
-        <button class="water-btn due" data-dueng="${p.id}">🌿</button>
+        <button class="water-btn due" data-aufgabe="${aufgabe.schluessel}" data-pid="${pflanze.id}"
+          title="${aufgabe.name}">${aufgabe.emoji}</button>
       </div>`).join('');
   }
   box.innerHTML = html;
@@ -875,40 +884,233 @@ function giessen(id) {
   const p = DB.plants.find(x => x.id === id);
   if (!p) return;
   const logId = uid();
-  letzteAktion = { typ: 'wasser', plantId: id, vorher: p.letzt, logId };
+  letzteAktion = { eintraege: [{ feld: 'letzt', plantId: id, vorher: p.letzt, logId }] };
   p.letzt = toISO(new Date());
   DB.logs.push({ id: logId, plantId: id, typ: 'wasser', ts: Date.now() });
   save(); renderAll();
   if (navigator.vibrate) navigator.vibrate(12);
   toast('💧 ' + p.name + ' gegossen', 'Rückgängig', rueckgaengig);
 }
-function duengen(id) {
-  const p = DB.plants.find(x => x.id === id);
-  if (!p) return;
-  const logId = uid();
-  letzteAktion = { typ: 'duenger', plantId: id, vorher: p.duengerLetzt, logId };
-  p.duengerLetzt = toISO(new Date());
-  DB.logs.push({ id: logId, plantId: id, typ: 'duenger', ts: Date.now() });
-  save(); renderAll();
-  toast('🌿 ' + p.name + ' gedüngt', 'Rückgängig', rueckgaengig);
-}
+function duengen(id) { aufgabeErledigt(id, 'duenger'); }
 
 /** Nimmt den letzten Gieß- oder Düngevorgang zurück: altes Datum wieder
     herstellen und den Verlaufseintrag entfernen. */
 function rueckgaengig() {
   if (!letzteAktion) return;
-  const { typ, plantId, vorher, logId } = letzteAktion;
-  const p = DB.plants.find(x => x.id === plantId);
-  if (p) {
-    if (typ === 'wasser') p.letzt = vorher;
-    else p.duengerLetzt = vorher;
+  const { eintraege } = letzteAktion;
+  const ids = new Set(eintraege.map(e => e.logId));
+  for (const e of eintraege) {
+    const p = DB.plants.find(x => x.id === e.plantId);
+    if (p) p[e.feld] = e.vorher;
   }
-  DB.logs = DB.logs.filter(l => l.id !== logId);
+  DB.logs = DB.logs.filter(l => !ids.has(l.id));
+  const ersteId = eintraege[0] && eintraege[0].plantId;
   letzteAktion = null;
   save();
   renderAll();
-  if ($('#sheet-detail').classList.contains('open') && p) openDetail(plantId);
-  toast(typ === 'wasser' ? 'Gießen zurückgenommen' : 'Düngen zurückgenommen');
+  if ($('#sheet-detail').classList.contains('open') && ersteId) openDetail(ersteId);
+  toast(eintraege.length > 1 ? 'Zurückgenommen (' + eintraege.length + ')' : 'Zurückgenommen');
+}
+
+/* ---------- Pflegeaufgaben neben dem Gießen ----------
+   Düngen rechnet in Tagen, Umtopfen und Schneiden in Monaten. Alle drei
+   verhalten sich sonst gleich, deshalb stehen sie in einer Tabelle statt
+   dreimal im Code. */
+const AUFGABEN = [
+  { schluessel: 'duenger',  name: 'Düngen',   partizip: 'gedüngt',     emoji: '🌿',
+    feldInt: 'duengerInt',  feldLetzt: 'duengerLetzt',  einheit: 'tage' },
+  { schluessel: 'umtopfen', name: 'Umtopfen', partizip: 'umgetopft',   emoji: '🪴',
+    feldInt: 'umtopfenMon', feldLetzt: 'umtopfenLetzt', einheit: 'monate' },
+  { schluessel: 'schneiden', name: 'Schneiden', partizip: 'geschnitten', emoji: '✂️',
+    feldInt: 'schneidenMon', feldLetzt: 'schneidenLetzt', einheit: 'monate' }
+];
+
+/** Tage bis zur nächsten Fälligkeit einer Aufgabe, null wenn abgeschaltet. */
+function aufgabeTageBis(p, a) {
+  const intervall = Number(p[a.feldInt]) || 0;
+  const letzt = p[a.feldLetzt];
+  if (!intervall || !letzt) return null;
+  const d = fromISO(letzt);
+  const ziel = a.einheit === 'monate'
+    ? new Date(d.getFullYear(), d.getMonth() + intervall, d.getDate())
+    : new Date(d.getTime() + intervall * 86400000);
+  ziel.setHours(0, 0, 0, 0);
+  return tageDiff(heute0(), ziel);
+}
+
+/** Alle heute fälligen Aufgaben über alle Pflanzen. */
+function faelligeAufgaben() {
+  const treffer = [];
+  for (const p of DB.plants) {
+    for (const a of AUFGABEN) {
+      const t = aufgabeTageBis(p, a);
+      if (t !== null && t <= 0) treffer.push({ pflanze: p, aufgabe: a, tage: t });
+    }
+  }
+  return treffer;
+}
+
+/** Aufgabe als erledigt eintragen. */
+function aufgabeErledigt(id, schluessel) {
+  const p = DB.plants.find(x => x.id === id);
+  const a = AUFGABEN.find(x => x.schluessel === schluessel);
+  if (!p || !a) return;
+  const logId = uid();
+  letzteAktion = { eintraege: [{ feld: a.feldLetzt, plantId: id, vorher: p[a.feldLetzt], logId }] };
+  p[a.feldLetzt] = toISO(new Date());
+  DB.logs.push({ id: logId, plantId: id, typ: schluessel, ts: Date.now() });
+  save();
+  renderAll();
+  if ($('#sheet-detail').classList.contains('open')) openDetail(id);
+  toast(a.emoji + ' ' + p.name + ' ' + a.partizip, 'Rückgängig', rueckgaengig);
+}
+
+/* ---------- Alles auf einmal ---------- */
+
+/** Markiert alle gerade fälligen Pflanzen als gegossen. */
+function alleGiessen() {
+  const faellig = DB.plants.filter(p => tageBis(p) <= 0);
+  if (!faellig.length) { toast('Gerade ist nichts fällig'); return; }
+
+  const heute = toISO(new Date());
+  const eintraege = [];
+  for (const p of faellig) {
+    const logId = uid();
+    eintraege.push({ feld: 'letzt', plantId: p.id, vorher: p.letzt, logId });
+    p.letzt = heute;
+    DB.logs.push({ id: logId, plantId: p.id, typ: 'wasser', ts: Date.now() });
+  }
+  letzteAktion = { eintraege };
+  save();
+  renderAll();
+  if (navigator.vibrate) navigator.vibrate(18);
+  toast('💧 ' + faellig.length + ' Pflanzen gegossen', 'Rückgängig', rueckgaengig);
+}
+
+/* ---------- Urlaubsmodus ----------
+   Beantwortet zwei Fragen: Was muss vor der Abreise noch gegossen werden,
+   und was wird während der Abwesenheit fällig? Letzteres ergibt die Liste
+   für die Person, die währenddessen gießt. */
+
+function urlaubOeffnen() {
+  const heute = new Date();
+  const inEinerWoche = new Date(heute.getTime() + 7 * 86400000);
+  if (!$('#url-von').value) $('#url-von').value = toISO(heute);
+  if (!$('#url-bis').value) $('#url-bis').value = toISO(inEinerWoche);
+  urlaubRechnen();
+  openSheet('#sheet-urlaub');
+}
+
+/** Alle Termine einer Pflanze im Zeitraum, ausgehend vom letzten Gießen. */
+function giesstermine(p, bis) {
+  const termine = [];
+  const iv = effIntervall(p);
+  if (!p.letzt) return termine;
+  let d = new Date(fromISO(p.letzt).getTime() + iv * 86400000);
+  d.setHours(0, 0, 0, 0);
+  // Überfälliges nachholen, aber nicht endlos rechnen
+  let schutz = 0;
+  while (d <= bis && schutz++ < 200) {
+    termine.push(new Date(d));
+    d = new Date(d.getTime() + iv * 86400000);
+  }
+  return termine;
+}
+
+function urlaubRechnen() {
+  const vonWert = $('#url-von').value;
+  const bisWert = $('#url-bis').value;
+  const box = $('#urlaub-ergebnis');
+  if (!vonWert || !bisWert) { box.innerHTML = ''; return; }
+
+  const von = fromISO(vonWert); von.setHours(0, 0, 0, 0);
+  const bis = fromISO(bisWert); bis.setHours(0, 0, 0, 0);
+  if (bis < von) {
+    box.innerHTML = `<div class="empty"><p>Das Rückkehrdatum liegt vor der Abreise.</p></div>`;
+    return;
+  }
+  const tage = tageDiff(von, bis) + 1;
+
+  const vorher = [];   // vor der Abreise noch gießen
+  const waehrend = []; // braucht Betreuung
+
+  for (const p of DB.plants) {
+    const termine = giesstermine(p, bis);
+    // Alles, was bis einschließlich Abreisetag dran ist: vorher gießen
+    const vorAbreise = termine.filter(d => d <= von);
+    if (vorAbreise.length) vorher.push(p);
+    // Termine im Zeitraum nach der Abreise
+    const drin = termine.filter(d => d > von && d <= bis);
+    if (drin.length) waehrend.push({ pflanze: p, termine: drin });
+  }
+
+  let html = `<div class="card" style="text-align:center">
+      <b style="font-size:20px">${tage} ${tage === 1 ? 'Tag' : 'Tage'}</b>
+      <div style="color:var(--text-2);font-size:14px;margin-top:2px">
+        ${von.toLocaleDateString('de-DE')} – ${bis.toLocaleDateString('de-DE')}</div>
+    </div>`;
+
+  html += `<div class="section-title">Vor der Abreise gießen</div>`;
+  html += vorher.length
+    ? vorher.map(p => `<div class="plant" data-open="${p.id}">
+        ${avatarHTML(p)}
+        <div class="info"><div class="nm">${esc(p.name)}</div>
+          <div class="meta">${statusText(p)}${p.menge ? ' · ' + esc(p.menge) : ''}</div></div>
+        <button class="water-btn due" data-water="${p.id}" title="Gegossen">💧</button>
+      </div>`).join('')
+    : `<div class="card" style="color:var(--text-2)">Nichts – alles frisch gegossen.</div>`;
+
+  html += `<div class="section-title">Braucht während deiner Abwesenheit Wasser</div>`;
+  if (!waehrend.length) {
+    html += `<div class="card" style="color:var(--text-2)">
+      Keine Pflanze wird in dieser Zeit fällig. Du kannst beruhigt fahren.</div>`;
+  } else {
+    html += waehrend
+      .sort((a, b) => a.termine[0] - b.termine[0])
+      .map(({ pflanze, termine }) => `
+        <div class="plant" data-open="${pflanze.id}">
+          ${avatarHTML(pflanze)}
+          <div class="info">
+            <div class="nm">${esc(pflanze.name)}</div>
+            <div class="meta">${termine.map(d => d.toLocaleDateString('de-DE',
+              { day: 'numeric', month: 'short' })).join(', ')}${pflanze.menge ? ' · ' + esc(pflanze.menge) : ''}</div>
+          </div>
+        </div>`).join('');
+    html += `<button class="btn sec" id="btn-urlaub-teilen">Liste zum Weitergeben</button>`;
+  }
+
+  box.innerHTML = html;
+  const teilen = $('#btn-urlaub-teilen');
+  if (teilen) teilen.onclick = () => urlaubTeilen(von, bis, waehrend);
+}
+
+/** Erzeugt eine Textliste und gibt sie weiter – per Teilen-Dialog oder Zwischenablage. */
+async function urlaubTeilen(von, bis, waehrend) {
+  const zeilen = [
+    'Gießplan ' + von.toLocaleDateString('de-DE') + ' bis ' + bis.toLocaleDateString('de-DE'),
+    ''
+  ];
+  for (const { pflanze, termine } of waehrend) {
+    const wo = pflanze.raum ? ' (' + pflanze.raum + ')' : '';
+    const menge = pflanze.menge ? ', ' + pflanze.menge : '';
+    zeilen.push('• ' + pflanze.name + wo + menge);
+    zeilen.push('  ' + termine.map(d => d.toLocaleDateString('de-DE',
+      { weekday: 'short', day: 'numeric', month: 'short' })).join(', '));
+    if (pflanze.notiz) zeilen.push('  Hinweis: ' + pflanze.notiz);
+  }
+  const text = zeilen.join('\n');
+
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: 'Gießplan', text });
+      return;
+    }
+    await navigator.clipboard.writeText(text);
+    toast('Liste in die Zwischenablage kopiert');
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;   // Teilen abgebrochen
+    toast('Konnte die Liste nicht weitergeben');
+  }
 }
 
 /* ---------- Sheets ---------- */
@@ -927,6 +1129,10 @@ function openEdit(id) {
   $('#f-menge').value = p ? (p.menge || '') : '';
   $('#f-duenger-int').value = p ? (p.duengerInt || 0) : 0;
   $('#f-duenger-letzt').value = p ? (p.duengerLetzt || '') : '';
+  $('#f-umtopfen-int').value = p ? (p.umtopfenMon || 0) : 0;
+  $('#f-umtopfen-letzt').value = p ? (p.umtopfenLetzt || '') : '';
+  $('#f-schneiden-int').value = p ? (p.schneidenMon || 0) : 0;
+  $('#f-schneiden-letzt').value = p ? (p.schneidenLetzt || '') : '';
   $('#f-licht').value = p ? (p.licht || '') : '';
   $('#f-notiz').value = p ? (p.notiz || '') : '';
   editEmoji = p ? (p.emoji || '🪴') : '🪴';
@@ -957,6 +1163,10 @@ function speichern() {
     menge: $('#f-menge').value.trim(),
     duengerInt: Math.max(0, Number($('#f-duenger-int').value) || 0),
     duengerLetzt: $('#f-duenger-letzt').value || '',
+    umtopfenMon: Math.max(0, Number($('#f-umtopfen-int').value) || 0),
+    umtopfenLetzt: $('#f-umtopfen-letzt').value || '',
+    schneidenMon: Math.max(0, Number($('#f-schneiden-int').value) || 0),
+    schneidenLetzt: $('#f-schneiden-letzt').value || '',
     licht: $('#f-licht').value,
     notiz: $('#f-notiz').value.trim()
   };
@@ -998,7 +1208,8 @@ function openDetail(id) {
     </div>
 
     <button class="btn" data-water="${p.id}">💧 Jetzt gegossen</button>
-    ${p.duengerInt ? `<button class="btn sec" data-dueng="${p.id}">🌿 Gedüngt</button>` : ''}
+    ${AUFGABEN.filter(a => Number(p[a.feldInt]) > 0).map(a =>
+      `<button class="btn sec" data-aufgabe="${a.schluessel}" data-pid="${p.id}">${a.emoji} ${a.name}</button>`).join('')}
 
     <div class="section-title">Pflege</div>
     <div class="group">
@@ -1006,13 +1217,18 @@ function openDetail(id) {
       <div class="field"><label>Zuletzt gegossen</label><span class="hint">${p.letzt ? fromISO(p.letzt).toLocaleDateString('de-DE') : '–'}</span></div>
       ${p.menge ? `<div class="field"><label>Wassermenge</label><span class="hint">${esc(p.menge)}</span></div>` : ''}
       ${p.licht ? `<div class="field"><label>Licht</label><span class="hint">${esc(p.licht)}</span></div>` : ''}
-      ${dt !== null ? `<div class="field"><label>Düngen</label><span class="hint">${dt <= 0 ? 'fällig' : 'in ' + dt + ' Tagen'}</span></div>` : ''}
+      ${AUFGABEN.map(a => {
+        const t = aufgabeTageBis(p, a);
+        if (t === null) return '';
+        return `<div class="field"><label>${a.name}</label><span class="hint">${
+          t <= 0 ? 'fällig' : 'in ' + t + (t === 1 ? ' Tag' : ' Tagen')}</span></div>`;
+      }).join('')}
     </div>
 
     ${p.notiz ? `<div class="section-title">Notizen</div><div class="card" style="white-space:pre-wrap">${esc(p.notiz)}</div>` : ''}
 
     ${logs.length ? `<div class="section-title">Verlauf</div><div class="group">` + logs.map(l => `
-      <div class="log-item"><span>${l.typ === 'wasser' ? '💧 Gegossen' : '🌿 Gedüngt'}</span>
+      <div class="log-item"><span>${logText(l.typ)}</span>
       <span>${new Date(l.ts).toLocaleDateString('de-DE')}</span></div>`).join('') + `</div>` : ''}
 
     <button class="btn sec" data-edit="${p.id}">Bearbeiten</button>
@@ -1020,6 +1236,13 @@ function openDetail(id) {
     <button class="btn sec" data-close>Schließen</button>
   `;
   openSheet('#sheet-detail');
+}
+
+/** Beschriftung eines Verlaufseintrags. */
+function logText(typ) {
+  if (typ === 'wasser') return '💧 Gegossen';
+  const a = AUFGABEN.find(x => x.schluessel === typ);
+  return a ? a.emoji + ' ' + a.partizip.charAt(0).toUpperCase() + a.partizip.slice(1) : typ;
 }
 
 /* ---------- Foto ---------- */
@@ -1324,6 +1547,9 @@ function bind() {
   $$('.tabbar button').forEach(b => b.onclick = () => tab(b.dataset.tab));
   bindePersoenlich();
   $('#zeile-historie').onclick = zeigeHistorie;
+  $('#btn-urlaub').onclick = urlaubOeffnen;
+  $('#url-von').onchange = urlaubRechnen;
+  $('#url-bis').onchange = urlaubRechnen;
   $('#btn-theme').onclick = themeUmschalten;
   $('#btn-add-top').onclick = () => openEdit(null);
   $('#btn-add-2').onclick = () => openEdit(null);
@@ -1380,7 +1606,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -1392,7 +1618,9 @@ function bind() {
       return;
     }
     if (t.dataset.water) { e.stopPropagation(); giessen(t.dataset.water); if ($('#sheet-detail').classList.contains('open')) openDetail(t.dataset.water); return; }
-    if (t.dataset.dueng) { e.stopPropagation(); duengen(t.dataset.dueng); if ($('#sheet-detail').classList.contains('open')) openDetail(t.dataset.dueng); return; }
+    if (t.dataset.dueng) { e.stopPropagation(); duengen(t.dataset.dueng); return; }
+    if (t.dataset.aufgabe) { e.stopPropagation(); aufgabeErledigt(t.dataset.pid, t.dataset.aufgabe); return; }
+    if (t.dataset.alleGiessen !== undefined) { e.stopPropagation(); alleGiessen(); return; }
     if (t.dataset.edit) { closeSheets(); setTimeout(() => openEdit(t.dataset.edit), 180); return; }
     if (t.dataset.del) { loeschePflanze(t.dataset.del); return; }
     if (t.dataset.open) { openDetail(t.dataset.open); return; }
