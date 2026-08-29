@@ -12,9 +12,23 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=1.1.0">
+<link rel="stylesheet" href="style.css?v=1.2.0">
 </head>
 <body>
+
+<!-- ===== Anmeldung ===== -->
+<div id="login-screen" hidden>
+  <form class="login-box" id="login-form" autocomplete="on">
+    <div class="login-logo">🪴</div>
+    <h1>Grünzeug</h1>
+    <p class="login-sub">Melde dich an, damit Handy und PC dieselben Pflanzen zeigen.</p>
+    <input id="lg-name" name="username" placeholder="Name" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+    <input id="lg-pass" name="password" type="password" placeholder="Passwort" autocomplete="current-password" required>
+    <button class="btn" id="lg-btn" type="submit">Anmelden</button>
+    <p class="login-fehler" id="lg-fehler"></p>
+    <button type="button" class="login-link" id="lg-offline">Ohne Anmeldung auf diesem Gerät nutzen</button>
+  </form>
+</div>
 
 <div id="app">
 
@@ -25,7 +39,10 @@
         <h1>Heute</h1>
         <div class="sub" id="heute-datum"></div>
       </div>
-      <button class="hd-btn" id="btn-add-top" title="Pflanze hinzufügen">＋</button>
+      <div class="hd-actions">
+        <button class="hd-btn" id="btn-theme" title="Hell / Dunkel umschalten">🌙</button>
+        <button class="hd-btn" id="btn-add-top" title="Pflanze hinzufügen">＋</button>
+      </div>
     </div>
 
     <div class="stat-row">
@@ -56,6 +73,14 @@
   <!-- ===== EINSTELLUNGEN ===== -->
   <section id="view-more" class="view">
     <div class="hd"><div><h1>Mehr</h1><div class="sub" id="version-sub"></div></div></div>
+
+    <div class="section-title">Konto</div>
+    <div class="group">
+      <div class="field"><label>Angemeldet als</label><span class="hint" id="konto-name">–</span></div>
+      <div class="field"><label>Synchronisierung</label><span class="hint" id="sync-status">–</span></div>
+    </div>
+    <button class="btn sec" id="btn-logout">Abmelden</button>
+    <button class="btn sec" id="btn-anmelden" style="display:none">Anmelden</button>
 
     <div class="section-title">Erinnerungen</div>
     <div class="group">
@@ -115,7 +140,10 @@
     <div class="section-title">Über</div>
     <div class="group">
       <div class="field"><label>Version</label><span class="hint" id="about-version">–</span></div>
-      <div class="field"><label>Speicher</label><span class="hint">localStorage (lokal)</span></div>
+      <div class="field"><label>Speicher</label><span class="hint">localStorage + Server</span></div>
+      <div class="field" id="zeile-historie" style="cursor:pointer">
+        <label>Versionshistorie</label><span class="hint">alle Änderungen ›</span>
+      </div>
     </div>
     <p style="color:var(--text-3);font-size:13px;text-align:center;margin:20px 0 8px">
       Grünzeug · lokal gespeichert, offline nutzbar
@@ -188,6 +216,17 @@
   </div>
 </div>
 
+<!-- ===== Sheet: Versionshistorie ===== -->
+<div class="sheet" id="sheet-historie">
+  <div class="backdrop" data-close></div>
+  <div class="panel">
+    <div class="grabber"></div>
+    <h2>Versionshistorie</h2>
+    <div id="historie-liste"></div>
+    <button class="btn sec" data-close>Schließen</button>
+  </div>
+</div>
+
 <!-- ===== Sheet: Pflanzen-Detail ===== -->
 <div class="sheet" id="sheet-detail">
   <div class="backdrop" data-close></div>
@@ -196,6 +235,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=1.1.0"></script>
+<script src="app.js?v=1.2.0"></script>
 </body>
 </html>

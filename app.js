@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 
 /* Push-Server – wird gesetzt, sobald der LXC steht */
 const PUSH_SERVER = '';
@@ -38,9 +38,10 @@ function load() {
     }
   } catch (e) { console.error('Laden fehlgeschlagen', e); }
 }
-function save() {
+function save(sync) {
   try { localStorage.setItem(KEY, JSON.stringify(DB)); }
   catch (e) { toast('Speichern fehlgeschlagen – Speicher voll?'); }
+  if (sync !== false && SYNC.user) { SYNC.dirty = true; speichereSync(); planeSync(); }
 }
 
 /* ---------- Helfer ---------- */
@@ -110,6 +111,238 @@ function avatarHTML(p, cls) {
     : `<div class="${c}">${p.emoji || '🪴'}</div>`;
 }
 
+
+/* ---------- Versionshistorie ----------
+   Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
+   und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
+const HISTORIE = [
+  { v: '1.2.0', datum: '29.08.2026', punkte: [
+    'Anmeldung mit Benutzername und Passwort.',
+    'Geräte-Sync: Handy und PC zeigen denselben Stand.',
+    'Offline weiter nutzbar, Änderungen werden nachgeholt.',
+    'Nachfrage, wenn zwei Geräte dasselbe geändert haben.',
+    'Umschalter für Hell und Dunkel direkt auf der Startseite.',
+    'Diese Versionshistorie.'
+  ]},
+  { v: '1.1.0', datum: '29.08.2026', punkte: [
+    'Erscheinungsbild wählbar: System, Hell oder Dunkel.',
+    'Desktop-Layout ab 768 px mit zentriertem Inhalt und größerem Raster.'
+  ]},
+  { v: '1.0.0', datum: '29.08.2026', punkte: [
+    'Erste Fassung: Gießplan mit Fälligkeitsberechnung und Ein-Tipp-Gießen.',
+    'Pflanzen-Datenbank mit Foto oder Emoji, Standort und Notizen.',
+    'Dünger-Intervall, Plan-Ansicht über 14 Tage, Winter-Modus.',
+    'Export und Import als JSON, Offline-Betrieb per Service Worker.'
+  ]}
+];
+
+function zeigeHistorie() {
+  $('#historie-liste').innerHTML = HISTORIE.map(r => `
+    <div class="rel">
+      <div class="rel-kopf">
+        <div class="rel-nr">v${esc(r.v)}${r.v === VERSION ? '<span class="jetzt">aktuell</span>' : ''}</div>
+        <div class="rel-datum">${esc(r.datum)}</div>
+      </div>
+      <ul>${r.punkte.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+    </div>`).join('');
+  openSheet('#sheet-historie');
+}
+
+/* ---------- Konto und Synchronisierung ----------
+   localStorage bleibt der Primärspeicher: die App funktioniert offline
+   vollständig. Änderungen werden verzögert zum Server geschoben. Die
+   Revisionsnummer stammt vom Server und verhindert, dass ein Gerät die
+   Änderungen eines anderen unbemerkt überschreibt. */
+const API = '/api';
+const SYNC_KEY = 'pg_sync';
+let SYNC = { rev: 0, dirty: false, user: null, lokalOk: false, status: 'lokal', laeuft: false, timer: null };
+
+function ladeSync() {
+  try {
+    const d = JSON.parse(localStorage.getItem(SYNC_KEY) || '{}');
+    SYNC.rev = d.rev || 0;
+    SYNC.dirty = !!d.dirty;
+    SYNC.user = d.user || null;
+    SYNC.lokalOk = !!d.lokalOk;
+  } catch (e) { /* erster Start */ }
+}
+function speichereSync() {
+  try {
+    localStorage.setItem(SYNC_KEY, JSON.stringify(
+      { rev: SYNC.rev, dirty: SYNC.dirty, user: SYNC.user, lokalOk: SYNC.lokalOk }));
+  } catch (e) { /* Speicher voll – der Datensatz selbst hat Vorrang */ }
+}
+
+function api(pfad, opts) {
+  return fetch(API + pfad, Object.assign({
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' }
+  }, opts || {}));
+}
+
+/** Aktuellen Stand als das schicken, was der Server speichern soll. */
+function nutzdaten() {
+  return { plants: DB.plants, logs: DB.logs, settings: DB.settings };
+}
+
+function planeSync() {
+  if (!SYNC.user) return;
+  clearTimeout(SYNC.timer);
+  SYNC.timer = setTimeout(schiebeHoch, 1500);
+}
+
+async function schiebeHoch() {
+  if (!SYNC.user || SYNC.laeuft) return;
+  SYNC.laeuft = true;
+  try {
+    const r = await api('/data', {
+      method: 'PUT',
+      body: JSON.stringify({ rev: SYNC.rev, daten: nutzdaten() })
+    });
+    if (r.status === 401) { SYNC.user = null; speichereSync(); zeigeLogin(); return; }
+    if (r.status === 409) {
+      const d = (await r.json()).detail;
+      SYNC.laeuft = false;
+      loeseKonflikt(d);
+      return;
+    }
+    if (!r.ok) throw new Error('Status ' + r.status);
+    SYNC.rev = (await r.json()).rev;
+    SYNC.dirty = false;
+    SYNC.status = 'ok';
+  } catch (e) {
+    SYNC.status = navigator.onLine ? 'fehler' : 'offline';
+  } finally {
+    SYNC.laeuft = false;
+    speichereSync();
+    renderMore();
+  }
+}
+
+/** Serverstand lokal übernehmen. */
+function uebernehmeServer(s) {
+  const d = s.daten || {};
+  DB.plants = d.plants || [];
+  DB.logs = d.logs || [];
+  DB.settings = Object.assign(DB.settings, d.settings || {});
+  SYNC.rev = s.rev;
+  SYNC.dirty = false;
+  SYNC.status = 'ok';
+  save(false);
+  speichereSync();
+  applyTheme();
+  renderAll();
+}
+
+/** Beide Seiten wurden geändert – das kann nur der Mensch entscheiden. */
+function loeseKonflikt(s) {
+  const zahl = n => (n === 1 ? '1 Pflanze' : n + ' Pflanzen');
+  const aufServer = ((s.daten || {}).plants || []).length;
+  const hier = DB.plants.length;
+  const text =
+    'Auf einem anderen Gerät wurde ebenfalls geändert.\n\n' +
+    'Server: ' + zahl(aufServer) + '\n' +
+    'Dieses Gerät: ' + zahl(hier) + ' (noch nicht hochgeladen)\n\n' +
+    'OK\t\t= Stand vom Server übernehmen\n' +
+    '\t\t  (Änderungen auf diesem Gerät gehen verloren)\n' +
+    'Abbrechen\t= diesen Stand hochladen\n' +
+    '\t\t  (Änderungen vom anderen Gerät gehen verloren)';
+  if (confirm(text)) {
+    uebernehmeServer(s);
+    toast('Stand vom Server übernommen');
+  } else {
+    SYNC.rev = s.rev;         // auf den Serverstand aufsetzen und überschreiben
+    speichereSync();
+    schiebeHoch();
+    toast('Dieses Gerät hat den Server überschrieben');
+  }
+}
+
+/** Erster Abgleich nach dem Anmelden bzw. beim Start. */
+async function abgleichen() {
+  const r = await api('/data');
+  if (r.status === 401) { SYNC.user = null; speichereSync(); zeigeLogin(); return; }
+  if (!r.ok) throw new Error('Status ' + r.status);
+  const s = await r.json();
+
+  if (s.rev === 0) {
+    // Server noch leer
+    if (DB.plants.length) { SYNC.rev = 0; SYNC.dirty = true; await schiebeHoch(); }
+    else { SYNC.rev = 0; SYNC.dirty = false; SYNC.status = 'ok'; }
+  } else if (!SYNC.dirty) {
+    uebernehmeServer(s);
+  } else if (SYNC.rev === s.rev) {
+    await schiebeHoch();
+  } else {
+    loeseKonflikt(s);
+  }
+  speichereSync();
+  renderMore();
+}
+
+function zeigeLogin() {
+  if (SYNC.lokalOk) return;
+  $('#login-screen').hidden = false;
+  $('#lg-fehler').textContent = '';
+  setTimeout(() => $('#lg-name').focus(), 120);
+}
+function versteckeLogin() { $('#login-screen').hidden = true; }
+
+async function anmelden(name, passwort) {
+  const r = await api('/login', { method: 'POST', body: JSON.stringify({ name, passwort }) });
+  if (r.status === 401) throw new Error('Name oder Passwort stimmt nicht');
+  if (r.status === 429) throw new Error('Zu viele Versuche. Bitte ein paar Minuten warten.');
+  if (!r.ok) throw new Error('Anmeldung fehlgeschlagen (' + r.status + ')');
+  SYNC.user = (await r.json()).name;
+  SYNC.lokalOk = false;
+  speichereSync();
+}
+
+async function abmelden() {
+  if (SYNC.dirty && !confirm('Es sind noch Änderungen nicht hochgeladen. Trotzdem abmelden?')) return;
+  try { await api('/logout', { method: 'POST' }); } catch (e) { /* egal */ }
+  SYNC.user = null;
+  SYNC.rev = 0;
+  SYNC.dirty = false;
+  SYNC.status = 'lokal';
+  SYNC.lokalOk = false;
+  speichereSync();
+  renderMore();
+  zeigeLogin();
+}
+
+function syncText() {
+  if (!SYNC.user) return 'aus – nur auf diesem Gerät';
+  switch (SYNC.status) {
+    case 'ok': return SYNC.dirty ? 'wird gesichert …' : 'aktuell';
+    case 'offline': return 'offline – wird nachgeholt';
+    case 'fehler': return 'Server nicht erreichbar';
+    default: return SYNC.dirty ? 'noch nicht gesichert' : 'aktuell';
+  }
+}
+
+/** Start: lokale Daten stehen sofort, der Server wird danach befragt. */
+async function starte() {
+  try {
+    const r = await api('/me');
+    if (r.status === 401) {
+      SYNC.user = null; SYNC.status = 'lokal'; speichereSync();
+      zeigeLogin(); renderMore(); return;
+    }
+    if (!r.ok) throw new Error('Status ' + r.status);
+    SYNC.user = (await r.json()).name;
+    speichereSync();
+    versteckeLogin();
+    await abgleichen();
+  } catch (e) {
+    // Kein Netz oder kein Server: wer die App schon nutzt, arbeitet weiter
+    SYNC.status = SYNC.user ? 'offline' : 'lokal';
+    if (SYNC.user || SYNC.lokalOk || DB.plants.length) versteckeLogin();
+    else zeigeLogin();
+    renderMore();
+  }
+}
+
 /* ---------- Erscheinungsbild ---------- */
 /** Setzt data-theme am <html> und passt die Statusleistenfarbe an.
     'auto' entfernt das Attribut, dann entscheidet prefers-color-scheme. */
@@ -123,6 +356,25 @@ function applyTheme() {
     (t === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', dunkel ? '#000000' : '#f2f2f7');
+
+  // Der Knopf zeigt, wohin es geht, nicht wo man ist
+  const knopf = document.querySelector('#btn-theme');
+  if (knopf) {
+    knopf.textContent = dunkel ? '☀️' : '🌙';
+    knopf.title = dunkel ? 'Auf Hell umschalten' : 'Auf Dunkel umschalten';
+  }
+}
+
+/** Umschalter im Kopf der Startseite: springt zwischen Hell und Dunkel.
+    Die dritte Möglichkeit "System" bleibt unter Mehr wählbar. */
+function themeUmschalten() {
+  const dunkelJetzt = document.documentElement.getAttribute('data-theme') === 'dark' ||
+    (!document.documentElement.getAttribute('data-theme') &&
+     window.matchMedia('(prefers-color-scheme: dark)').matches);
+  DB.settings.theme = dunkelJetzt ? 'light' : 'dark';
+  save();
+  applyTheme();
+  renderMore();
 }
 
 /* ---------- Rendering ---------- */
@@ -254,6 +506,10 @@ function renderPlan() {
 
 function renderMore() {
   $('#version-sub').textContent = 'Version ' + VERSION;
+  $('#konto-name').textContent = SYNC.user || 'nicht angemeldet';
+  $('#sync-status').textContent = syncText();
+  $('#btn-logout').style.display = SYNC.user ? 'block' : 'none';
+  $('#btn-anmelden').style.display = SYNC.user ? 'none' : 'block';
   $('#about-version').textContent = VERSION;
   $('#dat-anzahl').textContent = DB.plants.length;
   $('#dat-logs').textContent = DB.logs.length;
@@ -509,6 +765,8 @@ function tab(name) {
 /* ---------- Events ---------- */
 function bind() {
   $$('.tabbar button').forEach(b => b.onclick = () => tab(b.dataset.tab));
+  $('#zeile-historie').onclick = zeigeHistorie;
+  $('#btn-theme').onclick = themeUmschalten;
   $('#btn-add-top').onclick = () => openEdit(null);
   $('#btn-add-2').onclick = () => openEdit(null);
   $('#btn-save').onclick = speichern;
@@ -525,6 +783,33 @@ function bind() {
     if (!confirm('Wirklich ALLE Pflanzen und Verläufe löschen? Das lässt sich nicht rückgängig machen.')) return;
     DB.plants = []; DB.logs = []; save(); renderAll(); toast('Alle Daten gelöscht');
   };
+
+  $('#login-form').onsubmit = async e => {
+    e.preventDefault();
+    const btn = $('#lg-btn');
+    btn.disabled = true; btn.textContent = 'Anmelden …';
+    $('#lg-fehler').textContent = '';
+    try {
+      await anmelden($('#lg-name').value.trim(), $('#lg-pass').value);
+      $('#lg-pass').value = '';
+      versteckeLogin();
+      await abgleichen();
+      toast('Angemeldet als ' + SYNC.user);
+    } catch (err) {
+      $('#lg-fehler').textContent = err.message;
+    } finally {
+      btn.disabled = false; btn.textContent = 'Anmelden';
+    }
+  };
+  $('#lg-offline').onclick = () => {
+    SYNC.lokalOk = true; SYNC.status = 'lokal'; speichereSync();
+    versteckeLogin(); renderMore();
+  };
+  $('#btn-logout').onclick = abmelden;
+  $('#btn-anmelden').onclick = () => { SYNC.lokalOk = false; speichereSync(); zeigeLogin(); };
+
+  /* Nicht hochgeladene Änderungen nachholen, sobald es wieder geht */
+  window.addEventListener('online', () => { if (SYNC.dirty) schiebeHoch(); });
 
   $('#btn-push-toggle').onclick = pushToggle;
   $('#set-theme').onchange = e => { DB.settings.theme = e.target.value; save(); applyTheme(); };
@@ -548,14 +833,22 @@ function bind() {
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheets(); });
 
   /* Beim Zurückkehren neu berechnen (Tageswechsel) */
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) renderAll(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    renderAll();
+    if (!SYNC.user) return;
+    if (SYNC.dirty) schiebeHoch();
+    else abgleichen().catch(() => { SYNC.status = 'offline'; renderMore(); });
+  });
 }
 
 /* ---------- Start ---------- */
 load();
+ladeSync();
 applyTheme();
 bind();
 renderAll();
+starte();
 
 /* Systemwechsel nur nachziehen, solange 'System' eingestellt ist */
 window.matchMedia('(prefers-color-scheme: dark)')

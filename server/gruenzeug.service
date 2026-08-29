@@ -1,0 +1,13 @@
+[Unit]
+Description=Gruenzeug API (Anmeldung und Geraete-Sync)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/gruenzeug-api
+ExecStart=/opt/gruenzeug-api/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8500
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

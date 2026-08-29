@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.2.0 - 2026-08-29
+
+- Anmeldung mit Benutzername und Passwort; die Seite ist öffentlich erreichbar,
+  deshalb gibt es keine offene Registrierung – Benutzer legt `manage.py` auf dem
+  Server an.
+- Geräte-Sync: Pflanzen, Verlauf und Einstellungen liegen zusätzlich auf dem
+  Server, Handy und PC zeigen denselben Stand.
+- localStorage bleibt Primärspeicher, die App funktioniert offline weiter;
+  Änderungen werden nachgeholt, sobald wieder Verbindung besteht.
+- Revisionsnummer je Datensatz: hat ein anderes Gerät zwischendurch geschrieben,
+  fragt die App nach, statt fremde Änderungen stillschweigend zu überschreiben.
+- Neuer Bereich "Konto" unter Mehr mit Anmeldename, Sync-Status und Abmelden.
+- Nutzung ohne Anmeldung weiterhin möglich (Daten bleiben dann auf dem Gerät).
+- Backend: FastAPI + SQLite auf dem LXC, Nginx reicht `/api/` durch,
+  Sitzungen als HttpOnly-Cookie, Passwörter mit bcrypt, Bremse gegen Raten.
+- Umschalter für Hell und Dunkel direkt in der Kopfzeile der Startseite.
+- Versionshistorie in der App unter Mehr → Über.
+- Behoben: Der Service Worker hatte die API-Antworten zwischengespeichert.
+  Dadurch arbeitete die App mit einem veralteten Serverstand und meldete
+  "aktuell", obwohl der Server einen anderen Stand hatte.
+
 ## v1.1.0 - 2026-08-29
 
 - Erscheinungsbild umschaltbar: System, Hell oder Dunkel (Mehr → Darstellung).

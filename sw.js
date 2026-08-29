@@ -1,10 +1,10 @@
 /* Grünzeug Service Worker */
-const CACHE = 'gruenzeug-v1.1.0';
+const CACHE = 'gruenzeug-v1.2.0';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=1.1.0',
-  './app.js?v=1.1.0',
+  './style.css?v=1.2.0',
+  './app.js?v=1.2.0',
   './manifest.json',
   './favicon.svg',
   './icon-192.png',
@@ -31,6 +31,10 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET' || !req.url.startsWith(self.location.origin)) return;
+
+  /* Die API wird nie zwischengespeichert. Sonst liefert der Cache alte
+     Antworten und die App arbeitet mit einem veralteten Serverstand. */
+  if (new URL(req.url).pathname.startsWith('/api/')) return;
 
   if (req.mode === 'navigate' || req.destination === 'document') {
     e.respondWith(

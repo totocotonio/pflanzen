@@ -2,14 +2,20 @@
 
 ## Überblick
 
-Grünzeug ist eine rein statische PWA. Der Server liefert nur Dateien aus, es läuft kein Anwendungscode auf dem Container. Deshalb reicht Nginx; es gibt keinen systemd-Service für die App selbst.
+Das Frontend ist eine statische PWA, dazu kommt ein kleines FastAPI-Backend für Anmeldung und Geräte-Sync. Nginx liefert die Dateien aus und reicht `/api/` an die App auf Port 8500 weiter.
 
 ```
-Laptop (Windows)                LXC 192.168.178.37           Nginx Proxy Manager
-─────────────────               ──────────────────           ───────────────────
-pflanzen_gießen/    ──SFTP──►   /opt/gruenzeug/    ◄──:80──   pflanzen.michaely.de
-  python deploy.py               nginx                        Let's Encrypt, Force SSL
+Laptop (Windows)                LXC 192.168.178.37              Nginx Proxy Manager
+─────────────────               ──────────────────              ───────────────────
+pflanzen_gießen/    ──SFTP──►   /opt/gruenzeug/      (statisch)
+  python deploy.py                  nginx :80        ◄──:80──   pflanzen.michaely.de
+  python deploy.py --api        /opt/gruenzeug-api/             Let's Encrypt, Force SSL
+                                  uvicorn 127.0.0.1:8500
+                                  systemd: gruenzeug
+                                  SQLite: gruenzeug.db
 ```
+
+Nur Nginx ist von außen erreichbar; die API lauscht ausschließlich auf 127.0.0.1.
 
 ---
 
@@ -95,13 +101,49 @@ Vorher muss die Subdomain per DNS auf die öffentliche IP zeigen (CNAME auf `ser
 
 ---
 
+## Backend einrichten
+
+```bash
+python deploy.py --api          # lädt server/ nach /opt/gruenzeug-api/
+```
+
+Dann einmalig auf dem Container:
+
+```bash
+bash /opt/gruenzeug-api/install_api.sh
+```
+
+Das Skript legt die virtuelle Umgebung an, installiert die Abhängigkeiten, richtet den systemd-Service `gruenzeug` ein und schreibt die Nginx-Site mit der `/api/`-Weiterleitung.
+
+### Benutzer anlegen
+
+Es gibt bewusst keine Registrierung in der App – die Seite ist öffentlich erreichbar. Benutzer werden auf dem Server angelegt, das Passwort wird dabei interaktiv abgefragt:
+
+```bash
+cd /opt/gruenzeug-api
+venv/bin/python manage.py adduser torsten
+```
+
+Weitere Befehle: `list`, `passwd <name>`, `deluser <name>`.
+
+### Datenbank
+
+`/opt/gruenzeug-api/gruenzeug.db` (SQLite). Enthält Benutzer, Sitzungen und je Benutzer einen JSON-Datensatz mit Pflanzen, Verlauf und Einstellungen. Sichern:
+
+```bash
+sqlite3 /opt/gruenzeug-api/gruenzeug.db ".backup /root/gruenzeug-$(date +%F).db"
+```
+
+---
+
 ## Laufende Updates
 
 ```bash
-python deploy.py
+python deploy.py                # nur Frontend
+python deploy.py --api          # Frontend + Backend, startet den Dienst neu
 ```
 
-Lädt die statischen Dateien per SFTP nach `/opt/gruenzeug/`. Kein Neustart nötig – Nginx liest die Dateien bei jedem Request frisch.
+Lädt die Dateien per SFTP hoch. Beim Frontend ist kein Neustart nötig – Nginx liest die Dateien bei jedem Request frisch.
 
 ### ⚠️ Cache-Versionen mitziehen
 
@@ -120,6 +162,9 @@ Nginx liefert `sw.js`, `index.html` und `manifest.json` mit `Cache-Control: no-c
 ## Nützliche Befehle auf dem Container
 
 ```bash
+systemctl status gruenzeug                  # API
+journalctl -u gruenzeug -n 50 --no-pager    # API-Logs
+curl -s localhost:8500/api/health           # API direkt (ohne Nginx)
 systemctl status nginx
 nginx -t                                    # Konfiguration prüfen
 systemctl reload nginx                      # nach Config-Änderung
@@ -129,6 +174,14 @@ ls -la /opt/gruenzeug/                      # was liegt wirklich da?
 
 ---
 
+## Stolperstellen
+
+**Der Service Worker darf die API nicht cachen.** In der ersten Fassung tat er das: `/api/data` kam aus dem Cache, die App rechnete mit einem veralteten Serverstand und meldete „aktuell", obwohl der Server etwas anderes hatte. `sw.js` nimmt Pfade unter `/api/` deshalb ausdrücklich vom Caching aus – diese Zeile nicht entfernen.
+
+**Cookies brauchen HTTPS.** Das Sitzungs-Cookie wird mit `Secure` gesetzt. Über `http://192.168.178.37` funktioniert die Anmeldung deshalb nicht. Für lokale Entwicklung setzt `devserver.py` die Umgebungsvariable `GRUENZEUG_UNSICHER=1`, die das Flag entfernt – auf dem Server darf sie nicht gesetzt sein.
+
+---
+
 ## Offene Punkte
 
-- **Push-Server**: Web Push braucht einen Absender mit VAPID-Schlüsselpaar. Vorbild ist der `womo-push`-Container (LXC 125): FastAPI + pywebpush, systemd-Service, täglicher Cronjob. In `app.js` sind die Konstanten `PUSH_SERVER` und `VAPID_PUBLIC` dafür schon vorbereitet, aktuell leer. Solange sie leer sind, fragt die App nur die Benachrichtigungs-Berechtigung ab und meldet, dass der Server noch fehlt.
+- **Push-Server**: Web Push braucht einen Absender mit VAPID-Schlüsselpaar. Der Dienst `gruenzeug` ist der natürliche Ort dafür – Benutzer und Datensätze liegen schon dort, es fehlen die Endpunkte für Subscriptions und ein täglicher Cronjob, der die fälligen Pflanzen ermittelt. In `app.js` sind `PUSH_SERVER` und `VAPID_PUBLIC` vorbereitet, aktuell leer; solange sie leer sind, fragt die App nur die Berechtigung ab und meldet, dass der Server fehlt.

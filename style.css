@@ -95,6 +95,8 @@ a{color:var(--blue);text-decoration:none}
 .hd .sub{color:var(--text-2);font-size:14px;margin-top:4px}
 .hd-btn{width:36px;height:36px;border-radius:50%;background:var(--surface-2);
   display:grid;place-items:center;font-size:19px;flex:0 0 auto}
+.hd-actions{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+#btn-theme{font-size:17px}
 
 /* ---------- Cards ---------- */
 .card{background:var(--surface);border-radius:var(--r-lg);padding:16px;margin-bottom:12px;box-shadow:var(--schatten)}
@@ -226,6 +228,40 @@ a{color:var(--blue);text-decoration:none}
 .log-item:last-child{border-bottom:0}
 .log-item span{color:var(--text-2)}
 
+
+/* ---------- Versionshistorie ---------- */
+.rel{background:var(--surface);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;
+  box-shadow:var(--schatten)}
+.rel-kopf{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
+.rel-nr{font-weight:700;font-size:17px}
+.rel-nr .jetzt{font-size:11px;font-weight:600;color:var(--on-accent);background:var(--accent);
+  border-radius:20px;padding:2px 8px;margin-left:8px;vertical-align:1px}
+.rel-datum{color:var(--text-2);font-size:13px;white-space:nowrap}
+.rel ul{margin:0;padding-left:18px}
+.rel li{color:var(--text-2);font-size:14.5px;line-height:1.45;margin-bottom:4px}
+.rel li:last-child{margin-bottom:0}
+
+/* ---------- Anmeldung ---------- */
+#login-screen{
+  position:fixed;inset:0;z-index:300;background:var(--bg);
+  display:flex;align-items:center;justify-content:center;padding:24px;
+  padding-top:calc(24px + var(--safe-t));padding-bottom:calc(24px + var(--safe-b))}
+#login-screen[hidden]{display:none}
+.login-box{width:100%;max-width:340px;text-align:center}
+.login-logo{font-size:64px;line-height:1;margin-bottom:14px}
+.login-box h1{font-size:30px;font-weight:700;letter-spacing:-.5px;margin:0 0 6px}
+.login-sub{color:var(--text-2);font-size:14.5px;margin:0 0 24px;line-height:1.4}
+.login-box input{
+  display:block;width:100%;padding:14px 16px;margin-bottom:10px;
+  background:var(--surface);border:.5px solid var(--sep);border-radius:var(--r);
+  font-size:16px;color:var(--text);outline:none}
+.login-box input:focus{border-color:var(--accent)}
+.login-fehler{color:var(--red);font-size:14px;min-height:20px;margin:12px 0 0}
+.login-link{color:var(--text-2);font-size:14px;margin-top:18px;text-decoration:underline;
+  text-underline-offset:3px}
+
+/* Kennzeichnung im Kopfbereich, wenn etwas nicht hochgeladen ist */
+.hd .sync-hinweis{color:var(--orange);font-size:13px;margin-top:3px}
 
 /* ============================================================
    Desktop / Tablet ab 768 px
