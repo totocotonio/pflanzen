@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** ✅ Live (v1.9.0)
+**Status:** ✅ Live (v1.10.0)
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -36,6 +36,9 @@ Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in 
 
 ✅ **Pflanze anlegen** – Name, Art, Standort, Gießintervall, Wassermenge
 ✅ **Foto oder Emoji** – Kamera-/Galerie-Foto wird auf 400 px verkleinert und als JPEG in den localStorage gelegt; alternativ 15 Emoji zur Auswahl
+✅ **Pflegevorschläge** – rund 30 bekannte Arten mit Richtwerten für Intervall, Licht, Menge und Pflegehinweis
+✅ **Fotoverlauf** – bis zu sechs Bilder je Pflanze mit Datum, Großansicht per Antippen
+✅ **Statistik** – Gießvorgänge je Woche, Wasserverbrauch, Pünktlichkeit je Pflanze
 ✅ **Standort-Filter** – Chips über dem Raster, Räume werden automatisch aus den Pflanzen gesammelt
 ✅ **Lichtbedarf & Notizen** – Freitext für Umtopfen, Schädlinge, Besonderheiten
 ✅ **Pflegeaufgaben** – Düngen (in Tagen), Umtopfen und Schneiden (in Monaten), je Pflanze einzeln einstellbar
@@ -83,7 +86,7 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
 | Design | iOS-orientiertes Dark UI, System-Schriften, `env(safe-area-inset-*)` |
 | Speicher | `localStorage`, Schlüssel `pg_data` |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v1.9.0` |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v1.10.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
 | Push | Web Push API + VAPID, pywebpush, systemd-Timer alle 15 Minuten |
 | Hosting | LXC Container auf Proxmox |
@@ -189,6 +192,7 @@ Alles liegt unter dem localStorage-Schlüssel `pg_data`:
     "schneidenLetzt": "",
     "licht": "Hell, ohne direkte Sonne",
     "notiz": "Im Frühjahr umtopfen",
+    "fotos": [{ "id": "…", "bild": "data:image/jpeg;base64,…", "ts": 1756483200000 }],
     "created": 1756483200000
   }],
   "logs": [{ "id": "…", "plantId": "l8x2k9a", "typ": "wasser", "ts": 1756483200000 }],
@@ -246,6 +250,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v1.10.0** | Pflegevorschläge nach Art, Fotoverlauf, Statistik |
 | **v1.9.0** | Sammel-Gießen, Umtopfen/Schneiden, Urlaubsmodus |
 | **v1.8.2** | Versand der Benachrichtigungen repariert (VAPID-Schlüsselformat) |
 | **v1.8.1** | Push-Zustand wird gegen das tatsächliche Abo geprüft |

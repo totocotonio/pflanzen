@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.9.0';
+const VERSION = '1.10.0';
 
 const KEY = 'pg_data';
 const EMOJIS = ['🪴','🌿','🌵','🌱','🌴','🎍','🌺','🌻','🌷','🍀','🌾','🥬','🍋','🌶️','🫒'];
@@ -392,6 +392,11 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.10.0', datum: '29.08.2026', punkte: [
+    'Pflegevorschläge: Bei bekannten Arten schlägt die App Intervall, Licht, Menge und Hinweise vor.',
+    'Fotoverlauf je Pflanze – bis zu sechs Bilder mit Datum.',
+    'Statistik unter Mehr: Gießvorgänge je Woche, Wasserverbrauch und Pünktlichkeit.'
+  ]},
   { v: '1.9.0', datum: '29.08.2026', punkte: [
     'Alle fälligen Pflanzen auf einmal gießen – ein Tipp statt vieler.',
     'Umtopfen und Schneiden als eigene Aufgaben mit Intervall in Monaten.',
@@ -1113,6 +1118,290 @@ async function urlaubTeilen(von, bis, waehrend) {
   }
 }
 
+/* ---------- Pflegevorschläge nach Art ----------
+   Richtwerte für verbreitete Zimmerpflanzen. Sie ersetzen keinen Blick in den
+   Topf – die Werte gelten für einen durchschnittlichen Standort im Sommer;
+   der Winter-Modus verlängert sie ohnehin. Vorgeschlagen wird nur, was der
+   Nutzer noch nicht selbst eingetragen hat. */
+const ARTEN = [
+  { n: 'Monstera',        art: 'Monstera deliciosa',     iv: 7,  licht: 'Hell, ohne direkte Sonne', menge: '300 ml', d: 30, um: 24, hinweis: 'Luftwurzeln nicht abschneiden.' },
+  { n: 'Efeutute',        art: 'Epipremnum aureum',      iv: 7,  licht: 'Halbschatten', menge: '200 ml', d: 30, um: 24, hinweis: 'Verzeiht auch dunklere Ecken.' },
+  { n: 'Bogenhanf',       art: 'Sansevieria',            iv: 21, licht: 'Halbschatten', menge: '150 ml', d: 60, um: 36, hinweis: 'Staunässe ist der häufigste Fehler.' },
+  { n: 'Glücksfeder',     art: 'Zamioculcas zamiifolia', iv: 21, licht: 'Halbschatten', menge: '200 ml', d: 60, um: 36, hinweis: 'Sehr genügsam, lieber zu wenig gießen.' },
+  { n: 'Gummibaum',       art: 'Ficus elastica',         iv: 8,  licht: 'Hell, ohne direkte Sonne', menge: '300 ml', d: 30, um: 24, hinweis: 'Blätter gelegentlich abstauben.' },
+  { n: 'Birkenfeige',     art: 'Ficus benjamina',        iv: 7,  licht: 'Hell, ohne direkte Sonne', menge: '300 ml', d: 30, um: 24, hinweis: 'Mag keinen Standortwechsel, wirft dann Blätter ab.' },
+  { n: 'Drachenbaum',     art: 'Dracaena',               iv: 10, licht: 'Hell, ohne direkte Sonne', menge: '250 ml', d: 45, um: 30, hinweis: 'Reagiert empfindlich auf Fluorid im Leitungswasser.' },
+  { n: 'Yucca',           art: 'Yucca elephantipes',     iv: 14, licht: 'Vollsonne', menge: '250 ml', d: 60, um: 36, hinweis: 'Stamm darf nicht weich werden.' },
+  { n: 'Grünlilie',       art: 'Chlorophytum comosum',   iv: 5,  licht: 'Hell, ohne direkte Sonne', menge: '200 ml', d: 21, um: 12, hinweis: 'Ableger lassen sich einfach abtrennen.' },
+  { n: 'Einblatt',        art: 'Spathiphyllum',          iv: 4,  licht: 'Halbschatten', menge: '250 ml', d: 21, um: 24, hinweis: 'Lässt die Blätter hängen, wenn es Durst hat.' },
+  { n: 'Flamingoblume',   art: 'Anthurium',              iv: 5,  licht: 'Hell, ohne direkte Sonne', menge: '200 ml', d: 21, um: 24, hinweis: 'Mag hohe Luftfeuchtigkeit.' },
+  { n: 'Orchidee',        art: 'Phalaenopsis',           iv: 10, licht: 'Hell, ohne direkte Sonne', menge: 'tauchen', d: 21, um: 24, hinweis: 'Tauchen statt gießen, gut abtropfen lassen.' },
+  { n: 'Aloe Vera',       art: 'Aloe barbadensis',       iv: 18, licht: 'Vollsonne', menge: '100 ml', d: 60, um: 24, hinweis: 'Im Winter fast gar nicht gießen.' },
+  { n: 'Kaktus',          art: '',                       iv: 30, licht: 'Vollsonne', menge: '50 ml', d: 60, um: 36, hinweis: 'Von Oktober bis März trocken halten.' },
+  { n: 'Geldbaum',        art: 'Crassula ovata',         iv: 18, licht: 'Vollsonne', menge: '150 ml', d: 60, um: 36, hinweis: 'Dicke Blätter speichern Wasser.' },
+  { n: 'Pilea',           art: 'Pilea peperomioides',    iv: 7,  licht: 'Hell, ohne direkte Sonne', menge: '150 ml', d: 30, um: 18, hinweis: 'Regelmäßig drehen, wächst sonst schief.' },
+  { n: 'Calathea',        art: 'Calathea',               iv: 4,  licht: 'Halbschatten', menge: '200 ml', d: 21, um: 24, hinweis: 'Empfindlich gegen Kalk, weiches Wasser nehmen.' },
+  { n: 'Alocasia',        art: 'Alocasia',               iv: 5,  licht: 'Hell, ohne direkte Sonne', menge: '250 ml', d: 21, um: 18, hinweis: 'Braucht viel Luftfeuchtigkeit.' },
+  { n: 'Philodendron',    art: 'Philodendron',           iv: 7,  licht: 'Halbschatten', menge: '250 ml', d: 30, um: 24, hinweis: '' },
+  { n: 'Farn',            art: 'Nephrolepis',            iv: 3,  licht: 'Halbschatten', menge: '200 ml', d: 21, um: 24, hinweis: 'Erde darf nie ganz austrocknen.' },
+  { n: 'Efeu',            art: 'Hedera helix',           iv: 5,  licht: 'Halbschatten', menge: '200 ml', d: 30, um: 24, hinweis: '' },
+  { n: 'Zimmerpalme',     art: 'Chamaedorea',            iv: 7,  licht: 'Halbschatten', menge: '300 ml', d: 30, um: 36, hinweis: 'Braune Spitzen deuten auf trockene Luft.' },
+  { n: 'Usambaraveilchen', art: 'Saintpaulia',           iv: 6,  licht: 'Hell, ohne direkte Sonne', menge: '100 ml', d: 21, um: 12, hinweis: 'Von unten gießen, Blätter nicht nass machen.' },
+  { n: 'Weihnachtsstern', art: 'Euphorbia pulcherrima',  iv: 5,  licht: 'Hell, ohne direkte Sonne', menge: '150 ml', d: 30, um: 0,  hinweis: 'Keine Zugluft, keine kalten Füße.' },
+  { n: 'Zitronenbaum',    art: 'Citrus limon',           iv: 4,  licht: 'Vollsonne', menge: '500 ml', d: 14, um: 36, hinweis: 'Im Winter kühl und hell überwintern.' },
+  { n: 'Olivenbaum',      art: 'Olea europaea',          iv: 6,  licht: 'Vollsonne', menge: '400 ml', d: 30, um: 36, hinweis: 'Verträgt Trockenheit besser als Nässe.' },
+  { n: 'Basilikum',       art: 'Ocimum basilicum',       iv: 2,  licht: 'Vollsonne', menge: '100 ml', d: 14, um: 0,  hinweis: 'Von unten gießen, Blätter trocken halten.' },
+  { n: 'Minze',           art: 'Mentha',                 iv: 2,  licht: 'Halbschatten', menge: '150 ml', d: 21, um: 12, hinweis: 'Wuchert, am besten allein im Topf.' },
+  { n: 'Petersilie',      art: 'Petroselinum crispum',   iv: 2,  licht: 'Halbschatten', menge: '150 ml', d: 21, um: 0,  hinweis: '' },
+  { n: 'Rosmarin',        art: 'Salvia rosmarinus',      iv: 7,  licht: 'Vollsonne', menge: '150 ml', d: 30, um: 24, hinweis: 'Lieber zu trocken als zu nass.' },
+  { n: 'Hortensie',       art: 'Hydrangea',              iv: 2,  licht: 'Halbschatten', menge: '500 ml', d: 14, um: 24, hinweis: 'Braucht im Sommer sehr viel Wasser.' },
+  { n: 'Bambus',          art: 'Dracaena sanderiana',    iv: 4,  licht: 'Halbschatten', menge: '200 ml', d: 30, um: 24, hinweis: '' }
+];
+
+/** Sucht einen Richtwert-Eintrag zu Name oder Art. */
+function artFinden(text) {
+  const suche = (text || '').trim().toLowerCase();
+  if (suche.length < 3) return null;
+  return ARTEN.find(a => a.n.toLowerCase() === suche || a.art.toLowerCase() === suche)
+      || ARTEN.find(a => suche.includes(a.n.toLowerCase())
+                      || (a.art && suche.includes(a.art.toLowerCase()))
+                      || a.n.toLowerCase().includes(suche)) || null;
+}
+
+/** Zeigt unter dem Namensfeld an, dass Richtwerte bereitstehen. */
+function artVorschlagPruefen() {
+  const box = $('#art-vorschlag');
+  const treffer = artFinden($('#f-name').value) || artFinden($('#f-art').value);
+  if (!treffer) { box.hidden = true; box.dataset.art = ''; return; }
+  box.dataset.art = treffer.n;
+  box.innerHTML = `<span>Richtwerte für <b>${esc(treffer.n)}</b>: alle ${treffer.iv} Tage` +
+    `${treffer.menge ? ', ' + esc(treffer.menge) : ''}</span>` +
+    `<button type="button" class="aktion" id="btn-art-uebernehmen">Übernehmen</button>`;
+  box.hidden = false;
+  $('#btn-art-uebernehmen').onclick = () => artUebernehmen(treffer);
+}
+
+/** Füllt die Felder mit den Richtwerten. Was schon ausgefüllt ist, bleibt. */
+function artUebernehmen(a) {
+  const fuelle = (wahl, wert, nurWennLeer = true) => {
+    const feld = $(wahl);
+    if (!feld || !wert) return;
+    const leer = !feld.value || feld.value === '0';
+    if (!nurWennLeer || leer) feld.value = wert;
+  };
+
+  fuelle('#f-art', a.art);
+  fuelle('#f-menge', a.menge);
+  fuelle('#f-licht', a.licht);
+  fuelle('#f-duenger-int', a.d);
+  fuelle('#f-umtopfen-int', a.um);
+  // Das Gießintervall steht auf 7 vorbelegt – hier ist der Richtwert die
+  // bessere Auskunft, solange der Nutzer nichts anderes eingetragen hat.
+  const iv = $('#f-intervall');
+  if (!iv.value || iv.value === '7') iv.value = a.iv;
+
+  const notiz = $('#f-notiz');
+  if (a.hinweis && !notiz.value.trim()) notiz.value = a.hinweis;
+
+  // Ein Datum brauchen die Aufgaben, sonst rechnet nichts
+  const heute = toISO(new Date());
+  if (a.d && !$('#f-duenger-letzt').value) $('#f-duenger-letzt').value = heute;
+  if (a.um && !$('#f-umtopfen-letzt').value) $('#f-umtopfen-letzt').value = heute;
+
+  $('#art-vorschlag').hidden = true;
+  toast('Richtwerte für ' + a.n + ' übernommen');
+}
+
+/* ---------- Fotoverlauf ----------
+   Mehrere Fotos je Pflanze mit Datum. Die Bilder liegen als JPEG im
+   localStorage und werden mitsynchronisiert, deshalb die Begrenzung auf
+   sechs Stück und 500 px Kantenlänge. */
+const FOTOS_MAX = 6;
+
+function fotosVon(p) {
+  return Array.isArray(p.fotos) ? p.fotos : [];
+}
+
+function fotoGalerieHTML(p) {
+  const liste = fotosVon(p);
+  const bilder = liste.map(f => `
+    <button class="galerie-bild" data-foto="${f.id}" data-fpid="${p.id}">
+      <img src="${f.bild}" alt="">
+      <span>${new Date(f.ts).toLocaleDateString('de-DE', { day: 'numeric', month: 'short', year: '2-digit' })}</span>
+    </button>`).join('');
+  const platz = liste.length < FOTOS_MAX
+    ? `<button class="galerie-neu" data-foto-neu="${p.id}">＋<span>Foto</span></button>` : '';
+  return `<div class="section-title mit-aktion"><span>Fotoverlauf</span>` +
+         `<span style="text-transform:none;letter-spacing:0;font-weight:400">${liste.length}/${FOTOS_MAX}</span></div>` +
+         `<div class="galerie">${bilder}${platz}</div>`;
+}
+
+async function fotoHinzufuegen(pid, datei) {
+  const p = DB.plants.find(x => x.id === pid);
+  if (!p) return;
+  const liste = fotosVon(p);
+  if (liste.length >= FOTOS_MAX) { toast('Mehr als ' + FOTOS_MAX + ' Fotos gehen nicht'); return; }
+  try {
+    const bild = await bildVerkleinern(datei, 500, 0.7);
+    p.fotos = liste.concat([{ id: uid(), bild, ts: Date.now() }]);
+    save();
+    openDetail(pid);
+    toast('Foto hinzugefügt');
+  } catch (e) {
+    toast(e.message || 'Foto konnte nicht gelesen werden');
+  }
+}
+
+function fotoAnsehen(pid, fid) {
+  const p = DB.plants.find(x => x.id === pid);
+  const f = fotosVon(p).find(x => x.id === fid);
+  if (!f) return;
+  $('#foto-gross').innerHTML = `
+    <div class="grabber"></div>
+    <img src="${f.bild}" alt="" class="foto-voll">
+    <p style="text-align:center;color:var(--text-2);margin:12px 0 0">
+      ${esc(p.name)} · ${new Date(f.ts).toLocaleDateString('de-DE',
+        { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+    <button class="btn danger" data-foto-weg="${fid}" data-fpid="${pid}">Foto löschen</button>
+    <button class="btn sec" data-close>Schließen</button>`;
+  openSheet('#sheet-foto');
+}
+
+function fotoLoeschen(pid, fid) {
+  const p = DB.plants.find(x => x.id === pid);
+  if (!p) return;
+  p.fotos = fotosVon(p).filter(f => f.id !== fid);
+  save();
+  closeSheets();
+  setTimeout(() => openDetail(pid), 160);
+  toast('Foto gelöscht');
+}
+
+/* ---------- Statistik ----------
+   Alles wird aus DB.logs gerechnet. Aussagekräftig wird das erst nach ein
+   paar Wochen Nutzung – vorher steht entsprechend wenig da. */
+
+/** Gießvorgänge je Kalenderwoche der letzten acht Wochen. */
+function wochenBalken() {
+  const heute = heute0();
+  const wochen = [];
+  for (let i = 7; i >= 0; i--) {
+    const bis = new Date(heute.getTime() - i * 7 * 86400000);
+    const von = new Date(bis.getTime() - 6 * 86400000);
+    von.setHours(0, 0, 0, 0);
+    const ende = new Date(bis.getTime() + 86400000);
+    const anzahl = DB.logs.filter(l => l.typ === 'wasser' && l.ts >= von.getTime() && l.ts < ende.getTime()).length;
+    wochen.push({ von, anzahl });
+  }
+  return wochen;
+}
+
+/** Wie pünktlich wurde eine Pflanze gegossen? Positiv = im Schnitt zu spät. */
+function verspaetung(p) {
+  const eigene = DB.logs.filter(l => l.plantId === p.id && l.typ === 'wasser')
+    .sort((a, b) => a.ts - b.ts);
+  if (eigene.length < 2) return null;
+  const iv = Number(p.intervall) || 7;
+  let summe = 0, n = 0;
+  for (let i = 1; i < eigene.length; i++) {
+    const abstand = Math.round((eigene[i].ts - eigene[i - 1].ts) / 86400000);
+    if (abstand > iv * 4) continue;   // längere Pausen (Urlaub) verzerren nur
+    summe += abstand - iv;
+    n++;
+  }
+  return n ? { schnitt: summe / n, anzahl: eigene.length } : null;
+}
+
+/** Wassermenge in Millilitern aus dem Freitextfeld, wenn möglich. */
+function mengeMl(p) {
+  const treffer = String(p.menge || '').match(/(\d+[.,]?\d*)\s*(l|ml)?/i);
+  if (!treffer) return null;
+  const zahl = parseFloat(treffer[1].replace(',', '.'));
+  if (!isFinite(zahl)) return null;
+  return (treffer[2] || 'ml').toLowerCase() === 'l' ? zahl * 1000 : zahl;
+}
+
+function zeigeStatistik() {
+  const box = $('#statistik-inhalt');
+  const wasser = DB.logs.filter(l => l.typ === 'wasser');
+  const vor30 = Date.now() - 30 * 86400000;
+  const letzte30 = wasser.filter(l => l.ts >= vor30);
+
+  // Wasserverbrauch der letzten 30 Tage
+  let ml = 0, unbekannt = 0;
+  for (const l of letzte30) {
+    const p = DB.plants.find(x => x.id === l.plantId);
+    const m = p && mengeMl(p);
+    if (m) ml += m; else unbekannt++;
+  }
+
+  const balken = wochenBalken();
+  const hoechst = Math.max(1, ...balken.map(b => b.anzahl));
+
+  let html = `<div class="stat-row" style="margin-bottom:16px">
+      <div class="stat" style="border:0"><b>${wasser.length}</b><span>Gießvorgänge</span></div>
+      <div class="stat" style="border:0"><b>${letzte30.length}</b><span>letzte 30 Tage</span></div>
+      <div class="stat" style="border:0"><b>${ml >= 1000 ? (ml / 1000).toFixed(1).replace('.', ',') + ' l' : Math.round(ml) + ' ml'}</b><span>Wasser</span></div>
+    </div>`;
+
+  if (unbekannt) {
+    html += `<p style="color:var(--text-3);font-size:12.5px;text-align:center;margin:-8px 0 14px">
+      ${unbekannt} Vorgänge ohne Mengenangabe sind nicht mitgerechnet.</p>`;
+  }
+
+  if (!wasser.length) {
+    box.innerHTML = html + `<div class="empty"><div class="big">📊</div>
+      <p>Noch nichts zu zeigen.</p>
+      <p>Sobald du ein paar Wochen gießt, entsteht hier ein Bild.</p></div>`;
+    return;
+  }
+
+  html += `<div class="section-title">Gießvorgänge je Woche</div><div class="card"><div class="balken">`;
+  for (const b of balken) {
+    const hoehe = Math.round((b.anzahl / hoechst) * 100);
+    html += `<div class="balken-spalte" title="${b.anzahl}">
+      <div class="balken-zahl">${b.anzahl || ''}</div>
+      <div class="balken-stab" style="height:${Math.max(hoehe, b.anzahl ? 6 : 2)}%"></div>
+      <div class="balken-text">${b.von.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' })}</div>
+    </div>`;
+  }
+  html += `</div></div>`;
+
+  // Zuverlässigkeit je Pflanze
+  const bewertet = DB.plants
+    .map(p => ({ p, v: verspaetung(p) }))
+    .filter(x => x.v)
+    .sort((a, b) => b.v.schnitt - a.v.schnitt);
+
+  if (bewertet.length) {
+    html += `<div class="section-title">Pünktlichkeit</div><div class="group">`;
+    for (const { p, v } of bewertet.slice(0, 8)) {
+      const tage = v.schnitt;
+      const zahl = n => n.toFixed(1).replace('.', ',');
+      const text = Math.abs(tage) < 0.5 ? 'pünktlich'
+        : tage > 0 ? '⌀ ' + zahl(tage) + ' Tage zu spät'
+                   : '⌀ ' + zahl(Math.abs(tage)) + ' Tage zu früh';
+      const farbe = tage > 1.5 ? 'var(--red)' : tage > 0.5 ? 'var(--orange)' : 'var(--accent)';
+      html += `<div class="field"><label>${esc(p.name)}</label>
+        <span class="hint" style="color:${farbe}">${text}</span></div>`;
+    }
+    html += `</div><p style="color:var(--text-3);font-size:12.5px;margin:2px 4px 0">
+      Verglichen wird der tatsächliche Abstand zwischen zwei Gießvorgängen mit
+      dem eingestellten Intervall. Längere Pausen, etwa im Urlaub, bleiben außen vor.</p>`;
+  }
+
+  // Häufigkeit je Aufgabe
+  const proTyp = {};
+  for (const l of DB.logs) proTyp[l.typ] = (proTyp[l.typ] || 0) + 1;
+  const zeilen = Object.entries(proTyp)
+    .sort((a, b) => b[1] - a[1])
+    .map(([typ, n]) => `<div class="field"><label>${logText(typ)}</label><span class="hint">${n}</span></div>`)
+    .join('');
+  if (zeilen) html += `<div class="section-title">Verlauf gesamt</div><div class="group">${zeilen}</div>`;
+
+  box.innerHTML = html;
+}
+
 /* ---------- Sheets ---------- */
 function openSheet(sel) { $(sel).classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeSheets() { $$('.sheet').forEach(s => s.classList.remove('open')); document.body.style.overflow = ''; }
@@ -1140,6 +1429,9 @@ function openEdit(id) {
   $('#btn-delete').style.display = p ? 'block' : 'none';
   $('#btn-foto-del').style.display = editFoto ? 'block' : 'none';
   renderEmojiPick();
+  $('#art-liste').innerHTML = ARTEN.map(a => `<option value="${esc(a.art || a.n)}">`).join('');
+  $('#art-vorschlag').hidden = true;
+  if (p) artVorschlagPruefen();
   openSheet('#sheet-edit');
   if (!p) setTimeout(() => $('#f-name').focus(), 300);
 }
@@ -1226,6 +1518,8 @@ function openDetail(id) {
     </div>
 
     ${p.notiz ? `<div class="section-title">Notizen</div><div class="card" style="white-space:pre-wrap">${esc(p.notiz)}</div>` : ''}
+
+    ${fotoGalerieHTML(p)}
 
     ${logs.length ? `<div class="section-title">Verlauf</div><div class="group">` + logs.map(l => `
       <div class="log-item"><span>${logText(l.typ)}</span>
@@ -1547,6 +1841,14 @@ function bind() {
   $$('.tabbar button').forEach(b => b.onclick = () => tab(b.dataset.tab));
   bindePersoenlich();
   $('#zeile-historie').onclick = zeigeHistorie;
+  $('#zeile-statistik').onclick = () => { zeigeStatistik(); openSheet('#sheet-statistik'); };
+  $('#f-name').oninput = artVorschlagPruefen;
+  $('#f-art').oninput = artVorschlagPruefen;
+  $('#foto-neu-datei').onchange = e => {
+    const pid = e.target.dataset.pid;
+    if (e.target.files[0] && pid) fotoHinzufuegen(pid, e.target.files[0]);
+    e.target.value = '';
+  };
   $('#btn-urlaub').onclick = urlaubOeffnen;
   $('#url-von').onchange = urlaubRechnen;
   $('#url-bis').onchange = urlaubRechnen;
@@ -1606,7 +1908,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -1621,6 +1923,15 @@ function bind() {
     if (t.dataset.dueng) { e.stopPropagation(); duengen(t.dataset.dueng); return; }
     if (t.dataset.aufgabe) { e.stopPropagation(); aufgabeErledigt(t.dataset.pid, t.dataset.aufgabe); return; }
     if (t.dataset.alleGiessen !== undefined) { e.stopPropagation(); alleGiessen(); return; }
+    if (t.dataset.fotoWeg) { e.stopPropagation(); fotoLoeschen(t.dataset.fpid, t.dataset.fotoWeg); return; }
+    if (t.dataset.foto) { e.stopPropagation(); fotoAnsehen(t.dataset.fpid, t.dataset.foto); return; }
+    if (t.dataset.fotoNeu) {
+      e.stopPropagation();
+      const datei = $('#foto-neu-datei');
+      datei.dataset.pid = t.dataset.fotoNeu;
+      datei.click();
+      return;
+    }
     if (t.dataset.edit) { closeSheets(); setTimeout(() => openEdit(t.dataset.edit), 180); return; }
     if (t.dataset.del) { loeschePflanze(t.dataset.del); return; }
     if (t.dataset.open) { openDetail(t.dataset.open); return; }

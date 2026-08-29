@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.10.0 - 2026-08-29
+
+- Pflegevorschläge: Beim Anlegen erkennt die App gut dreißig verbreitete
+  Zimmerpflanzen am Namen oder an der Art und bietet Richtwerte für
+  Gießintervall, Licht, Wassermenge, Dünger- und Umtopf-Intervall sowie einen
+  Pflegehinweis an. Übernommen wird nur, was noch nicht ausgefüllt ist –
+  eigene Eingaben bleiben unangetastet.
+- Fotoverlauf: bis zu sechs Bilder je Pflanze mit Datum, als Streifen in der
+  Detailansicht. Antippen zeigt das Bild groß, dort lässt es sich auch löschen.
+  Die Bilder werden auf 500 px verkleinert, weil sie mitsynchronisiert werden.
+- Statistik unter Mehr: Gießvorgänge gesamt und in den letzten 30 Tagen,
+  Wasserverbrauch aus den Mengenangaben, ein Balkendiagramm der letzten acht
+  Wochen, die Pünktlichkeit je Pflanze und der Verlauf nach Aufgabenart.
+- Die Pünktlichkeit vergleicht den tatsächlichen Abstand zwischen zwei
+  Gießvorgängen mit dem eingestellten Intervall. Ungewöhnlich lange Pausen,
+  etwa im Urlaub, bleiben außen vor, damit sie das Bild nicht verzerren.
+
 ## v1.9.0 - 2026-08-29
 
 - Alle fälligen Pflanzen auf einmal gießen: Im Abschnitt "Jetzt gießen" steht

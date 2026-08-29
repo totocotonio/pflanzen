@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=1.9.0">
+<link rel="stylesheet" href="style.css?v=1.10.0">
 </head>
 <body>
 
@@ -166,6 +166,9 @@
     <div class="group">
       <div class="field"><label>Version</label><span class="hint" id="about-version">–</span></div>
       <div class="field"><label>Speicher</label><span class="hint">localStorage + Server</span></div>
+      <div class="field" id="zeile-statistik" style="cursor:pointer">
+        <label>Statistik</label><span class="hint">Zahlen und Verlauf ›</span>
+      </div>
       <div class="field" id="zeile-historie" style="cursor:pointer">
         <label>Versionshistorie</label><span class="hint">alle Änderungen ›</span>
       </div>
@@ -194,10 +197,12 @@
 
     <div class="group">
       <div class="field"><label>Name</label><input id="f-name" placeholder="z.B. Monstera" autocomplete="off"></div>
-      <div class="field"><label>Art</label><input id="f-art" placeholder="optional" autocomplete="off"></div>
+      <div class="field"><label>Art</label><input id="f-art" placeholder="optional" autocomplete="off" list="art-liste"></div>
       <div class="field"><label>Standort</label><input id="f-raum" placeholder="z.B. Wohnzimmer" autocomplete="off" list="raum-list"></div>
     </div>
     <datalist id="raum-list"></datalist>
+    <datalist id="art-liste"></datalist>
+    <div class="vorschlag" id="art-vorschlag" hidden></div>
 
     <div class="section-title">Symbol / Foto</div>
     <div class="card">
@@ -250,6 +255,25 @@
     <button class="btn danger" id="btn-delete" style="display:none">Pflanze löschen</button>
   </div>
 </div>
+
+<!-- ===== Sheet: Statistik ===== -->
+<div class="sheet" id="sheet-statistik">
+  <div class="backdrop" data-close></div>
+  <div class="panel">
+    <div class="grabber"></div>
+    <h2>Statistik</h2>
+    <div id="statistik-inhalt"></div>
+    <button class="btn sec" data-close>Schließen</button>
+  </div>
+</div>
+
+<!-- ===== Sheet: Foto groß ===== -->
+<div class="sheet" id="sheet-foto">
+  <div class="backdrop" data-close></div>
+  <div class="panel" id="foto-gross"></div>
+</div>
+
+<input type="file" id="foto-neu-datei" accept="image/*" hidden>
 
 <!-- ===== Sheet: Urlaub ===== -->
 <div class="sheet" id="sheet-urlaub">
@@ -326,6 +350,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=1.9.0"></script>
+<script src="app.js?v=1.10.0"></script>
 </body>
 </html>
