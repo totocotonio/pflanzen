@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.16.0 - 2026-08-29
+
+- Archivieren statt löschen: Eine Pflanze verschwindet aus allen Listen,
+  Zählungen und Erinnerungen, behält aber Verlauf und Fotos. Sichtbar über
+  einen eigenen Chip in der Pflanzenliste, von dort auch wieder zurückholbar.
+  Endgültiges Löschen bleibt daneben bestehen.
+- Pflanzenliste sortierbar: nach Dringlichkeit, Name oder Standort. Bei
+  Standort wird nach Räumen gruppiert mit Zwischenüberschriften.
+- Winterruhe je Pflanze: Statt pauschal Faktor 1,5 für alle lässt sich pro
+  Pflanze wählen zwischen "keine", ×1,5, ×2 und ×3. Ein Kaktus braucht im
+  Winter fast nichts, ein Basilikum auf der Fensterbank weiterhin viel.
+- QR-Code für den Topf: In der Detailansicht erzeugbar, ausdruckbar und zum
+  Ankleben gedacht. Scannen öffnet genau diese Pflanze in der App. Der Code
+  enthält nur die Kennung, keine Daten – ohne Anmeldung sieht ein Fremder
+  nichts.
+
 ## v1.15.0 - 2026-08-29
 
 - Gieß-Runde: Sind mehr als zwei Pflanzen fällig, führt ein Knopf auf der

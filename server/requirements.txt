@@ -5,3 +5,4 @@ bcrypt
 pydantic
 pywebpush
 cryptography
+segno

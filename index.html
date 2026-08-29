@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=1.15.0">
+<link rel="stylesheet" href="style.css?v=1.16.0">
 </head>
 <body>
 
@@ -68,7 +68,14 @@
              autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="search">
       <button class="suche-weg" id="suche-weg" hidden title="Suche leeren">✕</button>
     </div>
-    <div class="chips" id="raum-chips"></div>
+    <div class="listen-kopf">
+      <div class="chips" id="raum-chips"></div>
+      <select id="sortierung" class="sortier-wahl">
+        <option value="dringlich">nach Dringlichkeit</option>
+        <option value="name">nach Name</option>
+        <option value="raum">nach Standort</option>
+      </select>
+    </div>
     <div class="grid" id="pflanzen-grid"></div>
   </section>
 
@@ -232,6 +239,16 @@
       <div class="field"><label>Alle … Tage</label><input type="number" id="f-intervall" min="1" max="365" value="7" inputmode="numeric"></div>
       <div class="field"><label>Zuletzt gegossen</label><input type="date" id="f-letzt"></div>
       <div class="field"><label>Wassermenge</label><input id="f-menge" placeholder="z.B. 200 ml" autocomplete="off"></div>
+      <div class="field">
+        <label>Winterruhe</label>
+        <select id="f-winter">
+          <option value="0">wie eingestellt</option>
+          <option value="1">keine, gleich weiter</option>
+          <option value="1.5">etwas weniger (×1,5)</option>
+          <option value="2">deutlich weniger (×2)</option>
+          <option value="3">fast trocken (×3)</option>
+        </select>
+      </div>
     </div>
 
     <div class="section-title">Düngen (optional)</div>
@@ -269,6 +286,12 @@
     <button class="btn sec" data-close>Abbrechen</button>
     <button class="btn danger" id="btn-delete" style="display:none">Pflanze löschen</button>
   </div>
+</div>
+
+<!-- ===== Sheet: QR-Code ===== -->
+<div class="sheet" id="sheet-qr">
+  <div class="backdrop" data-close></div>
+  <div class="panel" id="qr-inhalt"></div>
 </div>
 
 <!-- ===== Sheet: Gieß-Runde ===== -->
@@ -386,6 +409,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=1.15.0"></script>
+<script src="app.js?v=1.16.0"></script>
 </body>
 </html>

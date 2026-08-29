@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.15.0';
+const VERSION = '1.16.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -33,6 +33,7 @@ let editFoto = null;
 let raumFilter = 'alle';
 let heuteFilter = null;   // null | 'faellig' | 'bald' | 'alle'
 let suchText = '';
+let sortierung = 'dringlich';
 let letzteAktion = null;  // für "Rückgängig" nach Gießen/Düngen
 
 /* ---------- Persistenz ---------- */
@@ -71,6 +72,13 @@ function toISO(d) {
 function fromISO(s) { const [y, m, t] = String(s).split('-').map(Number); return new Date(y, m - 1, t); }
 function tageDiff(a, b) { return Math.round((b - a) / 86400000); }
 
+/** Alle Pflanzen ohne die archivierten. Fast überall gemeint, wenn von
+    "den Pflanzen" die Rede ist – nur Archivansicht und Statistik greifen
+    bewusst auf DB.plants zu. */
+function aktive() {
+  return DB.plants.filter(p => !p.archiviert);
+}
+
 function winterAktiv() {
   const w = DB.settings.winter;
   if (w === '1') return true;
@@ -79,7 +87,9 @@ function winterAktiv() {
   return m >= 10 || m <= 1;        // Nov, Dez, Jan, Feb
 }
 function effIntervall(p) {
-  const f = winterAktiv() ? 1.5 : 1;
+  // Eigener Winterwert der Pflanze schlägt die allgemeine Einstellung
+  const eigen = Number(p.winterFaktor) || 0;
+  const f = winterAktiv() ? (eigen || 1.5) : 1;
   return Math.max(1, Math.round((Number(p.intervall) || 7) * f));
 }
 /** Tage bis zum nächsten Gießen. Negativ = überfällig. */
@@ -401,6 +411,12 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.16.0', datum: '29.08.2026', punkte: [
+    'Archivieren statt löschen: Pflanze verschwindet aus der Liste, Verlauf und Fotos bleiben.',
+    'Pflanzenliste sortierbar nach Dringlichkeit, Name oder Standort.',
+    'Winterruhe je Pflanze einstellbar, statt pauschal für alle.',
+    'QR-Code für den Topf: ausdrucken, ankleben, scannen öffnet die Pflanze direkt.'
+  ]},
   { v: '1.15.0', datum: '29.08.2026', punkte: [
     'Gieß-Runde: führt nach Standort geordnet durch die Wohnung, eine Pflanze nach der anderen.',
     'Problem-Hilfe zu zehn typischen Symptomen, mit Prüfung der eigenen Werte.',
@@ -759,18 +775,19 @@ function renderHeute() {
     { weekday: 'long', day: 'numeric', month: 'long' });
 
   const fenster = vorschauTage();
-  const faellig = DB.plants.filter(p => tageBis(p) <= 0);
-  const bald = DB.plants.filter(p => { const t = tageBis(p); return t > 0 && t <= fenster; });
+  const liste = aktive();
+  const faellig = liste.filter(p => tageBis(p) <= 0);
+  const bald = liste.filter(p => { const t = tageBis(p); return t > 0 && t <= fenster; });
 
   $('#st-faellig').textContent = faellig.length;
   $('#st-bald').textContent = bald.length;
-  $('#st-gesamt').textContent = DB.plants.length;
+  $('#st-gesamt').textContent = liste.length;
   $('#st-bald-text').textContent = fenster === 1 ? 'morgen' : 'in ' + fenster + ' Tagen';
 
   $$('.stat').forEach(k => k.classList.toggle('on', k.dataset.filter === heuteFilter));
 
   const box = $('#heute-liste');
-  if (!DB.plants.length) {
+  if (!liste.length) {
     box.innerHTML = `<div class="empty"><div class="big">🌱</div>
       <p><b>Noch keine Pflanzen</b></p>
       <p>Tippe oben auf ＋ und leg deine erste Pflanze an.</p>
@@ -782,7 +799,7 @@ function renderHeute() {
   if (heuteFilter) {
     const auswahl = heuteFilter === 'faellig' ? faellig
       : heuteFilter === 'bald' ? bald
-      : DB.plants.slice();
+      : liste.slice();
     const ueberschrift = heuteFilter === 'faellig' ? 'Jetzt gießen'
       : heuteFilter === 'bald'
         ? (fenster === 1 ? 'Morgen fällig' : 'In den nächsten ' + fenster + ' Tagen')
@@ -800,7 +817,7 @@ function renderHeute() {
   }
 
   if (!faellig.length && !bald.length) {
-    const naechst = DB.plants.slice().sort((a, b) => tageBis(a) - tageBis(b))[0];
+    const naechst = liste.slice().sort((a, b) => tageBis(a) - tageBis(b))[0];
     box.innerHTML = `<div class="empty"><div class="big">✅</div>
       <p><b>Alles gegossen</b></p>
       <p>Nächste Pflanze: ${esc(naechst.name)} ${statusText(naechst).toLowerCase()}.</p></div>`;
@@ -865,54 +882,94 @@ function passtZurSuche(p) {
 }
 
 function renderPflanzen() {
-  const raeume = Array.from(new Set(DB.plants.map(p => p.raum).filter(Boolean))).sort();
-  $('#pflanzen-sub').textContent = DB.plants.length + (DB.plants.length === 1 ? ' Pflanze' : ' Pflanzen');
+  const archivZahl = DB.plants.filter(p => p.archiviert).length;
+  // Wird die letzte archivierte Pflanze zurückgeholt, gäbe es sonst keinen
+  // Weg mehr aus der leeren Archivansicht heraus
+  if (raumFilter === '__archiv' && !archivZahl) raumFilter = 'alle';
+  const archivAn = raumFilter === '__archiv';
+  const grundmenge = archivAn ? DB.plants.filter(p => p.archiviert) : aktive();
+  const raeume = Array.from(new Set(aktive().map(p => p.raum).filter(Boolean))).sort();
 
+  $('#pflanzen-sub').textContent = archivAn
+    ? archivZahl + (archivZahl === 1 ? ' archivierte Pflanze' : ' archivierte Pflanzen')
+    : aktive().length + (aktive().length === 1 ? ' Pflanze' : ' Pflanzen');
+
+  // Chips: Alle, die Standorte, und das Archiv wenn es etwas enthält
   $('#raum-chips').hidden = !!suchText;
-  $('#raum-chips').innerHTML = raeume.length
-    ? [`<button class="chip ${raumFilter === 'alle' ? 'on' : ''}" data-raum="alle">Alle</button>`]
-      .concat(raeume.map(r => `<button class="chip ${raumFilter === r ? 'on' : ''}" data-raum="${esc(r)}">${esc(r)}</button>`))
-      .join('')
-    : '';
-
-  const liste = DB.plants
-    .filter(p => raumFilter === 'alle' || p.raum === raumFilter)
-    .filter(passtZurSuche);
-  const grid = $('#pflanzen-grid');
-  if (suchText) {
-    $('#pflanzen-sub').textContent = liste.length +
-      (liste.length === 1 ? ' Treffer' : ' Treffer');
+  const chips = [`<button class="chip ${raumFilter === 'alle' ? 'on' : ''}" data-raum="alle">Alle</button>`]
+    .concat(raeume.map(r => `<button class="chip ${raumFilter === r ? 'on' : ''}" data-raum="${esc(r)}">${esc(r)}</button>`));
+  if (archivZahl) {
+    chips.push(`<button class="chip ${archivAn ? 'on' : ''}" data-raum="__archiv">📦 Archiv (${archivZahl})</button>`);
   }
+  $('#raum-chips').innerHTML = (raeume.length || archivZahl) ? chips.join('') : '';
+
+  let liste = grundmenge
+    .filter(p => archivAn || raumFilter === 'alle' || p.raum === raumFilter)
+    .filter(passtZurSuche);
+
+  if (suchText) {
+    $('#pflanzen-sub').textContent = liste.length + ' Treffer';
+  }
+
+  const grid = $('#pflanzen-grid');
   if (!liste.length) {
-    grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="big">🔍</div>
-      <p>${suchText ? 'Nichts gefunden.' : 'Keine Pflanzen in dieser Ansicht.'}</p>
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="big">${suchText ? '🔍' : archivAn ? '📦' : '🪴'}</div>
+      <p>${suchText ? 'Nichts gefunden.' : archivAn ? 'Das Archiv ist leer.' : 'Keine Pflanzen in dieser Ansicht.'}</p>
       ${suchText ? '<p>Andere Schreibweise versuchen?</p>' : ''}</div>`;
     return;
   }
-  grid.innerHTML = liste.slice().sort((a, b) => a.name.localeCompare(b.name, 'de')).map(p => `
-    <button class="tile" data-open="${p.id}">
+
+  const kachel = p => `
+    <button class="tile ${p.archiviert ? 'archiviert' : ''}" data-open="${p.id}">
       ${avatarHTML(p)}
       <div class="nm">${esc(p.name)}</div>
-      <div class="meta">${statusText(p)}</div>
-    </button>`).join('');
+      <div class="meta">${p.archiviert ? 'archiviert' : statusText(p)}</div>
+    </button>`;
 
+  // Nach Standort wird gruppiert, sonst einfach sortiert
+  if (sortierung === 'raum' && !archivAn) {
+    const gruppen = {};
+    for (const p of liste) (gruppen[p.raum || 'Ohne Standort'] ||= []).push(p);
+    grid.innerHTML = Object.keys(gruppen).sort((a, b) => a.localeCompare(b, 'de')).map(raum =>
+      `<div class="gruppe-titel">${esc(raum)}</div>` +
+      gruppen[raum].sort((a, b) => a.name.localeCompare(b.name, 'de')).map(kachel).join('')
+    ).join('');
+    return;
+  }
 
+  liste = liste.slice().sort(sortierung === 'name' || archivAn
+    ? (a, b) => a.name.localeCompare(b.name, 'de')
+    : (a, b) => tageBis(a) - tageBis(b));
+  grid.innerHTML = liste.map(kachel).join('');
+}
+
+/** Archivieren statt löschen: die Pflanze bleibt mit ihrem Verlauf erhalten,
+    zählt aber nirgends mehr mit. */
+function archivieren(id, zurueck) {
+  const p = DB.plants.find(x => x.id === id);
+  if (!p) return;
+  p.archiviert = !zurueck;
+  if (zurueck) delete p.archiviert;
+  save();
+  renderAll();
+  closeSheets();
+  toast(zurueck ? p.name + ' ist wieder in der Liste' : p.name + ' archiviert');
 }
 
 function renderPlan() {
   const box = $('#plan-liste');
-  if (!DB.plants.length) { box.innerHTML = `<div class="empty"><div class="big">🗓</div><p>Noch nichts geplant.</p></div>`; return; }
+  if (!aktive().length) { box.innerHTML = `<div class="empty"><div class="big">🗓</div><p>Noch nichts geplant.</p></div>`; return; }
 
   let html = '';
   const heute = heute0();
-  const ueber = DB.plants.filter(p => tageBis(p) < 0);
+  const ueber = aktive().filter(p => tageBis(p) < 0);
   if (ueber.length) {
     html += `<div class="section-title" style="color:var(--red)">Überfällig</div>`;
     html += ueber.sort((a, b) => tageBis(a) - tageBis(b)).map(plantRow).join('');
   }
   for (let i = 0; i < 14; i++) {
     const tag = new Date(heute.getTime() + i * 86400000);
-    const drin = DB.plants.filter(p => tageBis(p) === i);
+    const drin = aktive().filter(p => tageBis(p) === i);
     if (!drin.length) continue;
     const label = i === 0 ? 'Heute' : i === 1 ? 'Morgen'
       : tag.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'short' });
@@ -1004,7 +1061,7 @@ function aufgabeTageBis(p, a) {
 /** Alle heute fälligen Aufgaben über alle Pflanzen. */
 function faelligeAufgaben() {
   const treffer = [];
-  for (const p of DB.plants) {
+  for (const p of aktive()) {
     for (const a of AUFGABEN) {
       const t = aufgabeTageBis(p, a);
       if (t !== null && t <= 0) treffer.push({ pflanze: p, aufgabe: a, tage: t });
@@ -1032,7 +1089,7 @@ function aufgabeErledigt(id, schluessel) {
 
 /** Markiert alle gerade fälligen Pflanzen als gegossen. */
 function alleGiessen() {
-  const faellig = DB.plants.filter(p => tageBis(p) <= 0);
+  const faellig = aktive().filter(p => tageBis(p) <= 0);
   if (!faellig.length) { toast('Gerade ist nichts fällig'); return; }
 
   const heute = toISO(new Date());
@@ -1097,7 +1154,7 @@ function urlaubRechnen() {
   const vorher = [];   // vor der Abreise noch gießen
   const waehrend = []; // braucht Betreuung
 
-  for (const p of DB.plants) {
+  for (const p of aktive()) {
     const termine = giesstermine(p, bis);
     // Alles, was bis einschließlich Abreisetag dran ist: vorher gießen
     const vorAbreise = termine.filter(d => d <= von);
@@ -1348,7 +1405,7 @@ function artVorschlagPruefen() {
 /** Baut das Standort-Dropdown: Standardräume, eigene Räume, und ein
     Eintrag zum Anlegen eines neuen. */
 function raumWahlFuellen(aktuell) {
-  const eigene = DB.plants.map(p => p.raum).filter(Boolean);
+  const eigene = aktive().map(p => p.raum).filter(Boolean);
   const alle = Array.from(new Set(STANDORTE.concat(eigene)))
     .sort((a, b) => a.localeCompare(b, 'de'));
   const bekannt = aktuell && alle.includes(aktuell);
@@ -1562,7 +1619,7 @@ function zeigeStatistik() {
   html += `</div></div>`;
 
   // Zuverlässigkeit je Pflanze
-  const bewertet = DB.plants
+  const bewertet = aktive()
     .map(p => ({ p, v: verspaetung(p) }))
     .filter(x => x.v)
     .sort((a, b) => b.v.schnitt - a.v.schnitt);
@@ -1604,7 +1661,7 @@ function zeigeStatistik() {
 let runde = null;   // { pflanzen: [], index: 0, erledigt: Set }
 
 function rundeStarten() {
-  const faellig = DB.plants.filter(p => tageBis(p) <= 0);
+  const faellig = aktive().filter(p => tageBis(p) <= 0);
   if (!faellig.length) { toast('Gerade ist nichts fällig'); return; }
 
   // Nach Standort gruppieren, damit man nicht zwischen Zimmern hin und her läuft
@@ -1848,6 +1905,38 @@ function problemZeigen(id) {
     `<button class="btn sec" data-problem-zurueck>Zurück zur Übersicht</button>`;
 }
 
+/* ---------- QR-Code fürs Etikett ----------
+   Der Code enthält nur die Kennung der Pflanze in einer URL. Wer ihn scannt,
+   landet in der App; ohne Anmeldung sieht er dort nichts. */
+function qrZeigen(id) {
+  const p = DB.plants.find(x => x.id === id);
+  if (!p) return;
+  $('#qr-inhalt').innerHTML = `
+    <div class="grabber"></div>
+    <h2>QR-Code für den Topf</h2>
+    <div class="qr-karte">
+      <img src="${API}/qr?p=${encodeURIComponent(p.id)}" alt="QR-Code für ${esc(p.name)}">
+      <div class="qr-name">${esc(p.name)}</div>
+      ${p.raum ? `<div class="qr-ort">${esc(p.raum)}</div>` : ''}
+    </div>
+    <p style="color:var(--text-2);font-size:14px;text-align:center;margin:0 0 6px">
+      Ausdrucken, an den Topf kleben: Scannen öffnet diese Pflanze direkt.</p>
+    <button class="btn sec" onclick="window.print()">Drucken</button>
+    <button class="btn sec" data-close>Schließen</button>`;
+  openSheet('#sheet-qr');
+}
+
+/** Beim Start prüfen, ob die App über einen QR-Code geöffnet wurde. */
+function hashPruefen() {
+  const treffer = /^#p=([A-Za-z0-9_-]+)$/.exec(location.hash || '');
+  if (!treffer) return;
+  const id = treffer[1];
+  history.replaceState(null, '', location.pathname);
+  const p = DB.plants.find(x => x.id === id);
+  if (p) setTimeout(() => openDetail(id), 250);
+  else toast('Diese Pflanze gibt es hier nicht');
+}
+
 /* ---------- Sheets ---------- */
 function openSheet(sel) { $(sel).classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeSheets() { $$('.sheet').forEach(s => s.classList.remove('open')); document.body.style.overflow = ''; }
@@ -1862,6 +1951,7 @@ function openEdit(id) {
   $('#f-intervall').value = p ? p.intervall : 7;
   $('#f-letzt').value = p ? (p.letzt || toISO(new Date())) : toISO(new Date());
   $('#f-menge').value = p ? (p.menge || '') : '';
+  $('#f-winter').value = p ? String(p.winterFaktor || 0) : '0';
   $('#f-duenger-int').value = p ? (p.duengerInt || 0) : 0;
   $('#f-duenger-letzt').value = p ? (p.duengerLetzt || '') : '';
   $('#f-umtopfen-int').value = p ? (p.umtopfenMon || 0) : 0;
@@ -1900,6 +1990,7 @@ function speichern() {
     intervall: Math.max(1, Number($('#f-intervall').value) || 7),
     letzt: $('#f-letzt').value || toISO(new Date()),
     menge: $('#f-menge').value.trim(),
+    winterFaktor: Number($('#f-winter').value) || 0,
     duengerInt: Math.max(0, Number($('#f-duenger-int').value) || 0),
     duengerLetzt: $('#f-duenger-letzt').value || '',
     umtopfenMon: Math.max(0, Number($('#f-umtopfen-int').value) || 0),
@@ -1952,7 +2043,10 @@ function openDetail(id) {
 
     <div class="section-title">Pflege</div>
     <div class="group">
-      <div class="field"><label>Gießintervall</label><span class="hint">alle ${p.intervall} Tage${winterAktiv() ? ' (Winter: ' + effIntervall(p) + ')' : ''}</span></div>
+      <div class="field"><label>Gießintervall</label><span class="hint">alle ${p.intervall} Tage${
+        winterAktiv() && effIntervall(p) !== Number(p.intervall) ? ' · Winter: ' + effIntervall(p) : ''}</span></div>
+      ${p.winterFaktor ? `<div class="field"><label>Winterruhe</label><span class="hint">×${
+        String(p.winterFaktor).replace('.', ',')}</span></div>` : ''}
       <div class="field"><label>Zuletzt gegossen</label><span class="hint">${p.letzt ? fromISO(p.letzt).toLocaleDateString('de-DE') : '–'}</span></div>
       ${p.menge ? `<div class="field"><label>Wassermenge</label><span class="hint">${esc(p.menge)}</span></div>` : ''}
       ${p.licht ? `<div class="field"><label>Licht</label><span class="hint">${esc(p.licht)}</span></div>` : ''}
@@ -1973,7 +2067,11 @@ function openDetail(id) {
       <span>${new Date(l.ts).toLocaleDateString('de-DE')}</span></div>`).join('') + `</div>` : ''}
 
     <button class="btn sec" data-hilfe="${p.id}">🩺 Problem mit dieser Pflanze?</button>
+    <button class="btn sec" data-qr="${p.id}">🏷 QR-Code für den Topf</button>
     <button class="btn sec" data-edit="${p.id}">Bearbeiten</button>
+    ${p.archiviert
+      ? `<button class="btn sec" data-entarchiv="${p.id}">Zurück in die Liste</button>`
+      : `<button class="btn sec" data-archiv="${p.id}">📦 Archivieren</button>`}
     <button class="btn danger" data-del="${p.id}">Pflanze löschen</button>
     <button class="btn sec" data-close>Schließen</button>
   `;
@@ -2288,6 +2386,7 @@ function tab(name) {
 function bind() {
   $$('.tabbar button').forEach(b => b.onclick = () => tab(b.dataset.tab));
   bindePersoenlich();
+  $('#sortierung').onchange = e => { sortierung = e.target.value; renderPflanzen(); };
   $('#suchfeld').oninput = e => {
     suchText = e.target.value.trim().toLowerCase();
     $('#suche-weg').hidden = !suchText;
@@ -2374,7 +2473,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -2405,6 +2504,9 @@ function bind() {
     }
     if (t.dataset.edit) { closeSheets(); setTimeout(() => openEdit(t.dataset.edit), 180); return; }
     if (t.dataset.del) { loeschePflanze(t.dataset.del); return; }
+    if (t.dataset.qr) { e.stopPropagation(); qrZeigen(t.dataset.qr); return; }
+    if (t.dataset.archiv) { archivieren(t.dataset.archiv, false); return; }
+    if (t.dataset.entarchiv) { archivieren(t.dataset.entarchiv, true); return; }
     if (t.dataset.open) { openDetail(t.dataset.open); return; }
     if (t.dataset.emoji) { editEmoji = t.dataset.emoji; editFoto = null; $('#btn-foto-del').style.display = 'none'; renderEmojiPick(); return; }
     if (t.dataset.raum) { raumFilter = t.dataset.raum; renderPflanzen(); return; }
@@ -2444,6 +2546,7 @@ applyPersonalisierung();
 bind();
 renderAll();
 if (DB.settings.startAnsicht && DB.settings.startAnsicht !== 'heute') tab(DB.settings.startAnsicht);
+hashPruefen();
 starte();
 
 /* Systemwechsel nur nachziehen, solange 'System' eingestellt ist */

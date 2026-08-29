@@ -259,6 +259,30 @@ def daten_speichern(eingabe: SyncDaten,
     return {"rev": d.rev}
 
 
+@app.get("/api/qr")
+def qr_code(p: str = "", name: str = ""):
+    """QR-Code als SVG für den Aufkleber am Topf.
+
+    Ohne Anmeldung erreichbar: Der Code enthält nur eine Pflanzen-ID, keine
+    Daten. Wer ihn scannt, landet in der App und muss sich dort anmelden.
+    """
+    import io as _io
+    import re as _re
+
+    import segno
+    from fastapi.responses import Response as DateiAntwort
+
+    if not _re.fullmatch(r"[A-Za-z0-9_-]{1,40}", p):
+        raise HTTPException(400, "ungültige Kennung")
+
+    ziel = f"https://pflanzen.michaely.de/#p={p}"
+    puffer = _io.BytesIO()
+    segno.make(ziel, error="m").save(puffer, kind="svg", scale=6, border=2,
+                                     dark="#000000", light="#ffffff")
+    return DateiAntwort(content=puffer.getvalue(), media_type="image/svg+xml",
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+
 @app.get("/api/health")
 def health():
     return {"ok": True}

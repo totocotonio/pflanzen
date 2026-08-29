@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** ✅ Live (v1.15.0)
+**Status:** ✅ Live (v1.16.0)
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -28,7 +28,7 @@ Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in 
 ✅ **Farbcodierung** – grün (heute fällig), orange (demnächst), rot (überfällig)
 ✅ **Fortschrittsbalken** – zeigt, wie weit das Intervall aufgebraucht ist
 ✅ **Kacheln als Filter** – Tippen auf „fällig", „in 2 Tagen" oder „Pflanzen" zeigt nur diese Auswahl
-✅ **Winter-Modus** – verlängert alle Intervalle um Faktor 1,5; automatisch von November bis Februar
+✅ **Winter-Modus** – verlängert die Intervalle von November bis Februar; je Pflanze auf keine, ×1,5, ×2 oder ×3 einstellbar
 ✅ **Vorwarnung** – 0 bis 7 Tage vor Fälligkeit; Kachel und „Demnächst“ folgen der Einstellung
 ✅ **Plan-Ansicht** – die nächsten 14 Tage nach Kalendertagen gruppiert
 
@@ -49,6 +49,9 @@ Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in 
 ✅ **Urlaubsmodus** – Zeitraum eingeben: was vorher zu gießen ist, was währenddessen fällig wird, als Liste zum Weitergeben
 ✅ **Verlauf** – die letzten acht Gieß- und Düngevorgänge je Pflanze
 ✅ **Beispielpflanzen** – acht typische Zimmerpflanzen auf Knopfdruck, angeboten auf dem leeren Startbildschirm
+✅ **Archivieren** – Pflanze aus der Liste nehmen, Verlauf und Fotos behalten
+✅ **Sortierung** – nach Dringlichkeit, Name oder Standort (gruppiert)
+✅ **QR-Code** – Etikett für den Topf, Scannen öffnet die Pflanze direkt
 ✅ **Löschen** – einzeln in der Detailansicht, alles auf einmal unter Mehr → Daten
 
 ### App & Daten
@@ -89,7 +92,7 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
 | Design | iOS-orientiertes Dark UI, System-Schriften, `env(safe-area-inset-*)` |
 | Speicher | `localStorage`, Schlüssel `pg_data` |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v1.15.0` |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v1.16.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
 | Push | Web Push API + VAPID, pywebpush, systemd-Timer alle 15 Minuten |
 | Hosting | LXC Container auf Proxmox |
@@ -150,6 +153,7 @@ Alle Antworten JSON, Sitzung über das HttpOnly-Cookie `gz_session`.
 | GET | `/api/data` | `{rev, daten, geaendert}` – `daten` ist `null`, solange nichts gespeichert wurde |
 | PUT | `/api/data` | `{rev, daten}` → `{rev}`; bei veralteter `rev` **409** mit dem Serverstand |
 | GET | `/api/health` | Erreichbarkeitsprüfung, ohne Anmeldung |
+| GET | `/api/qr?p=…` | QR-Code als SVG für den Topf-Aufkleber (ohne Anmeldung, enthält nur die Kennung) |
 | GET | `/api/push/key` | öffentlicher VAPID-Schlüssel (ohne Anmeldung, der Client braucht ihn zum Abonnieren) |
 | POST | `/api/push/subscribe` | Gerät anmelden bzw. Uhrzeit ändern |
 | POST | `/api/push/unsubscribe` | Gerät abmelden |
@@ -254,6 +258,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v1.16.0** | Archiv, Sortierung, Winterruhe je Pflanze, QR-Code |
 | **v1.15.0** | Gieß-Runde, Problem-Hilfe, Erinnerung verschieben |
 | **v1.14.0** | Küchenkräuter ergänzt (79 Arten) |
 | **v1.13.0** | Pflanzenliste auf 75 Arten erweitert, Zweitnamen und Mehrzahl |
