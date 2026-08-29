@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 
 /* Push-Server – wird gesetzt, sobald der LXC steht */
 const PUSH_SERVER = '';
@@ -18,7 +18,7 @@ let DB = {
   v: 1,
   plants: [],
   logs: [],
-  settings: { winter: 'auto', vorwarn: 2, pushZeit: '09:00', pushAktiv: false }
+  settings: { winter: 'auto', vorwarn: 2, pushZeit: '09:00', pushAktiv: false, theme: 'auto' }
 };
 let editId = null;      // null = neue Pflanze
 let editEmoji = '🪴';
@@ -32,7 +32,7 @@ function load() {
     if (raw) {
       const d = JSON.parse(raw);
       DB = Object.assign(DB, d);
-      DB.settings = Object.assign({ winter: 'auto', vorwarn: 2, pushZeit: '09:00', pushAktiv: false }, d.settings || {});
+      DB.settings = Object.assign({ winter: 'auto', vorwarn: 2, pushZeit: '09:00', pushAktiv: false, theme: 'auto' }, d.settings || {});
       DB.plants = d.plants || [];
       DB.logs = d.logs || [];
     }
@@ -108,6 +108,21 @@ function avatarHTML(p, cls) {
   return p.foto
     ? `<div class="${c}"><img src="${p.foto}" alt=""></div>`
     : `<div class="${c}">${p.emoji || '🪴'}</div>`;
+}
+
+/* ---------- Erscheinungsbild ---------- */
+/** Setzt data-theme am <html> und passt die Statusleistenfarbe an.
+    'auto' entfernt das Attribut, dann entscheidet prefers-color-scheme. */
+function applyTheme() {
+  const t = DB.settings.theme || 'auto';
+  const root = document.documentElement;
+  if (t === 'auto') root.removeAttribute('data-theme');
+  else root.setAttribute('data-theme', t);
+
+  const dunkel = t === 'dark' ||
+    (t === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', dunkel ? '#000000' : '#f2f2f7');
 }
 
 /* ---------- Rendering ---------- */
@@ -242,6 +257,7 @@ function renderMore() {
   $('#about-version').textContent = VERSION;
   $('#dat-anzahl').textContent = DB.plants.length;
   $('#dat-logs').textContent = DB.logs.length;
+  $('#set-theme').value = DB.settings.theme || 'auto';
   $('#set-winter').value = DB.settings.winter;
   $('#set-vorwarn').value = String(DB.settings.vorwarn);
   $('#set-pushzeit').value = DB.settings.pushZeit;
@@ -511,6 +527,7 @@ function bind() {
   };
 
   $('#btn-push-toggle').onclick = pushToggle;
+  $('#set-theme').onchange = e => { DB.settings.theme = e.target.value; save(); applyTheme(); };
   $('#set-winter').onchange = e => { DB.settings.winter = e.target.value; save(); renderAll(); };
   $('#set-vorwarn').onchange = e => { DB.settings.vorwarn = Number(e.target.value); save(); renderAll(); };
   $('#set-pushzeit').onchange = e => { DB.settings.pushZeit = e.target.value; save(); };
@@ -536,8 +553,13 @@ function bind() {
 
 /* ---------- Start ---------- */
 load();
+applyTheme();
 bind();
 renderAll();
+
+/* Systemwechsel nur nachziehen, solange 'System' eingestellt ist */
+window.matchMedia('(prefers-color-scheme: dark)')
+  .addEventListener('change', () => { if ((DB.settings.theme || 'auto') === 'auto') applyTheme(); });
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

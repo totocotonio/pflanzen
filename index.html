@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=1.0.0">
+<link rel="stylesheet" href="style.css?v=1.1.0">
 </head>
 <body>
 
@@ -69,6 +69,18 @@
       </div>
     </div>
     <button class="btn" id="btn-push-toggle">Push aktivieren</button>
+
+    <div class="section-title">Darstellung</div>
+    <div class="group">
+      <div class="field">
+        <label>Erscheinungsbild</label>
+        <select id="set-theme">
+          <option value="auto">System</option>
+          <option value="light">Hell</option>
+          <option value="dark">Dunkel</option>
+        </select>
+      </div>
+    </div>
 
     <div class="section-title">Gießverhalten</div>
     <div class="group">
@@ -184,6 +196,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=1.0.0"></script>
+<script src="app.js?v=1.1.0"></script>
 </body>
 </html>

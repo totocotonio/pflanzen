@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.1.0 - 2026-08-29
+
+- Erscheinungsbild umschaltbar: System, Hell oder Dunkel (Mehr → Darstellung).
+- Helle Palette für alle Flächen, Tabbar, Sheets und Formulare ergänzt.
+- Statusleistenfarbe und `color-scheme` folgen dem gewählten Erscheinungsbild.
+- Desktop-Layout ab 768 px: Inhalt zentriert, größeres Raster, Hover-Zustände,
+  Tabbar als schwebende Leiste, Sheets als Dialoge in der Bildschirmmitte.
+
 ## v1.0.0 - 2026-08-29
 
 - Erste Fassung von Grünzeug als Progressive Web App.
