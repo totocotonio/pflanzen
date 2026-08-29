@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.14.0';
+const VERSION = '1.14.1';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -399,6 +399,9 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.14.1', datum: '29.08.2026', punkte: [
+    'Hanf mit aufgenommen.'
+  ]},
   { v: '1.14.0', datum: '29.08.2026', punkte: [
     'Küchenkräuter ergänzt: Koriander, Dill, Zitronenmelisse und Kresse.'
   ]},
@@ -1262,7 +1265,8 @@ const ARTEN = [
   { n: 'Hortensie', art: 'Hydrangea', alias: '', iv: 2, licht: 'Halbschatten', menge: '500 ml', d: 14, um: 24, hinweis: 'Braucht im Sommer sehr viel Wasser.' },
   { n: 'Geranie', art: 'Pelargonium', alias: 'Pelargonie', iv: 3, licht: 'Vollsonne', menge: '250 ml', d: 14, um: 12, hinweis: 'Verblühtes regelmäßig ausputzen.' },
   { n: 'Fuchsie', art: 'Fuchsia', alias: '', iv: 2, licht: 'Halbschatten', menge: '250 ml', d: 14, um: 12, hinweis: 'Keine pralle Mittagssonne.' },
-  { n: 'Petunie', art: 'Petunia', alias: '', iv: 2, licht: 'Vollsonne', menge: '300 ml', d: 7, um: 0, hinweis: 'Im Hochsommer täglich gießen.' }
+  { n: 'Petunie', art: 'Petunia', alias: '', iv: 2, licht: 'Vollsonne', menge: '300 ml', d: 7, um: 0, hinweis: 'Im Hochsommer täglich gießen.' },
+  { n: 'Hanf', art: 'Cannabis sativa', alias: 'Cannabis, Nutzhanf', iv: 3, licht: 'Vollsonne', menge: '500 ml', d: 10, um: 0, hinweis: 'Erst gießen, wenn die oberen zwei bis drei Zentimeter Erde trocken sind – Staunässe ist der häufigste Fehler. Bedarf steigt mit der Topfgröße deutlich.' }
 ];
 
 /** Vereinheitlicht Schreibweisen: Umlaute, Sonderzeichen, Groß/Klein. */

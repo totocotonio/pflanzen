@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.14.1 - 2026-08-29
+
+- Hanf (Cannabis sativa) in die Artenliste aufgenommen: alle 3 Tage, Vollsonne,
+  500 ml, Düngen alle 10 Tage. Damit sind es 80 Arten.
+
 ## v1.14.0 - 2026-08-29
 
 - Küchenkräuter ergänzt: Koriander, Dill, Zitronenmelisse und Kresse.
