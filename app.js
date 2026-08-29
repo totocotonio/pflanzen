@@ -4,9 +4,15 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.11.0';
+const VERSION = '1.12.0';
 
 const KEY = 'pg_data';
+/* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
+   bereits angelegten Pflanzen dazu, neue lassen sich im Formular ergänzen. */
+const STANDORTE = ['Wohnzimmer', 'Schlafzimmer', 'Küche', 'Bad', 'Flur',
+  'Arbeitszimmer', 'Kinderzimmer', 'Esszimmer', 'Wintergarten', 'Fensterbank',
+  'Balkon', 'Terrasse', 'Garten', 'Keller', 'Treppenhaus'];
+
 const EMOJIS = ['🪴','🌿','🌵','🌱','🌴','🎍','🌺','🌻','🌷','🍀','🌾','🥬','🍋','🌶️','🫒'];
 
 /* ---------- State ---------- */
@@ -393,6 +399,10 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.12.0', datum: '29.08.2026', punkte: [
+    'Namensfeld schlägt bekannte Zimmerpflanzen beim Tippen vor.',
+    'Standort ist jetzt ein Dropdown mit den üblichen Räumen plus deinen eigenen.'
+  ]},
   { v: '1.11.0', datum: '29.08.2026', punkte: [
     'Suche in der Pflanzenliste – über Name, Art, Standort, Notiz, Licht und Wassermenge.'
   ]},
@@ -859,7 +869,7 @@ function renderPflanzen() {
       <div class="meta">${statusText(p)}</div>
     </button>`).join('');
 
-  $('#raum-list').innerHTML = raeume.map(r => `<option value="${esc(r)}">`).join('');
+
 }
 
 function renderPlan() {
@@ -1202,6 +1212,36 @@ function artVorschlagPruefen() {
   $('#btn-art-uebernehmen').onclick = () => artUebernehmen(treffer);
 }
 
+/** Baut das Standort-Dropdown: Standardräume, eigene Räume, und ein
+    Eintrag zum Anlegen eines neuen. */
+function raumWahlFuellen(aktuell) {
+  const eigene = DB.plants.map(p => p.raum).filter(Boolean);
+  const alle = Array.from(new Set(STANDORTE.concat(eigene)))
+    .sort((a, b) => a.localeCompare(b, 'de'));
+  const bekannt = aktuell && alle.includes(aktuell);
+
+  $('#f-raum-wahl').innerHTML =
+    `<option value="">ohne Standort</option>` +
+    alle.map(r => `<option value="${esc(r)}"${r === aktuell ? ' selected' : ''}>${esc(r)}</option>`).join('') +
+    `<option value="__neu">Anderer Standort …</option>`;
+
+  // Ein Standort, den es nicht mehr in der Liste gibt, darf nicht verloren gehen
+  if (aktuell && !bekannt) {
+    $('#f-raum-wahl').value = '__neu';
+    $('#f-raum').value = aktuell;
+    $('#feld-raum-neu').hidden = false;
+  } else {
+    $('#f-raum').value = '';
+    $('#feld-raum-neu').hidden = true;
+  }
+}
+
+/** Der gewählte Standort, egal ob aus der Liste oder neu eingetippt. */
+function gewaehlterRaum() {
+  const wahl = $('#f-raum-wahl').value;
+  return wahl === '__neu' ? $('#f-raum').value.trim() : wahl;
+}
+
 /** Füllt die Felder mit den Richtwerten. Was schon ausgefüllt ist, bleibt. */
 function artUebernehmen(a) {
   const fuelle = (wahl, wert, nurWennLeer = true) => {
@@ -1433,7 +1473,7 @@ function openEdit(id) {
   $('#edit-title').textContent = p ? 'Pflanze bearbeiten' : 'Neue Pflanze';
   $('#f-name').value = p ? p.name : '';
   $('#f-art').value = p ? (p.art || '') : '';
-  $('#f-raum').value = p ? (p.raum || '') : '';
+  raumWahlFuellen(p ? (p.raum || '') : '');
   $('#f-intervall').value = p ? p.intervall : 7;
   $('#f-letzt').value = p ? (p.letzt || toISO(new Date())) : toISO(new Date());
   $('#f-menge').value = p ? (p.menge || '') : '';
@@ -1451,6 +1491,7 @@ function openEdit(id) {
   $('#btn-foto-del').style.display = editFoto ? 'block' : 'none';
   renderEmojiPick();
   $('#art-liste').innerHTML = ARTEN.map(a => `<option value="${esc(a.art || a.n)}">`).join('');
+  $('#name-liste').innerHTML = ARTEN.map(a => `<option value="${esc(a.n)}">`).join('');
   $('#art-vorschlag').hidden = true;
   if (p) artVorschlagPruefen();
   openSheet('#sheet-edit');
@@ -1468,7 +1509,7 @@ function speichern() {
   const daten = {
     name,
     art: $('#f-art').value.trim(),
-    raum: $('#f-raum').value.trim(),
+    raum: gewaehlterRaum(),
     emoji: editEmoji,
     foto: editFoto,
     intervall: Math.max(1, Number($('#f-intervall').value) || 7),
@@ -1875,6 +1916,11 @@ function bind() {
   };
   $('#zeile-historie').onclick = zeigeHistorie;
   $('#zeile-statistik').onclick = () => { zeigeStatistik(); openSheet('#sheet-statistik'); };
+  $('#f-raum-wahl').onchange = e => {
+    const neu = e.target.value === '__neu';
+    $('#feld-raum-neu').hidden = !neu;
+    if (neu) setTimeout(() => $('#f-raum').focus(), 60);
+  };
   $('#f-name').oninput = artVorschlagPruefen;
   $('#f-art').oninput = artVorschlagPruefen;
   $('#foto-neu-datei').onchange = e => {

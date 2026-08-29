@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** ✅ Live (v1.11.0)
+**Status:** ✅ Live (v1.12.0)
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -34,7 +34,7 @@ Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in 
 
 ### Pflanzen-Datenbank
 
-✅ **Pflanze anlegen** – Name, Art, Standort, Gießintervall, Wassermenge
+✅ **Pflanze anlegen** – Name mit Vorschlägen, Art, Standort per Dropdown, Gießintervall, Wassermenge
 ✅ **Foto oder Emoji** – Kamera-/Galerie-Foto wird auf 400 px verkleinert und als JPEG in den localStorage gelegt; alternativ 15 Emoji zur Auswahl
 ✅ **Pflegevorschläge** – rund 30 bekannte Arten mit Richtwerten für Intervall, Licht, Menge und Pflegehinweis
 ✅ **Fotoverlauf** – bis zu sechs Bilder je Pflanze mit Datum, Großansicht per Antippen
@@ -87,7 +87,7 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
 | Design | iOS-orientiertes Dark UI, System-Schriften, `env(safe-area-inset-*)` |
 | Speicher | `localStorage`, Schlüssel `pg_data` |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v1.11.0` |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v1.12.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
 | Push | Web Push API + VAPID, pywebpush, systemd-Timer alle 15 Minuten |
 | Hosting | LXC Container auf Proxmox |
@@ -251,6 +251,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v1.12.0** | Namensvorschläge, Standort als Dropdown |
 | **v1.11.0** | Suche in der Pflanzenliste |
 | **v1.10.0** | Pflegevorschläge nach Art, Fotoverlauf, Statistik |
 | **v1.9.0** | Sammel-Gießen, Umtopfen/Schneiden, Urlaubsmodus |

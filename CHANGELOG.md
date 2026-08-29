@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.12.0 - 2026-08-29
+
+- Das Namensfeld schlägt beim Tippen die hinterlegten Zimmerpflanzen vor, so
+  dass Schreibweise und Pflegevorschlag zusammenpassen.
+- Der Standort ist kein Freitextfeld mehr, sondern ein Dropdown: fünfzehn
+  übliche Räume, dazu alle, die in den eigenen Pflanzen schon vorkommen.
+  Über "Anderer Standort …" lässt sich weiterhin ein eigener anlegen.
+- Das verhindert nebenbei, dass durch Tippfehler zwei Standorte entstehen
+  ("Küche" und "Kueche"), die dann getrennte Filter-Chips erzeugen.
+
 ## v1.11.0 - 2026-08-29
 
 - Suche in der Pflanzenliste. Durchsucht werden Name, Art, Standort, Notiz,
