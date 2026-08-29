@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.16.3 - 2026-08-29
+
+- Das Archiv war praktisch nicht zu finden: Sein Chip stand hinter allen
+  Standort-Chips und damit außerhalb des sichtbaren Bereichs. Er sitzt jetzt
+  direkt hinter "Alle".
+- Zusätzlich unter Mehr → Daten eine Zeile "Archiv" mit Anzahl, die direkt in
+  die Archivansicht springt. Sie erscheint nur, wenn dort etwas liegt.
+- In der Archivansicht steht jetzt, was archivierte Pflanzen bedeuten und wie
+  man sie zurückholt.
+
 ## v1.16.2 - 2026-08-29
 
 - Behoben: Der Knopf "QR-Code für den Topf" schien nichts zu tun. Das Sheet

@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.16.2';
+const VERSION = '1.16.3';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -411,6 +411,9 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.16.3', datum: '29.08.2026', punkte: [
+    'Archiv leichter zu finden: Chip direkt hinter "Alle", zusätzlich eine Zeile unter Mehr.'
+  ]},
   { v: '1.16.2', datum: '29.08.2026', punkte: [
     'Behoben: QR-Code und Foto-Großansicht öffneten sich unsichtbar hinter der Detailansicht.'
   ]},
@@ -904,11 +907,12 @@ function renderPflanzen() {
 
   // Chips: Alle, die Standorte, und das Archiv wenn es etwas enthält
   $('#raum-chips').hidden = !!suchText;
-  const chips = [`<button class="chip ${raumFilter === 'alle' ? 'on' : ''}" data-raum="alle">Alle</button>`]
-    .concat(raeume.map(r => `<button class="chip ${raumFilter === r ? 'on' : ''}" data-raum="${esc(r)}">${esc(r)}</button>`));
+  const chips = [`<button class="chip ${raumFilter === 'alle' ? 'on' : ''}" data-raum="alle">Alle</button>`];
+  // Direkt hinter "Alle", nicht hinter allen Standorten: dort findet man es sonst nicht
   if (archivZahl) {
     chips.push(`<button class="chip ${archivAn ? 'on' : ''}" data-raum="__archiv">📦 Archiv (${archivZahl})</button>`);
   }
+  chips.push(...raeume.map(r => `<button class="chip ${raumFilter === r ? 'on' : ''}" data-raum="${esc(r)}">${esc(r)}</button>`));
   $('#raum-chips').innerHTML = (raeume.length || archivZahl) ? chips.join('') : '';
 
   let liste = grundmenge
@@ -927,6 +931,12 @@ function renderPflanzen() {
     return;
   }
 
+  // In der Archivansicht erklären, was archivierte Pflanzen bedeuten
+  const kopfzeile = archivAn
+    ? `<div class="archiv-hinweis" style="grid-column:1/-1">Archivierte Pflanzen zählen nirgends mit.
+       Antippen und „Zurück in die Liste“ holt sie wieder.</div>`
+    : '';
+
   const kachel = p => `
     <button class="tile ${p.archiviert ? 'archiviert' : ''}" data-open="${p.id}">
       ${avatarHTML(p)}
@@ -938,7 +948,7 @@ function renderPflanzen() {
   if (sortierung === 'raum' && !archivAn) {
     const gruppen = {};
     for (const p of liste) (gruppen[p.raum || 'Ohne Standort'] ||= []).push(p);
-    grid.innerHTML = Object.keys(gruppen).sort((a, b) => a.localeCompare(b, 'de')).map(raum =>
+    grid.innerHTML = kopfzeile + Object.keys(gruppen).sort((a, b) => a.localeCompare(b, 'de')).map(raum =>
       `<div class="gruppe-titel">${esc(raum)}</div>` +
       gruppen[raum].sort((a, b) => a.name.localeCompare(b.name, 'de')).map(kachel).join('')
     ).join('');
@@ -948,7 +958,7 @@ function renderPflanzen() {
   liste = liste.slice().sort(sortierung === 'name' || archivAn
     ? (a, b) => a.name.localeCompare(b.name, 'de')
     : (a, b) => tageBis(a) - tageBis(b));
-  grid.innerHTML = liste.map(kachel).join('');
+  grid.innerHTML = kopfzeile + liste.map(kachel).join('');
 }
 
 /** Archivieren statt löschen: die Pflanze bleibt mit ihrem Verlauf erhalten,
@@ -996,6 +1006,9 @@ function renderMore() {
   $('#about-version').textContent = VERSION;
   $('#dat-anzahl').textContent = DB.plants.length;
   $('#dat-logs').textContent = DB.logs.length;
+  const imArchiv = DB.plants.filter(p => p.archiviert).length;
+  $('#zeile-archiv').hidden = !imArchiv;
+  $('#dat-archiv').textContent = imArchiv + (imArchiv === 1 ? ' Pflanze ›' : ' Pflanzen ›');
   $('#set-theme').value = DB.settings.theme || 'auto';
   $('#set-start').value = DB.settings.startAnsicht || 'heute';
   $('#persoenlich-kurz').textContent =
@@ -2445,6 +2458,14 @@ function bind() {
     $('#suchfeld').focus();
   };
   $('#zeile-historie').onclick = zeigeHistorie;
+  $('#zeile-archiv').onclick = () => {
+    raumFilter = '__archiv';
+    suchText = '';
+    $('#suchfeld').value = '';
+    $('#suche-weg').hidden = true;
+    tab('pflanzen');
+    renderPflanzen();
+  };
   $('#zeile-hilfe').onclick = () => hilfeOeffnen(null);
   $('#zeile-statistik').onclick = () => { zeigeStatistik(); openSheet('#sheet-statistik'); };
   $('#f-raum-wahl').onchange = e => {
