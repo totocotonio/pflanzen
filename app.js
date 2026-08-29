@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.12.0';
+const VERSION = '1.13.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -399,6 +399,11 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.13.0', datum: '29.08.2026', punkte: [
+    'Pflanzenliste von 32 auf 75 Arten erweitert, mit Sorten von Monstera, Alocasia und Gummibaum.',
+    'Zweitnamen werden erkannt: "Benjamini", "Schwiegermutterzunge" oder "Fensterblatt" finden jetzt den richtigen Eintrag.',
+    'Mehrzahl und Umlaut-Schreibweisen werden mit erkannt, etwa "Efeutüten" oder "Geranien".'
+  ]},
   { v: '1.12.0', datum: '29.08.2026', punkte: [
     'Namensfeld schlägt bekannte Zimmerpflanzen beim Tippen vor.',
     'Standort ist jetzt ein Dropdown mit den üblichen Räumen plus deinen eigenen.'
@@ -1150,53 +1155,154 @@ async function urlaubTeilen(von, bis, waehrend) {
 }
 
 /* ---------- Pflegevorschläge nach Art ----------
-   Richtwerte für verbreitete Zimmerpflanzen. Sie ersetzen keinen Blick in den
-   Topf – die Werte gelten für einen durchschnittlichen Standort im Sommer;
-   der Winter-Modus verlängert sie ohnehin. Vorgeschlagen wird nur, was der
-   Nutzer noch nicht selbst eingetragen hat. */
+   Richtwerte für verbreitete Zimmer- und Balkonpflanzen. Sie ersetzen keinen
+   Blick in den Topf: die Werte gelten für einen durchschnittlichen Standort im
+   Sommer, der Winter-Modus verlängert sie ohnehin.
+
+   n      = geläufigster Name          art = botanischer Name
+   alias  = weitere gebräuchliche Namen, damit auch "Benjamini" oder
+            "Schwiegermutterzunge" gefunden werden
+   iv     = Gießintervall in Tagen     d   = Düngen in Tagen (0 = aus)
+   um     = Umtopfen in Monaten (0 = aus) */
 const ARTEN = [
-  { n: 'Monstera',        art: 'Monstera deliciosa',     iv: 7,  licht: 'Hell, ohne direkte Sonne', menge: '300 ml', d: 30, um: 24, hinweis: 'Luftwurzeln nicht abschneiden.' },
-  { n: 'Efeutute',        art: 'Epipremnum aureum',      iv: 7,  licht: 'Halbschatten', menge: '200 ml', d: 30, um: 24, hinweis: 'Verzeiht auch dunklere Ecken.' },
-  { n: 'Bogenhanf',       art: 'Sansevieria',            iv: 21, licht: 'Halbschatten', menge: '150 ml', d: 60, um: 36, hinweis: 'Staunässe ist der häufigste Fehler.' },
-  { n: 'Glücksfeder',     art: 'Zamioculcas zamiifolia', iv: 21, licht: 'Halbschatten', menge: '200 ml', d: 60, um: 36, hinweis: 'Sehr genügsam, lieber zu wenig gießen.' },
-  { n: 'Gummibaum',       art: 'Ficus elastica',         iv: 8,  licht: 'Hell, ohne direkte Sonne', menge: '300 ml', d: 30, um: 24, hinweis: 'Blätter gelegentlich abstauben.' },
-  { n: 'Birkenfeige',     art: 'Ficus benjamina',        iv: 7,  licht: 'Hell, ohne direkte Sonne', menge: '300 ml', d: 30, um: 24, hinweis: 'Mag keinen Standortwechsel, wirft dann Blätter ab.' },
-  { n: 'Drachenbaum',     art: 'Dracaena',               iv: 10, licht: 'Hell, ohne direkte Sonne', menge: '250 ml', d: 45, um: 30, hinweis: 'Reagiert empfindlich auf Fluorid im Leitungswasser.' },
-  { n: 'Yucca',           art: 'Yucca elephantipes',     iv: 14, licht: 'Vollsonne', menge: '250 ml', d: 60, um: 36, hinweis: 'Stamm darf nicht weich werden.' },
-  { n: 'Grünlilie',       art: 'Chlorophytum comosum',   iv: 5,  licht: 'Hell, ohne direkte Sonne', menge: '200 ml', d: 21, um: 12, hinweis: 'Ableger lassen sich einfach abtrennen.' },
-  { n: 'Einblatt',        art: 'Spathiphyllum',          iv: 4,  licht: 'Halbschatten', menge: '250 ml', d: 21, um: 24, hinweis: 'Lässt die Blätter hängen, wenn es Durst hat.' },
-  { n: 'Flamingoblume',   art: 'Anthurium',              iv: 5,  licht: 'Hell, ohne direkte Sonne', menge: '200 ml', d: 21, um: 24, hinweis: 'Mag hohe Luftfeuchtigkeit.' },
-  { n: 'Orchidee',        art: 'Phalaenopsis',           iv: 10, licht: 'Hell, ohne direkte Sonne', menge: 'tauchen', d: 21, um: 24, hinweis: 'Tauchen statt gießen, gut abtropfen lassen.' },
-  { n: 'Aloe Vera',       art: 'Aloe barbadensis',       iv: 18, licht: 'Vollsonne', menge: '100 ml', d: 60, um: 24, hinweis: 'Im Winter fast gar nicht gießen.' },
-  { n: 'Kaktus',          art: '',                       iv: 30, licht: 'Vollsonne', menge: '50 ml', d: 60, um: 36, hinweis: 'Von Oktober bis März trocken halten.' },
-  { n: 'Geldbaum',        art: 'Crassula ovata',         iv: 18, licht: 'Vollsonne', menge: '150 ml', d: 60, um: 36, hinweis: 'Dicke Blätter speichern Wasser.' },
-  { n: 'Pilea',           art: 'Pilea peperomioides',    iv: 7,  licht: 'Hell, ohne direkte Sonne', menge: '150 ml', d: 30, um: 18, hinweis: 'Regelmäßig drehen, wächst sonst schief.' },
-  { n: 'Calathea',        art: 'Calathea',               iv: 4,  licht: 'Halbschatten', menge: '200 ml', d: 21, um: 24, hinweis: 'Empfindlich gegen Kalk, weiches Wasser nehmen.' },
-  { n: 'Alocasia',        art: 'Alocasia',               iv: 5,  licht: 'Hell, ohne direkte Sonne', menge: '250 ml', d: 21, um: 18, hinweis: 'Braucht viel Luftfeuchtigkeit.' },
-  { n: 'Philodendron',    art: 'Philodendron',           iv: 7,  licht: 'Halbschatten', menge: '250 ml', d: 30, um: 24, hinweis: '' },
-  { n: 'Farn',            art: 'Nephrolepis',            iv: 3,  licht: 'Halbschatten', menge: '200 ml', d: 21, um: 24, hinweis: 'Erde darf nie ganz austrocknen.' },
-  { n: 'Efeu',            art: 'Hedera helix',           iv: 5,  licht: 'Halbschatten', menge: '200 ml', d: 30, um: 24, hinweis: '' },
-  { n: 'Zimmerpalme',     art: 'Chamaedorea',            iv: 7,  licht: 'Halbschatten', menge: '300 ml', d: 30, um: 36, hinweis: 'Braune Spitzen deuten auf trockene Luft.' },
-  { n: 'Usambaraveilchen', art: 'Saintpaulia',           iv: 6,  licht: 'Hell, ohne direkte Sonne', menge: '100 ml', d: 21, um: 12, hinweis: 'Von unten gießen, Blätter nicht nass machen.' },
-  { n: 'Weihnachtsstern', art: 'Euphorbia pulcherrima',  iv: 5,  licht: 'Hell, ohne direkte Sonne', menge: '150 ml', d: 30, um: 0,  hinweis: 'Keine Zugluft, keine kalten Füße.' },
-  { n: 'Zitronenbaum',    art: 'Citrus limon',           iv: 4,  licht: 'Vollsonne', menge: '500 ml', d: 14, um: 36, hinweis: 'Im Winter kühl und hell überwintern.' },
-  { n: 'Olivenbaum',      art: 'Olea europaea',          iv: 6,  licht: 'Vollsonne', menge: '400 ml', d: 30, um: 36, hinweis: 'Verträgt Trockenheit besser als Nässe.' },
-  { n: 'Basilikum',       art: 'Ocimum basilicum',       iv: 2,  licht: 'Vollsonne', menge: '100 ml', d: 14, um: 0,  hinweis: 'Von unten gießen, Blätter trocken halten.' },
-  { n: 'Minze',           art: 'Mentha',                 iv: 2,  licht: 'Halbschatten', menge: '150 ml', d: 21, um: 12, hinweis: 'Wuchert, am besten allein im Topf.' },
-  { n: 'Petersilie',      art: 'Petroselinum crispum',   iv: 2,  licht: 'Halbschatten', menge: '150 ml', d: 21, um: 0,  hinweis: '' },
-  { n: 'Rosmarin',        art: 'Salvia rosmarinus',      iv: 7,  licht: 'Vollsonne', menge: '150 ml', d: 30, um: 24, hinweis: 'Lieber zu trocken als zu nass.' },
-  { n: 'Hortensie',       art: 'Hydrangea',              iv: 2,  licht: 'Halbschatten', menge: '500 ml', d: 14, um: 24, hinweis: 'Braucht im Sommer sehr viel Wasser.' },
-  { n: 'Bambus',          art: 'Dracaena sanderiana',    iv: 4,  licht: 'Halbschatten', menge: '200 ml', d: 30, um: 24, hinweis: '' }
+  // --- Klassiker mit großen Blättern ---
+  { n: 'Monstera', art: 'Monstera deliciosa', alias: 'Fensterblatt, Köstliches Fensterblatt', iv: 7, licht: 'Hell, ohne direkte Sonne', menge: '300 ml', d: 30, um: 24, hinweis: 'Luftwurzeln nicht abschneiden. Blätter gelegentlich abwischen.' },
+  { n: 'Monstera Monkey Mask', art: 'Monstera adansonii', alias: 'Adansonii, Monkey Mask, Fensterblatt klein', iv: 6, licht: 'Hell, ohne direkte Sonne', menge: '200 ml', d: 30, um: 18, hinweis: 'Kleiner und durstiger als die deliciosa, mag eine Rankhilfe.' },
+  { n: 'Monstera Variegata', art: 'Monstera deliciosa variegata', alias: 'Variegata, Albo, Thai Constellation', iv: 8, licht: 'Hell, ohne direkte Sonne', menge: '250 ml', d: 45, um: 24, hinweis: 'Weiße Blattteile arbeiten nicht mit: heller stellen, aber nie in die pralle Sonne, sonst verbrennen sie.' },
+  { n: 'Efeutute', art: 'Epipremnum aureum', alias: 'Goldene Efeutute, Pothos', iv: 7, licht: 'Halbschatten', menge: '200 ml', d: 30, um: 24, hinweis: 'Verzeiht auch dunklere Ecken.' },
+  { n: 'Philodendron', art: 'Philodendron', alias: 'Baumfreund', iv: 7, licht: 'Halbschatten', menge: '250 ml', d: 30, um: 24, hinweis: '' },
+  { n: 'Zimmeraralie', art: 'Fatsia japonica', alias: '', iv: 5, licht: 'Halbschatten', menge: '300 ml', d: 30, um: 24, hinweis: 'Mag es kühl, verträgt keine Heizungsluft.' },
+  { n: 'Schefflera', art: 'Schefflera arboricola', alias: 'Strahlenaralie', iv: 8, licht: 'Hell, ohne direkte Sonne', menge: '250 ml', d: 30, um: 24, hinweis: '' },
+  { n: 'Kolbenfaden', art: 'Aglaonema', alias: '', iv: 8, licht: 'Halbschatten', menge: '200 ml', d: 30, um: 24, hinweis: 'Kommt mit wenig Licht gut zurecht.' },
+  { n: 'Dieffenbachia', art: 'Dieffenbachia', alias: '', iv: 6, licht: 'Halbschatten', menge: '250 ml', d: 30, um: 24, hinweis: 'Pflanzensaft reizt Haut und Schleimhäute.' },
+  { n: 'Alocasia', art: 'Alocasia', alias: 'Elefantenohr, Pfeilblatt', iv: 5, licht: 'Hell, ohne direkte Sonne', menge: '250 ml', d: 21, um: 18, hinweis: 'Braucht viel Luftfeuchtigkeit. Zieht im Winter oft ein und treibt im Frühjahr wieder aus.' },
+  { n: 'Alocasia Zebrina', art: 'Alocasia zebrina', alias: 'Zebrina, Zebrastiel', iv: 5, licht: 'Hell, ohne direkte Sonne', menge: '250 ml', d: 21, um: 18, hinweis: 'Gestreifte Stiele brauchen Licht, sonst wird die Pflanze lang und kippt.' },
+  { n: 'Alocasia Polly', art: 'Alocasia amazonica', alias: 'Polly, Amazonica, Alocasia Sanderiana', iv: 4, licht: 'Hell, ohne direkte Sonne', menge: '200 ml', d: 21, um: 18, hinweis: 'Empfindlich gegen trockene Heizungsluft, gerne besprühen.' },
+  { n: 'Alocasia Frydek', art: 'Alocasia micholitziana', alias: 'Frydek, Green Velvet', iv: 5, licht: 'Halbschatten', menge: '200 ml', d: 21, um: 18, hinweis: 'Samtige Blätter nicht besprühen, lieber die Luftfeuchte erhöhen.' },
+  { n: 'Calathea', art: 'Calathea', alias: 'Korbmarante, Goeppertia', iv: 4, licht: 'Halbschatten', menge: '200 ml', d: 21, um: 24, hinweis: 'Empfindlich gegen Kalk, weiches Wasser nehmen.' },
+  { n: 'Pilea', art: 'Pilea peperomioides', alias: 'Ufopflanze, Glückstaler', iv: 7, licht: 'Hell, ohne direkte Sonne', menge: '150 ml', d: 30, um: 18, hinweis: 'Regelmäßig drehen, wächst sonst schief.' },
+
+  // --- Feigen ---
+  { n: 'Ficus Benjamini', art: 'Ficus benjamina', alias: 'Benjamini, Birkenfeige, Benjamin', iv: 7, licht: 'Hell, ohne direkte Sonne', menge: '300 ml', d: 30, um: 24, hinweis: 'Mag keinen Standortwechsel und wirft dann Blätter ab.' },
+  { n: 'Gummibaum', art: 'Ficus elastica', alias: 'Ficus elastica, Gummibaum Robusta', iv: 8, licht: 'Hell, ohne direkte Sonne', menge: '300 ml', d: 30, um: 24, hinweis: 'Blätter gelegentlich abstauben, das verbessert die Lichtausbeute deutlich.' },
+  { n: 'Gummibaum Tineke', art: 'Ficus elastica Tineke', alias: 'Tineke, Ruby, Belize, panaschierter Gummibaum', iv: 9, licht: 'Hell, ohne direkte Sonne', menge: '250 ml', d: 45, um: 24, hinweis: 'Die hellen Blattränder brauchen mehr Licht, vertragen aber keine direkte Mittagssonne.' },
+  { n: 'Geigenfeige', art: 'Ficus lyrata', alias: 'Lyrata', iv: 8, licht: 'Hell, ohne direkte Sonne', menge: '300 ml', d: 30, um: 24, hinweis: 'Reagiert empfindlich auf Zugluft.' },
+  { n: 'Kletterfeige', art: 'Ficus pumila', alias: '', iv: 5, licht: 'Halbschatten', menge: '150 ml', d: 30, um: 18, hinweis: 'Erde gleichmäßig feucht halten.' },
+
+  // --- Genügsame ---
+  { n: 'Bogenhanf', art: 'Sansevieria', alias: 'Schwiegermutterzunge, Sansevieria', iv: 21, licht: 'Halbschatten', menge: '150 ml', d: 60, um: 36, hinweis: 'Staunässe ist der häufigste Fehler.' },
+  { n: 'Glücksfeder', art: 'Zamioculcas zamiifolia', alias: 'Zamioculcas, ZZ-Pflanze, Glücksfeder', iv: 21, licht: 'Halbschatten', menge: '200 ml', d: 60, um: 36, hinweis: 'Sehr genügsam, lieber zu wenig gießen.' },
+  { n: 'Drachenbaum', art: 'Dracaena', alias: 'Dracaena', iv: 10, licht: 'Hell, ohne direkte Sonne', menge: '250 ml', d: 45, um: 30, hinweis: 'Reagiert empfindlich auf Fluorid im Leitungswasser.' },
+  { n: 'Yucca', art: 'Yucca elephantipes', alias: 'Yuccapalme, Palmlilie', iv: 14, licht: 'Vollsonne', menge: '250 ml', d: 60, um: 36, hinweis: 'Der Stamm darf nicht weich werden.' },
+  { n: 'Elefantenfuß', art: 'Beaucarnea recurvata', alias: 'Flaschenbaum', iv: 21, licht: 'Vollsonne', menge: '200 ml', d: 60, um: 36, hinweis: 'Speichert Wasser im verdickten Stamm.' },
+  { n: 'Grünlilie', art: 'Chlorophytum comosum', alias: 'Chlorophytum', iv: 5, licht: 'Hell, ohne direkte Sonne', menge: '200 ml', d: 21, um: 12, hinweis: 'Ableger lassen sich einfach abtrennen.' },
+  { n: 'Zebrakraut', art: 'Tradescantia', alias: 'Dreimasterblume', iv: 5, licht: 'Hell, ohne direkte Sonne', menge: '150 ml', d: 21, um: 12, hinweis: 'Regelmäßig zurückschneiden, sonst verkahlt sie.' },
+  { n: 'Bubikopf', art: 'Soleirolia soleirolii', alias: '', iv: 3, licht: 'Halbschatten', menge: '100 ml', d: 21, um: 12, hinweis: 'Darf nie austrocknen.' },
+
+  // --- Blühende ---
+  { n: 'Einblatt', art: 'Spathiphyllum', alias: 'Friedenslilie, Scheidenblatt', iv: 4, licht: 'Halbschatten', menge: '250 ml', d: 21, um: 24, hinweis: 'Lässt die Blätter hängen, wenn es Durst hat.' },
+  { n: 'Flamingoblume', art: 'Anthurium', alias: 'Anthurie', iv: 5, licht: 'Hell, ohne direkte Sonne', menge: '200 ml', d: 21, um: 24, hinweis: 'Mag hohe Luftfeuchtigkeit.' },
+  { n: 'Orchidee', art: 'Phalaenopsis', alias: 'Schmetterlingsorchidee, Phalaenopsis', iv: 10, licht: 'Hell, ohne direkte Sonne', menge: 'tauchen', d: 21, um: 24, hinweis: 'Tauchen statt gießen, gut abtropfen lassen.' },
+  { n: 'Usambaraveilchen', art: 'Saintpaulia', alias: 'Veilchen', iv: 6, licht: 'Hell, ohne direkte Sonne', menge: '100 ml', d: 21, um: 12, hinweis: 'Von unten gießen, Blätter nicht nass machen.' },
+  { n: 'Alpenveilchen', art: 'Cyclamen', alias: 'Cyclame', iv: 4, licht: 'Hell, ohne direkte Sonne', menge: '150 ml', d: 21, um: 12, hinweis: 'Kühl stellen, von unten gießen.' },
+  { n: 'Weihnachtsstern', art: 'Euphorbia pulcherrima', alias: 'Poinsettie', iv: 5, licht: 'Hell, ohne direkte Sonne', menge: '150 ml', d: 30, um: 0, hinweis: 'Keine Zugluft, keine kalten Füße.' },
+  { n: 'Amaryllis', art: 'Hippeastrum', alias: 'Ritterstern', iv: 7, licht: 'Hell, ohne direkte Sonne', menge: '150 ml', d: 21, um: 24, hinweis: 'Nach der Blüte einziehen lassen und trocken halten.' },
+  { n: 'Zimmerhibiskus', art: 'Hibiscus rosa-sinensis', alias: 'Hibiskus, Roseneibisch', iv: 3, licht: 'Vollsonne', menge: '400 ml', d: 14, um: 24, hinweis: 'Im Sommer sehr durstig.' },
+  { n: 'Gardenie', art: 'Gardenia jasminoides', alias: '', iv: 4, licht: 'Hell, ohne direkte Sonne', menge: '200 ml', d: 14, um: 24, hinweis: 'Nur kalkfreies, zimmerwarmes Wasser.' },
+  { n: 'Azalee', art: 'Rhododendron simsii', alias: 'Zimmerazalee', iv: 3, licht: 'Halbschatten', menge: '300 ml', d: 21, um: 24, hinweis: 'Ballen nie austrocknen lassen, weiches Wasser.' },
+  { n: 'Bromelie', art: 'Guzmania', alias: 'Guzmania, Vriesea', iv: 7, licht: 'Hell, ohne direkte Sonne', menge: '150 ml', d: 30, um: 0, hinweis: 'Wasser in den Blatttrichter geben.' },
+  { n: 'Kalanchoe', art: 'Kalanchoe blossfeldiana', alias: 'Flammendes Käthchen', iv: 12, licht: 'Vollsonne', menge: '100 ml', d: 30, um: 18, hinweis: 'Dickblättrig, verzeiht Trockenheit.' },
+  { n: 'Fleißiges Lieschen', art: 'Impatiens', alias: 'Impatiens', iv: 2, licht: 'Halbschatten', menge: '200 ml', d: 14, um: 0, hinweis: 'Braucht durchgehend feuchte Erde.' },
+
+  // --- Sukkulenten und Kakteen ---
+  { n: 'Aloe Vera', art: 'Aloe barbadensis', alias: 'Aloe', iv: 18, licht: 'Vollsonne', menge: '100 ml', d: 60, um: 24, hinweis: 'Im Winter fast gar nicht gießen.' },
+  { n: 'Kaktus', art: '', alias: 'Säulenkaktus, Kugelkaktus, Kakteen', iv: 30, licht: 'Vollsonne', menge: '50 ml', d: 60, um: 36, hinweis: 'Von Oktober bis März trocken halten.' },
+  { n: 'Weihnachtskaktus', art: 'Schlumbergera', alias: 'Schlumbergera, Osterkaktus', iv: 10, licht: 'Hell, ohne direkte Sonne', menge: '100 ml', d: 30, um: 24, hinweis: 'Während der Knospenbildung nicht drehen.' },
+  { n: 'Geldbaum', art: 'Crassula ovata', alias: 'Pfennigbaum, Jadebaum, Crassula', iv: 18, licht: 'Vollsonne', menge: '150 ml', d: 60, um: 36, hinweis: 'Dicke Blätter speichern Wasser.' },
+  { n: 'Echeveria', art: 'Echeveria', alias: 'Sukkulente', iv: 18, licht: 'Vollsonne', menge: '80 ml', d: 60, um: 24, hinweis: 'Nicht über die Rosette gießen.' },
+  { n: 'Haworthia', art: 'Haworthia', alias: '', iv: 18, licht: 'Hell, ohne direkte Sonne', menge: '80 ml', d: 60, um: 36, hinweis: '' },
+  { n: 'Christusdorn', art: 'Euphorbia milii', alias: '', iv: 14, licht: 'Vollsonne', menge: '100 ml', d: 45, um: 36, hinweis: 'Milchsaft ist giftig.' },
+
+  // --- Palmen und Grünes ---
+  { n: 'Bergpalme', art: 'Chamaedorea elegans', alias: 'Zimmerpalme, Chamaedorea, Palme', iv: 7, licht: 'Halbschatten', menge: '300 ml', d: 30, um: 36, hinweis: 'Braune Spitzen deuten auf trockene Luft.' },
+  { n: 'Kentiapalme', art: 'Howea forsteriana', alias: 'Howea', iv: 8, licht: 'Halbschatten', menge: '350 ml', d: 30, um: 36, hinweis: 'Sehr robust, verträgt auch dunklere Ecken.' },
+  { n: 'Arecapalme', art: 'Dypsis lutescens', alias: 'Goldfruchtpalme, Areca', iv: 6, licht: 'Hell, ohne direkte Sonne', menge: '350 ml', d: 30, um: 36, hinweis: 'Erde gleichmäßig feucht halten.' },
+  { n: 'Glücksbambus', art: 'Dracaena sanderiana', alias: 'Lucky Bamboo, Zimmerbambus', iv: 4, licht: 'Halbschatten', menge: '200 ml', d: 30, um: 24, hinweis: 'Im Wasserglas den Pegel halten, Wasser wöchentlich wechseln.' },
+  { n: 'Zyperngras', art: 'Cyperus alternifolius', alias: 'Papyrus', iv: 2, licht: 'Hell, ohne direkte Sonne', menge: '300 ml', d: 21, um: 12, hinweis: 'Untersetzer darf dauerhaft Wasser enthalten.' },
+  { n: 'Farn', art: 'Nephrolepis', alias: 'Schwertfarn, Zimmerfarn', iv: 3, licht: 'Halbschatten', menge: '200 ml', d: 21, um: 24, hinweis: 'Erde darf nie ganz austrocknen.' },
+  { n: 'Efeu', art: 'Hedera helix', alias: 'Zimmerefeu', iv: 5, licht: 'Halbschatten', menge: '200 ml', d: 30, um: 24, hinweis: '' },
+  { n: 'Zimmerlinde', art: 'Sparrmannia africana', alias: '', iv: 3, licht: 'Hell, ohne direkte Sonne', menge: '400 ml', d: 21, um: 24, hinweis: 'Großer Wasserbedarf im Sommer.' },
+  { n: 'Croton', art: 'Codiaeum variegatum', alias: 'Wunderstrauch, Kroton', iv: 5, licht: 'Hell, ohne direkte Sonne', menge: '200 ml', d: 21, um: 24, hinweis: 'Je heller, desto kräftiger die Blattfarben.' },
+  { n: 'Buntnessel', art: 'Coleus', alias: 'Plectranthus', iv: 3, licht: 'Hell, ohne direkte Sonne', menge: '200 ml', d: 14, um: 12, hinweis: 'Spitzen ausknipsen für buschigen Wuchs.' },
+  { n: 'Venusfliegenfalle', art: 'Dionaea muscipula', alias: 'Fleischfressende Pflanze', iv: 2, licht: 'Vollsonne', menge: '100 ml', d: 0, um: 12, hinweis: 'Nur Regen- oder destilliertes Wasser, niemals düngen.' },
+
+  // --- Zitrus, Kräuter, Balkon ---
+  { n: 'Zitronenbaum', art: 'Citrus limon', alias: 'Zitrone, Zitruspflanze', iv: 4, licht: 'Vollsonne', menge: '500 ml', d: 14, um: 36, hinweis: 'Im Winter kühl und hell überwintern.' },
+  { n: 'Olivenbaum', art: 'Olea europaea', alias: 'Olive', iv: 6, licht: 'Vollsonne', menge: '400 ml', d: 30, um: 36, hinweis: 'Verträgt Trockenheit besser als Nässe.' },
+  { n: 'Kaffeepflanze', art: 'Coffea arabica', alias: 'Kaffeestrauch', iv: 4, licht: 'Hell, ohne direkte Sonne', menge: '250 ml', d: 21, um: 24, hinweis: 'Kalkfreies Wasser, keine pralle Sonne.' },
+  { n: 'Basilikum', art: 'Ocimum basilicum', alias: '', iv: 2, licht: 'Vollsonne', menge: '100 ml', d: 14, um: 0, hinweis: 'Von unten gießen, Blätter trocken halten.' },
+  { n: 'Minze', art: 'Mentha', alias: 'Pfefferminze', iv: 2, licht: 'Halbschatten', menge: '150 ml', d: 21, um: 12, hinweis: 'Wuchert, am besten allein im Topf.' },
+  { n: 'Petersilie', art: 'Petroselinum crispum', alias: '', iv: 2, licht: 'Halbschatten', menge: '150 ml', d: 21, um: 0, hinweis: '' },
+  { n: 'Schnittlauch', art: 'Allium schoenoprasum', alias: '', iv: 2, licht: 'Hell, ohne direkte Sonne', menge: '150 ml', d: 21, um: 12, hinweis: 'Nach dem Schnitt kräftig gießen.' },
+  { n: 'Rosmarin', art: 'Salvia rosmarinus', alias: '', iv: 7, licht: 'Vollsonne', menge: '150 ml', d: 30, um: 24, hinweis: 'Lieber zu trocken als zu nass.' },
+  { n: 'Thymian', art: 'Thymus vulgaris', alias: '', iv: 7, licht: 'Vollsonne', menge: '120 ml', d: 30, um: 24, hinweis: 'Mag durchlässige, eher magere Erde.' },
+  { n: 'Salbei', art: 'Salvia officinalis', alias: '', iv: 5, licht: 'Vollsonne', menge: '200 ml', d: 30, um: 24, hinweis: '' },
+  { n: 'Oregano', art: 'Origanum vulgare', alias: 'Majoran', iv: 5, licht: 'Vollsonne', menge: '150 ml', d: 30, um: 24, hinweis: '' },
+  { n: 'Lavendel', art: 'Lavandula angustifolia', alias: '', iv: 6, licht: 'Vollsonne', menge: '250 ml', d: 30, um: 24, hinweis: 'Verträgt keine Staunässe, im Frühjahr zurückschneiden.' },
+  { n: 'Hortensie', art: 'Hydrangea', alias: '', iv: 2, licht: 'Halbschatten', menge: '500 ml', d: 14, um: 24, hinweis: 'Braucht im Sommer sehr viel Wasser.' },
+  { n: 'Geranie', art: 'Pelargonium', alias: 'Pelargonie', iv: 3, licht: 'Vollsonne', menge: '250 ml', d: 14, um: 12, hinweis: 'Verblühtes regelmäßig ausputzen.' },
+  { n: 'Fuchsie', art: 'Fuchsia', alias: '', iv: 2, licht: 'Halbschatten', menge: '250 ml', d: 14, um: 12, hinweis: 'Keine pralle Mittagssonne.' },
+  { n: 'Petunie', art: 'Petunia', alias: '', iv: 2, licht: 'Vollsonne', menge: '300 ml', d: 7, um: 0, hinweis: 'Im Hochsommer täglich gießen.' }
 ];
 
-/** Sucht einen Richtwert-Eintrag zu Name oder Art. */
+/** Vereinheitlicht Schreibweisen: Umlaute, Sonderzeichen, Groß/Klein. */
+function normName(text) {
+  return String(text || '').toLowerCase()
+    .replace(/ä/g, 'a').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Wortstamm ohne die üblichen deutschen Mehrzahl-Endungen.
+    So findet "Efeutüten" auch "Efeutute" und "Geranien" die "Geranie". */
+function wortStamm(text) {
+  return normName(text).split(' ')
+    .map(w => w.length > 4 ? w.replace(/(en|nen|n|e|s)$/, '') : w)
+    .join(' ');
+}
+
+/** Sucht einen Richtwert-Eintrag zu Name oder Art, auch über Zweitnamen. */
 function artFinden(text) {
-  const suche = (text || '').trim().toLowerCase();
-  if (suche.length < 3) return null;
-  return ARTEN.find(a => a.n.toLowerCase() === suche || a.art.toLowerCase() === suche)
-      || ARTEN.find(a => suche.includes(a.n.toLowerCase())
-                      || (a.art && suche.includes(a.art.toLowerCase()))
-                      || a.n.toLowerCase().includes(suche)) || null;
+  const roh = (text || '').trim();
+  if (roh.length < 3) return null;
+  const suche = normName(roh);
+  const stamm = wortStamm(roh);
+
+  const namen = a => [a.n, a.art].concat((a.alias || '').split(','))
+    .map(x => (x || '').trim()).filter(Boolean);
+
+  // 1. genau so geschrieben
+  let treffer = ARTEN.find(a => namen(a).some(n => normName(n) === suche));
+  if (treffer) return treffer;
+
+  // 2. Teiltreffer in beide Richtungen
+  treffer = ARTEN.find(a => namen(a).some(n => {
+    const nn = normName(n);
+    return suche.includes(nn) || nn.includes(suche);
+  }));
+  if (treffer) return treffer;
+
+  // 3. auf den Wortstamm reduziert – fängt Mehrzahl und Endungen ab.
+  //    Erst der genaue Stamm, sonst gewinnt bei "Palmen" die Yuccapalme
+  //    gegen die Bergpalme, nur weil sie weiter oben in der Liste steht.
+  treffer = ARTEN.find(a => namen(a).some(n => wortStamm(n) === stamm));
+  if (treffer) return treffer;
+
+  return ARTEN.find(a => namen(a).some(n => {
+    const ns = wortStamm(n);
+    return ns.length > 2 && (stamm.includes(ns) || ns.includes(stamm));
+  })) || null;
 }
 
 /** Zeigt unter dem Namensfeld an, dass Richtwerte bereitstehen. */

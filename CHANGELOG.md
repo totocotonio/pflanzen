@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.13.0 - 2026-08-29
+
+- Pflanzenliste von 32 auf 75 Arten erweitert: mehr Grünpflanzen, Palmen,
+  Sukkulenten, Blühpflanzen, Kräuter und Balkonpflanzen.
+- Sorten, die sich in der Pflege unterscheiden, stehen einzeln drin:
+  Monstera deliciosa, Monkey Mask und Variegata; Alocasia allgemein, Zebrina,
+  Polly und Frydek; Gummibaum und die panaschierte Tineke.
+- Zweitnamen: "Benjamini" findet die Birkenfeige, "Schwiegermutterzunge" den
+  Bogenhanf, "Fensterblatt" die Monstera, "ZZ-Pflanze" die Glücksfeder.
+  Vorher scheiterte "Benjamini" am botanischen "benjamina".
+- Mehrzahl und Umlaute werden erkannt: "Efeutüten", "Orchideen", "Geranien",
+  "Kakteen". Bei mehrdeutigen Eingaben gewinnt der genaue Wortstamm, damit
+  "Palmen" die Bergpalme findet und nicht die Yuccapalme.
+
 ## v1.12.0 - 2026-08-29
 
 - Das Namensfeld schlägt beim Tippen die hinterlegten Zimmerpflanzen vor, so
