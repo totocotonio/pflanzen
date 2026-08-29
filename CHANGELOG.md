@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.3.0 - 2026-08-29
+
+- Beispielpflanzen zum Ausprobieren: acht typische Zimmerpflanzen mit üblichen
+  Gießintervallen, anlegbar über den leeren Startbildschirm oder unter
+  Mehr → Daten. Sie verhalten sich wie selbst angelegte Pflanzen und lassen
+  sich einzeln oder gesammelt wieder löschen.
+- Pflanze löschen jetzt direkt in der Detailansicht statt nur über den Umweg
+  Bearbeiten.
+
 ## v1.2.0 - 2026-08-29
 
 - Anmeldung mit Benutzername und Passwort; die Seite ist öffentlich erreichbar,

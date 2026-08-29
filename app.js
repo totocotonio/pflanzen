@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 
 /* Push-Server – wird gesetzt, sobald der LXC steht */
 const PUSH_SERVER = '';
@@ -112,10 +112,67 @@ function avatarHTML(p, cls) {
 }
 
 
+
+/* ---------- Beispielpflanzen ----------
+   Typische Zimmerpflanzen mit üblichen Gießintervallen. Werden wie normal
+   angelegte Pflanzen behandelt und lassen sich einzeln oder alle löschen.
+   `vorTagen` streut das letzte Gießdatum, damit die Ansicht etwas zeigt. */
+const BEISPIELE = [
+  { name: 'Monstera',     art: 'Monstera deliciosa',  raum: 'Wohnzimmer', emoji: '🪴', intervall: 7,  vorTagen: 8, menge: '300 ml', licht: 'Hell, ohne direkte Sonne', duengerInt: 30, notiz: 'Luftwurzeln nicht abschneiden, im Frühjahr umtopfen.' },
+  { name: 'Bogenhanf',    art: 'Sansevieria',         raum: 'Schlafzimmer', emoji: '🌿', intervall: 21, vorTagen: 21, menge: '150 ml', licht: 'Halbschatten', duengerInt: 0, notiz: 'Verzeiht Trockenheit, Staunässe gar nicht.' },
+  { name: 'Efeutute',     art: 'Epipremnum aureum',   raum: 'Wohnzimmer', emoji: '🍀', intervall: 6,  vorTagen: 5, menge: '200 ml', licht: 'Halbschatten', duengerInt: 0, notiz: '' },
+  { name: 'Basilikum',    art: '',                    raum: 'Küche',      emoji: '🌱', intervall: 2,  vorTagen: 2, menge: '100 ml', licht: 'Vollsonne', duengerInt: 0, notiz: 'Von unten gießen, Blätter trocken halten.' },
+  { name: 'Kaktus',       art: 'Echinopsis',          raum: 'Fensterbank', emoji: '🌵', intervall: 30, vorTagen: 12, menge: '50 ml', licht: 'Vollsonne', duengerInt: 0, notiz: 'Im Winter fast gar nicht gießen.' },
+  { name: 'Zitronenbaum', art: 'Citrus limon',        raum: 'Wintergarten', emoji: '🍋', intervall: 4, vorTagen: 3, menge: '500 ml', licht: 'Vollsonne', duengerInt: 14, notiz: 'Im Winter kühl und heller stellen.' },
+  { name: 'Orchidee',     art: 'Phalaenopsis',        raum: 'Bad',        emoji: '🌺', intervall: 10, vorTagen: 6, menge: 'tauchen', licht: 'Hell, ohne direkte Sonne', duengerInt: 21, notiz: 'Alle 10 Tage tauchen, gut abtropfen lassen.' },
+  { name: 'Aloe Vera',    art: 'Aloe barbadensis',    raum: 'Fensterbank', emoji: '🌵', intervall: 18, vorTagen: 4, menge: '100 ml', licht: 'Vollsonne', duengerInt: 0, notiz: '' }
+];
+
+function beispieleLaden() {
+  const vorhanden = new Set(DB.plants.map(p => p.name.toLowerCase()));
+  const neue = BEISPIELE
+    .filter(b => !vorhanden.has(b.name.toLowerCase()))
+    .map((b, i) => ({
+      id: uid() + i,
+      created: Date.now() + i,
+      name: b.name, art: b.art, raum: b.raum, emoji: b.emoji,
+      foto: null,
+      intervall: b.intervall,
+      letzt: toISO(new Date(Date.now() - b.vorTagen * 86400000)),
+      menge: b.menge,
+      duengerInt: b.duengerInt,
+      duengerLetzt: b.duengerInt ? toISO(new Date(Date.now() - b.duengerInt * 86400000)) : '',
+      licht: b.licht,
+      notiz: b.notiz
+    }));
+  if (!neue.length) { toast('Die Beispiele sind schon angelegt'); return; }
+  DB.plants = DB.plants.concat(neue);
+  save();
+  renderAll();
+  toast(neue.length + ' Beispielpflanzen angelegt');
+}
+
+/** Löschen aus der Detailansicht heraus. */
+function loeschePflanze(id) {
+  const p = DB.plants.find(x => x.id === id);
+  if (!p) return;
+  if (!confirm(p.name + ' wirklich löschen?\n\nDer Gießverlauf dieser Pflanze wird mitgelöscht.')) return;
+  DB.plants = DB.plants.filter(x => x.id !== id);
+  DB.logs = DB.logs.filter(l => l.plantId !== id);
+  save();
+  renderAll();
+  closeSheets();
+  toast(p.name + ' gelöscht');
+}
+
 /* ---------- Versionshistorie ----------
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.3.0', datum: '29.08.2026', punkte: [
+    'Beispielpflanzen zum Ausprobieren – anlegbar über den leeren Startbildschirm oder unter Mehr.',
+    'Pflanze löschen jetzt direkt in der Detailansicht, nicht mehr nur über Bearbeiten.'
+  ]},
   { v: '1.2.0', datum: '29.08.2026', punkte: [
     'Anmeldung mit Benutzername und Passwort.',
     'Geräte-Sync: Handy und PC zeigen denselben Stand.',
@@ -401,7 +458,10 @@ function renderHeute() {
   if (!DB.plants.length) {
     box.innerHTML = `<div class="empty"><div class="big">🌱</div>
       <p><b>Noch keine Pflanzen</b></p>
-      <p>Tippe oben auf ＋ und leg deine erste Pflanze an.</p></div>`;
+      <p>Tippe oben auf ＋ und leg deine erste Pflanze an.</p>
+      <button class="btn sec" id="btn-beispiele-leer" style="max-width:260px;margin:22px auto 0">
+        Beispiele zum Ausprobieren</button></div>`;
+    $('#btn-beispiele-leer').onclick = beispieleLaden;
     return;
   }
   if (!faellig.length && !bald.length) {
@@ -644,6 +704,7 @@ function openDetail(id) {
       <span>${new Date(l.ts).toLocaleDateString('de-DE')}</span></div>`).join('') + `</div>` : ''}
 
     <button class="btn sec" data-edit="${p.id}">Bearbeiten</button>
+    <button class="btn danger" data-del="${p.id}">Pflanze löschen</button>
     <button class="btn sec" data-close>Schließen</button>
   `;
   openSheet('#sheet-detail');
@@ -776,6 +837,7 @@ function bind() {
   $('#f-foto').onchange = e => { if (e.target.files[0]) fotoVerarbeiten(e.target.files[0]); e.target.value = ''; };
   $('#btn-foto-del').onclick = () => { editFoto = null; $('#btn-foto-del').style.display = 'none'; renderEmojiPick(); };
 
+  $('#btn-beispiele').onclick = beispieleLaden;
   $('#btn-export').onclick = exportieren;
   $('#btn-import').onclick = () => $('#file-import').click();
   $('#file-import').onchange = e => { if (e.target.files[0]) importieren(e.target.files[0]); e.target.value = ''; };
@@ -819,12 +881,13 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-open],[data-emoji],[data-raum],[data-edit],[data-close]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.water) { e.stopPropagation(); giessen(t.dataset.water); if ($('#sheet-detail').classList.contains('open')) openDetail(t.dataset.water); return; }
     if (t.dataset.dueng) { e.stopPropagation(); duengen(t.dataset.dueng); if ($('#sheet-detail').classList.contains('open')) openDetail(t.dataset.dueng); return; }
     if (t.dataset.edit) { closeSheets(); setTimeout(() => openEdit(t.dataset.edit), 180); return; }
+    if (t.dataset.del) { loeschePflanze(t.dataset.del); return; }
     if (t.dataset.open) { openDetail(t.dataset.open); return; }
     if (t.dataset.emoji) { editEmoji = t.dataset.emoji; editFoto = null; $('#btn-foto-del').style.display = 'none'; renderEmojiPick(); return; }
     if (t.dataset.raum) { raumFilter = t.dataset.raum; renderPflanzen(); return; }
