@@ -4,7 +4,7 @@
 
 - Küchenkräuter ergänzt: Koriander, Dill, Zitronenmelisse und Kresse.
   Damit sind die üblichen Fensterbank-Kräuter vollständig – die Liste umfasst
-  nun 80 Arten.
+  nun 79 Arten.
 
 ## v1.13.1 - 2026-08-29
 

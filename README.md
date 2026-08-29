@@ -36,7 +36,7 @@ Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in 
 
 ✅ **Pflanze anlegen** – Name mit Vorschlägen, Art, Standort per Dropdown, Gießintervall, Wassermenge
 ✅ **Foto oder Emoji** – Kamera-/Galerie-Foto wird auf 400 px verkleinert und als JPEG in den localStorage gelegt; alternativ 15 Emoji zur Auswahl
-✅ **Pflegevorschläge** – 80 Arten und Sorten mit Richtwerten für Intervall, Licht, Menge und Pflegehinweis; erkennt Zweitnamen („Benjamini"), Mehrzahl („Efeutüten") und Umlaut-Schreibweisen
+✅ **Pflegevorschläge** – 79 Arten und Sorten mit Richtwerten für Intervall, Licht, Menge und Pflegehinweis; erkennt Zweitnamen („Benjamini"), Mehrzahl („Efeutüten") und Umlaut-Schreibweisen
 ✅ **Fotoverlauf** – bis zu sechs Bilder je Pflanze mit Datum, Großansicht per Antippen
 ✅ **Statistik** – Gießvorgänge je Woche, Wasserverbrauch, Pünktlichkeit je Pflanze
 ✅ **Suche** – über Name, Art, Standort, Notiz, Licht und Menge; mehrere Wörter in beliebiger Reihenfolge
@@ -251,7 +251,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
-| **v1.14.0** | Küchenkräuter ergänzt (80 Arten) |
+| **v1.14.0** | Küchenkräuter ergänzt (79 Arten) |
 | **v1.13.0** | Pflanzenliste auf 75 Arten erweitert, Zweitnamen und Mehrzahl |
 | **v1.12.0** | Namensvorschläge, Standort als Dropdown |
 | **v1.11.0** | Suche in der Pflanzenliste |
