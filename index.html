@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<title>Grünzeug</title>
+<meta name="description" content="Gießplan, Pflanzen-Datenbank und Erinnerungen für deine Zimmerpflanzen">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Grünzeug">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css?v=1.0.0">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ===== HEUTE ===== -->
+  <section id="view-heute" class="view active">
+    <div class="hd">
+      <div>
+        <h1>Heute</h1>
+        <div class="sub" id="heute-datum"></div>
+      </div>
+      <button class="hd-btn" id="btn-add-top" title="Pflanze hinzufügen">＋</button>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat"><b id="st-faellig">0</b><span>fällig</span></div>
+      <div class="stat"><b id="st-bald">0</b><span>in 2 Tagen</span></div>
+      <div class="stat"><b id="st-gesamt">0</b><span>Pflanzen</span></div>
+    </div>
+
+    <div id="heute-liste"></div>
+  </section>
+
+  <!-- ===== PFLANZEN ===== -->
+  <section id="view-pflanzen" class="view">
+    <div class="hd">
+      <div><h1>Pflanzen</h1><div class="sub" id="pflanzen-sub"></div></div>
+      <button class="hd-btn" id="btn-add-2" title="Pflanze hinzufügen">＋</button>
+    </div>
+    <div class="chips" id="raum-chips"></div>
+    <div class="grid" id="pflanzen-grid"></div>
+  </section>
+
+  <!-- ===== KALENDER ===== -->
+  <section id="view-plan" class="view">
+    <div class="hd"><div><h1>Plan</h1><div class="sub">Die nächsten 14 Tage</div></div></div>
+    <div id="plan-liste"></div>
+  </section>
+
+  <!-- ===== EINSTELLUNGEN ===== -->
+  <section id="view-more" class="view">
+    <div class="hd"><div><h1>Mehr</h1><div class="sub" id="version-sub"></div></div></div>
+
+    <div class="section-title">Erinnerungen</div>
+    <div class="group">
+      <div class="field">
+        <label>Push-Benachrichtigungen</label>
+        <span class="hint" id="push-status">nicht aktiv</span>
+      </div>
+      <div class="field">
+        <label>Erinnerung um</label>
+        <input type="time" id="set-pushzeit" value="09:00">
+      </div>
+    </div>
+    <button class="btn" id="btn-push-toggle">Push aktivieren</button>
+
+    <div class="section-title">Gießverhalten</div>
+    <div class="group">
+      <div class="field">
+        <label>Winter-Modus</label>
+        <select id="set-winter">
+          <option value="0">aus</option>
+          <option value="1">an (Intervall ×1,5)</option>
+          <option value="auto">automatisch (Nov–Feb)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Vorwarnung</label>
+        <select id="set-vorwarn">
+          <option value="0">keine</option>
+          <option value="1">1 Tag vorher</option>
+          <option value="2">2 Tage vorher</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section-title">Daten</div>
+    <div class="group">
+      <div class="field"><label>Pflanzen gespeichert</label><span class="hint" id="dat-anzahl">0</span></div>
+      <div class="field"><label>Gieß-Einträge</label><span class="hint" id="dat-logs">0</span></div>
+    </div>
+    <button class="btn sec" id="btn-export">Daten exportieren (JSON)</button>
+    <button class="btn sec" id="btn-import">Daten importieren</button>
+    <input type="file" id="file-import" accept="application/json" hidden>
+    <button class="btn danger" id="btn-reset">Alle Daten löschen</button>
+
+    <div class="section-title">Über</div>
+    <div class="group">
+      <div class="field"><label>Version</label><span class="hint" id="about-version">–</span></div>
+      <div class="field"><label>Speicher</label><span class="hint">localStorage (lokal)</span></div>
+    </div>
+    <p style="color:var(--text-3);font-size:13px;text-align:center;margin:20px 0 8px">
+      Grünzeug · lokal gespeichert, offline nutzbar
+    </p>
+  </section>
+
+</div>
+
+<!-- ===== Tabbar ===== -->
+<nav class="tabbar">
+  <button data-tab="heute" class="on"><span class="ic">💧</span>Heute</button>
+  <button data-tab="pflanzen"><span class="ic">🪴</span>Pflanzen</button>
+  <button data-tab="plan"><span class="ic">🗓</span>Plan</button>
+  <button data-tab="more"><span class="ic">⚙️</span>Mehr</button>
+</nav>
+
+<!-- ===== Sheet: Pflanze anlegen/bearbeiten ===== -->
+<div class="sheet" id="sheet-edit">
+  <div class="backdrop" data-close></div>
+  <div class="panel">
+    <div class="grabber"></div>
+    <h2 id="edit-title">Neue Pflanze</h2>
+
+    <div class="group">
+      <div class="field"><label>Name</label><input id="f-name" placeholder="z.B. Monstera" autocomplete="off"></div>
+      <div class="field"><label>Art</label><input id="f-art" placeholder="optional" autocomplete="off"></div>
+      <div class="field"><label>Standort</label><input id="f-raum" placeholder="z.B. Wohnzimmer" autocomplete="off" list="raum-list"></div>
+    </div>
+    <datalist id="raum-list"></datalist>
+
+    <div class="section-title">Symbol / Foto</div>
+    <div class="card">
+      <div class="emoji-pick" id="emoji-pick"></div>
+      <button class="btn sec" id="btn-foto" style="margin-top:12px">Foto aufnehmen / wählen</button>
+      <input type="file" id="f-foto" accept="image/*" hidden>
+      <button class="btn sec" id="btn-foto-del" style="display:none">Foto entfernen</button>
+    </div>
+
+    <div class="section-title">Gießen</div>
+    <div class="group">
+      <div class="field"><label>Alle … Tage</label><input type="number" id="f-intervall" min="1" max="365" value="7" inputmode="numeric"></div>
+      <div class="field"><label>Zuletzt gegossen</label><input type="date" id="f-letzt"></div>
+      <div class="field"><label>Wassermenge</label><input id="f-menge" placeholder="z.B. 200 ml" autocomplete="off"></div>
+    </div>
+
+    <div class="section-title">Düngen (optional)</div>
+    <div class="group">
+      <div class="field"><label>Alle … Tage</label><input type="number" id="f-duenger-int" min="0" max="365" value="0" inputmode="numeric" placeholder="0 = aus"></div>
+      <div class="field"><label>Zuletzt gedüngt</label><input type="date" id="f-duenger-letzt"></div>
+    </div>
+
+    <div class="section-title">Pflege</div>
+    <div class="group">
+      <div class="field">
+        <label>Licht</label>
+        <select id="f-licht">
+          <option value="">–</option>
+          <option>Vollsonne</option>
+          <option>Hell, ohne direkte Sonne</option>
+          <option>Halbschatten</option>
+          <option>Schatten</option>
+        </select>
+      </div>
+      <div class="field col"><label>Notizen</label><textarea id="f-notiz" placeholder="Umtopfen, Besonderheiten, Schädlinge …"></textarea></div>
+    </div>
+
+    <button class="btn" id="btn-save">Speichern</button>
+    <button class="btn sec" data-close>Abbrechen</button>
+    <button class="btn danger" id="btn-delete" style="display:none">Pflanze löschen</button>
+  </div>
+</div>
+
+<!-- ===== Sheet: Pflanzen-Detail ===== -->
+<div class="sheet" id="sheet-detail">
+  <div class="backdrop" data-close></div>
+  <div class="panel" id="detail-body"></div>
+</div>
+
+<div id="toast"></div>
+
+<script src="app.js?v=1.0.0"></script>
+</body>
+</html>
