@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.16.2 - 2026-08-29
+
+- Behoben: Der Knopf "QR-Code für den Topf" schien nichts zu tun. Das Sheet
+  öffnete sich tatsächlich, lag aber unsichtbar hinter der Detailansicht: Alle
+  Sheets teilen sich einen z-index, also entschied die Reihenfolge im HTML –
+  und die Detailansicht steht dort weiter unten. Dasselbe betraf die
+  Foto-Großansicht.
+- Das zuletzt geöffnete Sheet wandert jetzt nach vorne, unabhängig von seiner
+  Position im Dokument.
+
 ## v1.16.1 - 2026-08-29
 
 - Behoben: Ein gescannter QR-Code meldete "Diese Pflanze gibt es hier nicht",

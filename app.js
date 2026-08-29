@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.16.1';
+const VERSION = '1.16.2';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -411,6 +411,9 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.16.2', datum: '29.08.2026', punkte: [
+    'Behoben: QR-Code und Foto-Großansicht öffneten sich unsichtbar hinter der Detailansicht.'
+  ]},
   { v: '1.16.1', datum: '29.08.2026', punkte: [
     'Behoben: Ein gescannter QR-Code fand die Pflanze nicht, wenn das Gerät die Daten noch nicht geladen hatte.'
   ]},
@@ -1963,8 +1966,25 @@ function hashOeffnen(endgueltig) {
 }
 
 /* ---------- Sheets ---------- */
-function openSheet(sel) { $(sel).classList.add('open'); document.body.style.overflow = 'hidden'; }
-function closeSheets() { $$('.sheet').forEach(s => s.classList.remove('open')); document.body.style.overflow = ''; }
+/* Alle Sheets haben denselben z-index, also entscheidet die Reihenfolge im
+   HTML, welches oben liegt. Ein aus der Detailansicht geöffnetes Sheet stünde
+   dort weiter oben und läge damit darunter – es sah aus, als passiere nichts.
+   Deshalb wandert das zuletzt geöffnete nach vorne. */
+let sheetEbene = 100;
+
+function openSheet(sel) {
+  const el = $(sel);
+  if (!el) { console.warn('Sheet fehlt:', sel); return; }
+  el.style.zIndex = ++sheetEbene;
+  el.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSheets() {
+  $$('.sheet').forEach(s => { s.classList.remove('open'); s.style.zIndex = ''; });
+  sheetEbene = 100;
+  document.body.style.overflow = '';
+}
 
 function openEdit(id) {
   editId = id || null;
