@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.8.0 - 2026-08-29
+
+- Rückgängig nach Gießen und Düngen: Die Meldung enthält jetzt einen Knopf, der
+  das vorherige Datum wiederherstellt und den Eintrag aus dem Verlauf entfernt.
+  Sie bleibt dafür sechs statt zwei Sekunden stehen.
+- Bewusst keine Sicherheitsabfrage vor dem Gießen: Das ist der am häufigsten
+  benutzte Handgriff der App, eine Rückfrage bei jeder Pflanze würde ihn
+  unbrauchbar machen.
+- Die Meldung ist jetzt eine Flex-Zeile und passt sich der Breite an, statt bei
+  längeren Namen auf drei Zeilen umzubrechen.
+
 ## v1.7.1 - 2026-08-29
 
 - Knopf "Beispielpflanzen anlegen" unter Mehr entfernt. Auf dem leeren

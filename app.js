@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.7.1';
+const VERSION = '1.8.0';
 
 const KEY = 'pg_data';
 const EMOJIS = ['🪴','🌿','🌵','🌱','🌴','🎍','🌺','🌻','🌷','🍀','🌾','🥬','🍋','🌶️','🫒'];
@@ -24,6 +24,7 @@ let editEmoji = '🪴';
 let editFoto = null;
 let raumFilter = 'alle';
 let heuteFilter = null;   // null | 'faellig' | 'bald' | 'alle'
+let letzteAktion = null;  // für "Rückgängig" nach Gießen/Düngen
 
 /* ---------- Persistenz ---------- */
 function load() {
@@ -106,12 +107,20 @@ function statusText(p) {
   if (t === 1) return 'Morgen';
   return 'in ' + t + ' Tagen';
 }
-function toast(msg) {
+function toast(msg, aktionText, aktion) {
   const el = $('#toast');
   el.textContent = msg;
+  if (aktionText && aktion) {
+    const knopf = document.createElement('button');
+    knopf.className = 'toast-aktion';
+    knopf.textContent = aktionText;
+    knopf.onclick = () => { el.classList.remove('show'); aktion(); };
+    el.appendChild(knopf);
+  }
   el.classList.add('show');
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => el.classList.remove('show'), 2200);
+  // Mit Aktion länger stehen lassen, sonst ist sie nicht zu treffen
+  toast._t = setTimeout(() => el.classList.remove('show'), aktionText ? 6000 : 2200);
 }
 function avatarHTML(p, cls) {
   const c = 'avatar' + (cls ? ' ' + cls : '');
@@ -383,6 +392,10 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.8.0', datum: '29.08.2026', punkte: [
+    'Rückgängig direkt in der Meldung nach Gießen oder Düngen – sechs Sekunden lang.',
+    'Nimmt das alte Datum zurück und entfernt den Eintrag aus dem Verlauf.'
+  ]},
   { v: '1.7.1', datum: '29.08.2026', punkte: [
     'Knopf "Beispielpflanzen anlegen" unter Mehr entfernt; auf dem leeren Startbildschirm bleibt er.'
   ]},
@@ -853,19 +866,41 @@ function renderMore() {
 function giessen(id) {
   const p = DB.plants.find(x => x.id === id);
   if (!p) return;
+  const logId = uid();
+  letzteAktion = { typ: 'wasser', plantId: id, vorher: p.letzt, logId };
   p.letzt = toISO(new Date());
-  DB.logs.push({ id: uid(), plantId: id, typ: 'wasser', ts: Date.now() });
+  DB.logs.push({ id: logId, plantId: id, typ: 'wasser', ts: Date.now() });
   save(); renderAll();
   if (navigator.vibrate) navigator.vibrate(12);
-  toast('💧 ' + p.name + ' gegossen');
+  toast('💧 ' + p.name + ' gegossen', 'Rückgängig', rueckgaengig);
 }
 function duengen(id) {
   const p = DB.plants.find(x => x.id === id);
   if (!p) return;
+  const logId = uid();
+  letzteAktion = { typ: 'duenger', plantId: id, vorher: p.duengerLetzt, logId };
   p.duengerLetzt = toISO(new Date());
-  DB.logs.push({ id: uid(), plantId: id, typ: 'duenger', ts: Date.now() });
+  DB.logs.push({ id: logId, plantId: id, typ: 'duenger', ts: Date.now() });
   save(); renderAll();
-  toast('🌿 ' + p.name + ' gedüngt');
+  toast('🌿 ' + p.name + ' gedüngt', 'Rückgängig', rueckgaengig);
+}
+
+/** Nimmt den letzten Gieß- oder Düngevorgang zurück: altes Datum wieder
+    herstellen und den Verlaufseintrag entfernen. */
+function rueckgaengig() {
+  if (!letzteAktion) return;
+  const { typ, plantId, vorher, logId } = letzteAktion;
+  const p = DB.plants.find(x => x.id === plantId);
+  if (p) {
+    if (typ === 'wasser') p.letzt = vorher;
+    else p.duengerLetzt = vorher;
+  }
+  DB.logs = DB.logs.filter(l => l.id !== logId);
+  letzteAktion = null;
+  save();
+  renderAll();
+  if ($('#sheet-detail').classList.contains('open') && p) openDetail(plantId);
+  toast(typ === 'wasser' ? 'Gießen zurückgenommen' : 'Düngen zurückgenommen');
 }
 
 /* ---------- Sheets ---------- */
