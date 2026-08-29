@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=1.3.0">
+<link rel="stylesheet" href="style.css?v=1.4.0">
 </head>
 <body>
 
@@ -36,10 +36,12 @@
   <section id="view-heute" class="view active">
     <div class="hd">
       <div>
-        <h1>Heute</h1>
+        <div class="gruss" id="heute-gruss" hidden></div>
+        <h1 id="heute-titel">Heute</h1>
         <div class="sub" id="heute-datum"></div>
       </div>
       <div class="hd-actions">
+        <button class="hd-btn" id="btn-profil" title="Persönliches" hidden></button>
         <button class="hd-btn" id="btn-theme" title="Hell / Dunkel umschalten">🌙</button>
         <button class="hd-btn" id="btn-add-top" title="Pflanze hinzufügen">＋</button>
       </div>
@@ -81,6 +83,21 @@
     </div>
     <button class="btn sec" id="btn-logout">Abmelden</button>
     <button class="btn sec" id="btn-anmelden" style="display:none">Anmelden</button>
+
+    <div class="section-title">Persönliches</div>
+    <div class="group">
+      <div class="field" id="zeile-persoenlich" style="cursor:pointer">
+        <label>Name, Farbe, Hintergrund</label><span class="hint" id="persoenlich-kurz">anpassen ›</span>
+      </div>
+      <div class="field">
+        <label>Startansicht</label>
+        <select id="set-start">
+          <option value="heute">Heute</option>
+          <option value="pflanzen">Pflanzen</option>
+          <option value="plan">Plan</option>
+        </select>
+      </div>
+    </div>
 
     <div class="section-title">Erinnerungen</div>
     <div class="group">
@@ -217,6 +234,47 @@
   </div>
 </div>
 
+<!-- ===== Sheet: Persönliches ===== -->
+<div class="sheet" id="sheet-persoenlich">
+  <div class="backdrop" data-close></div>
+  <div class="panel">
+    <div class="grabber"></div>
+    <h2>Persönliches</h2>
+
+    <div class="group">
+      <div class="field">
+        <label>Dein Name</label>
+        <input id="ps-name" placeholder="z.B. Torsten" maxlength="30" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Name der App</label>
+        <input id="ps-appname" placeholder="Grünzeug" maxlength="30" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="section-title">Dein Symbol</div>
+    <div class="card">
+      <div class="emoji-pick" id="ps-emoji"></div>
+      <button class="btn sec" id="ps-foto-btn" style="margin-top:12px">Eigenes Foto wählen</button>
+      <input type="file" id="ps-foto" accept="image/*" hidden>
+      <button class="btn sec" id="ps-foto-weg" style="display:none">Foto entfernen</button>
+    </div>
+
+    <div class="section-title">Akzentfarbe</div>
+    <div class="card"><div class="farben" id="ps-farben"></div></div>
+
+    <div class="section-title">Hintergrund</div>
+    <div class="card">
+      <div class="hg-wahl" id="ps-hintergruende"></div>
+      <button class="btn sec" id="ps-hgfoto-btn" style="margin-top:14px">Eigenes Foto als Hintergrund</button>
+      <input type="file" id="ps-hgfoto" accept="image/*" hidden>
+      <button class="btn sec" id="ps-hgfoto-weg" style="display:none">Hintergrundfoto entfernen</button>
+    </div>
+
+    <button class="btn" data-close>Fertig</button>
+  </div>
+</div>
+
 <!-- ===== Sheet: Versionshistorie ===== -->
 <div class="sheet" id="sheet-historie">
   <div class="backdrop" data-close></div>
@@ -236,6 +294,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=1.3.0"></script>
+<script src="app.js?v=1.4.0"></script>
 </body>
 </html>

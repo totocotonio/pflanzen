@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.4.0 - 2026-08-29
+
+- Eigener Name: die Startseite begrüßt tageszeitabhängig ("Guten Morgen, Torsten")
+  statt nur "Heute" anzuzeigen.
+- Acht Akzentfarben statt festem Grün – wirkt auf Knöpfe, Fortschrittsbalken,
+  aktiven Tab und die Fälligkeitsmarkierungen. Je Farbe ein eigener Wert für
+  hell und dunkel.
+- Hintergrund wählbar: sechs Verläufe (Wald, Dämmerung, Meer, Sand, Rosé, Nacht)
+  oder ein eigenes Foto. Bei eigenem Hintergrund werden die Flächen durch-
+  scheinend, damit das Bild sichtbar bleibt; über Fotos liegt ein Schleier für
+  die Lesbarkeit.
+- Eigenes Symbol im Kopf der Startseite: 15 Emoji oder ein eigenes Foto.
+- Name der App änderbar (Kopfzeile, Anmeldung, Browser-Tab).
+- Startansicht wählbar: Heute, Pflanzen oder Plan.
+- Alle Einstellungen gehören zum Konto und werden zwischen den Geräten
+  synchronisiert; Torsten und Jule können unterschiedlich einstellen.
+- Behoben: Im hellen Modus blieb die Akzentfarbe grün. Die helle Palette war
+  zusätzlich auf `body` definiert und überschrieb damit den per JS auf `<html>`
+  gesetzten Wert.
+
 ## v1.3.0 - 2026-08-29
 
 - Beispielpflanzen zum Ausprobieren: acht typische Zimmerpflanzen mit üblichen

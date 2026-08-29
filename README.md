@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** ✅ Live (v1.3.0)
+**Status:** ✅ Live (v1.4.0)
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -49,6 +49,17 @@ Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in 
 ✅ **Push-Erinnerungen** – Web Push zur frei wählbaren Uhrzeit _(Server-Teil folgt)_
 ✅ **Versionshistorie** – in der App unter Mehr → Über einsehbar
 
+### Personalisierung
+
+✅ **Begrüßung mit Namen** – tageszeitabhängig, statt der Überschrift „Heute"
+✅ **Acht Akzentfarben** – Grün, Blau, Türkis, Violett, Pink, Rot, Orange, Gelb; je Farbe ein eigener Ton für hell und dunkel
+✅ **Hintergrund** – sechs Verläufe oder ein eigenes Foto; Flächen werden dann durchscheinend, Fotos bekommen einen Schleier für die Lesbarkeit
+✅ **Eigenes Symbol** – 15 Emoji oder ein eigenes Foto im Kopf der Startseite
+✅ **App-Name** – ersetzt „Grünzeug" in Kopfzeile, Anmeldung und Browser-Tab
+✅ **Startansicht** – Heute, Pflanzen oder Plan
+
+Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unterschiedlich aussehen.
+
 ### Konto und Geräte-Sync
 
 ✅ **Anmeldung** – Benutzername und Passwort, Sitzung als HttpOnly-Cookie (90 Tage)
@@ -68,7 +79,7 @@ Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in 
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
 | Design | iOS-orientiertes Dark UI, System-Schriften, `env(safe-area-inset-*)` |
 | Speicher | `localStorage`, Schlüssel `pg_data` |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v1.3.0` |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v1.4.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
 | Push | Web Push API + VAPID (Server folgt) |
 | Hosting | LXC Container auf Proxmox |
@@ -202,6 +213,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v1.4.0** | Personalisierung: Name, Akzentfarbe, Hintergrund, Symbol, App-Name, Startansicht |
 | **v1.3.0** | Beispielpflanzen, Löschen direkt in der Detailansicht |
 | **v1.2.0** | Anmeldung und Geräte-Sync über eigenes FastAPI-Backend |
 | **v1.1.0** | Hell/Dunkel/System umschaltbar, Desktop-Layout ab 768 px |

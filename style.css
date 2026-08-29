@@ -20,6 +20,9 @@
   --tabbar-bg:rgba(22,22,24,.82);
   --sheet-bg:#131315;
   --schatten:none;
+  --glas:rgba(28,28,30,.72);
+  --glas-rand:rgba(255,255,255,.08);
+  --schleier:rgba(0,0,0,.55);
   color-scheme:dark;
   --r:16px;
   --r-lg:22px;
@@ -27,9 +30,10 @@
   --safe-b:env(safe-area-inset-bottom,0px);
 }
 
-/* Helle Palette – einmal definiert, an beiden Stellen eingebunden */
-:root[data-theme="light"],
-:root[data-theme="light"] body{
+/* Helle Palette – einmal definiert, an beiden Stellen eingebunden.
+   Nur auf :root, niemals zusätzlich auf body: die Akzentfarbe wird per JS
+   inline auf <html> gesetzt, eine Definition auf body würde sie überschreiben. */
+:root[data-theme="light"]{
   --bg:#f2f2f7;
   --surface:#fff;
   --surface-2:#e9e9ed;
@@ -47,6 +51,9 @@
   --tabbar-bg:rgba(249,249,251,.86);
   --sheet-bg:#f2f2f7;
   --schatten:0 1px 3px rgba(0,0,0,.06);
+  --glas:rgba(255,255,255,.78);
+  --glas-rand:rgba(0,0,0,.06);
+  --schleier:rgba(255,255,255,.62);
   color-scheme:light;
 }
 @media (prefers-color-scheme: light){
@@ -68,6 +75,9 @@
     --tabbar-bg:rgba(249,249,251,.86);
     --sheet-bg:#f2f2f7;
     --schatten:0 1px 3px rgba(0,0,0,.06);
+    --glas:rgba(255,255,255,.78);
+    --glas-rand:rgba(0,0,0,.06);
+    --schleier:rgba(255,255,255,.62);
     color-scheme:light;
   }
 }
@@ -319,3 +329,63 @@ a{color:var(--blue);text-decoration:none}
   .view{max-width:900px}
   .grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
 }
+
+
+/* ============================================================
+   Personalisierung
+   ============================================================ */
+
+/* Hintergrund liegt hinter allem: ::before trägt Verlauf oder Foto,
+   ::after legt bei Fotos einen Schleier darüber, damit Text lesbar bleibt. */
+body::before{
+  content:'';position:fixed;inset:0;z-index:-2;
+  background-image:var(--hg-bild,none);
+  background-size:cover;background-position:center;background-repeat:no-repeat}
+body::after{
+  content:'';position:fixed;inset:0;z-index:-1;
+  background:var(--hg-schleier,transparent);
+  backdrop-filter:var(--hg-blur,none);-webkit-backdrop-filter:var(--hg-blur,none)}
+
+/* Bei eigenem Hintergrund werden die Flächen durchscheinend,
+   sonst verdeckt die App das Bild komplett. */
+body.hat-hg .plant,
+body.hat-hg .card,
+body.hat-hg .tile,
+body.hat-hg .field,
+body.hat-hg .stat,
+body.hat-hg .rel,
+body.hat-hg .log-item{
+  background:var(--glas);
+  backdrop-filter:saturate(140%) blur(14px);-webkit-backdrop-filter:saturate(140%) blur(14px)}
+body.hat-hg .stat,
+body.hat-hg .card,
+body.hat-hg .plant,
+body.hat-hg .tile{border:.5px solid var(--glas-rand)}
+body.hat-hg .sheet .panel{background:var(--sheet-bg)}
+
+/* Begrüßung im Kopf der Startseite */
+.gruss{color:var(--text-2);font-size:15px;font-weight:500;margin-bottom:1px}
+#view-heute .hd h1{font-size:clamp(26px,7.4vw,34px)}
+
+/* Avatar-Knopf im Kopf */
+#btn-profil{overflow:hidden;padding:0}
+#btn-profil img{width:100%;height:100%;object-fit:cover;display:block}
+
+/* Farbauswahl */
+.farben{display:flex;flex-wrap:wrap;gap:12px}
+.farbe{width:44px;height:44px;border-radius:50%;position:relative;flex:0 0 auto;
+  border:2px solid transparent;transition:transform .12s}
+.farbe:active{transform:scale(.9)}
+.farbe.on{border-color:var(--text)}
+.farbe.on::after{content:'✓';position:absolute;inset:0;display:grid;place-items:center;
+  color:#fff;font-size:19px;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+
+/* Hintergrundauswahl */
+.hg-wahl{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:10px}
+.hg{height:66px;border-radius:14px;position:relative;overflow:hidden;
+  border:2px solid transparent;display:grid;place-items:end center;padding-bottom:5px}
+.hg.on{border-color:var(--accent)}
+.hg span{font-size:11px;font-weight:600;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.7);
+  position:relative;z-index:1}
+.hg.hell span{color:#000;text-shadow:0 1px 3px rgba(255,255,255,.7)}
+.hg img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}

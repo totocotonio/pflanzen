@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.3.0';
+const VERSION = '1.4.0';
 
 /* Push-Server – wird gesetzt, sobald der LXC steht */
 const PUSH_SERVER = '';
@@ -18,7 +18,10 @@ let DB = {
   v: 1,
   plants: [],
   logs: [],
-  settings: { winter: 'auto', vorwarn: 2, pushZeit: '09:00', pushAktiv: false, theme: 'auto' }
+  settings: { winter: 'auto', vorwarn: 2, pushZeit: '09:00', pushAktiv: false, theme: 'auto',
+             anzeigename: '', appName: '', avatar: '', avatarFoto: null,
+             akzent: 'gruen', hintergrund: 'keiner', hintergrundFoto: null,
+             startAnsicht: 'heute' }
 };
 let editId = null;      // null = neue Pflanze
 let editEmoji = '🪴';
@@ -32,7 +35,10 @@ function load() {
     if (raw) {
       const d = JSON.parse(raw);
       DB = Object.assign(DB, d);
-      DB.settings = Object.assign({ winter: 'auto', vorwarn: 2, pushZeit: '09:00', pushAktiv: false, theme: 'auto' }, d.settings || {});
+      DB.settings = Object.assign({ winter: 'auto', vorwarn: 2, pushZeit: '09:00', pushAktiv: false, theme: 'auto',
+             anzeigename: '', appName: '', avatar: '', avatarFoto: null,
+             akzent: 'gruen', hintergrund: 'keiner', hintergrundFoto: null,
+             startAnsicht: 'heute' }, d.settings || {});
       DB.plants = d.plants || [];
       DB.logs = d.logs || [];
     }
@@ -165,10 +171,223 @@ function loeschePflanze(id) {
   toast(p.name + ' gelöscht');
 }
 
+/* ---------- Personalisierung ----------
+   Alles liegt in DB.settings und wird damit zwischen den Geräten
+   synchronisiert. Jedes Konto hat eigene Einstellungen. */
+
+const AKZENTE = {
+  gruen:   { name: 'Grün',    dunkel: '#30d158', hell: '#34c759', auf: '#000' },
+  blau:    { name: 'Blau',    dunkel: '#0a84ff', hell: '#007aff', auf: '#fff' },
+  tuerkis: { name: 'Türkis',  dunkel: '#40cbe0', hell: '#00a6c4', auf: '#000' },
+  violett: { name: 'Violett', dunkel: '#bf5af2', hell: '#af52de', auf: '#fff' },
+  pink:    { name: 'Pink',    dunkel: '#ff6482', hell: '#ff2d55', auf: '#fff' },
+  rot:     { name: 'Rot',     dunkel: '#ff453a', hell: '#ff3b30', auf: '#fff' },
+  orange:  { name: 'Orange',  dunkel: '#ff9f0a', hell: '#ff9500', auf: '#000' },
+  gelb:    { name: 'Gelb',    dunkel: '#ffd60a', hell: '#f5c400', auf: '#000' }
+};
+
+const HINTERGRUENDE = {
+  keiner:      { name: 'Keiner',     dunkel: null, hell: null },
+  wald:        { name: 'Wald',       dunkel: 'linear-gradient(170deg,#08301f,#000 62%)',  hell: 'linear-gradient(170deg,#d5f0e2,#f2f2f7 62%)' },
+  daemmerung:  { name: 'Dämmerung',  dunkel: 'linear-gradient(170deg,#2a1b3d,#000 65%)',  hell: 'linear-gradient(170deg,#ebe2f7,#f2f2f7 65%)' },
+  meer:        { name: 'Meer',       dunkel: 'linear-gradient(170deg,#062a3d,#000 62%)',  hell: 'linear-gradient(170deg,#d6ecf7,#f2f2f7 62%)' },
+  sand:        { name: 'Sand',       dunkel: 'linear-gradient(170deg,#332510,#000 62%)',  hell: 'linear-gradient(170deg,#f7ecd6,#f2f2f7 62%)' },
+  rose:        { name: 'Rosé',       dunkel: 'linear-gradient(170deg,#3a1420,#000 62%)',  hell: 'linear-gradient(170deg,#f9e0e7,#f2f2f7 62%)' },
+  nacht:       { name: 'Nacht',      dunkel: 'linear-gradient(170deg,#101a2e,#000 62%)',  hell: 'linear-gradient(170deg,#e0e7f5,#f2f2f7 62%)' }
+};
+
+const PROFIL_EMOJIS = ['🙂','😎','🌻','🐝','🦊','🐢','🌙','⭐','🍀','🪴','🌵','🐈','🐕','🎧','☕'];
+
+function dunkelAktiv() {
+  const t = document.documentElement.getAttribute('data-theme');
+  if (t) return t === 'dark';
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+/** Setzt Akzentfarbe, Hintergrund, Begrüßung, Titel und Symbol. */
+function applyPersonalisierung() {
+  const st = DB.settings;
+  const dunkel = dunkelAktiv();
+  const wurzel = document.documentElement;
+
+  // Akzentfarbe
+  const a = AKZENTE[st.akzent] || AKZENTE.gruen;
+  wurzel.style.setProperty('--accent', dunkel ? a.dunkel : a.hell);
+  wurzel.style.setProperty('--on-accent', a.auf);
+
+  // Hintergrund: eigenes Foto schlägt den Verlauf
+  const koerper = document.body;
+  if (st.hintergrund === 'foto' && st.hintergrundFoto) {
+    koerper.style.setProperty('--hg-bild', 'url(' + st.hintergrundFoto + ')');
+    koerper.style.setProperty('--hg-schleier', 'var(--schleier)');
+    koerper.classList.add('hat-hg');
+  } else {
+    const h = HINTERGRUENDE[st.hintergrund] || HINTERGRUENDE.keiner;
+    const bild = dunkel ? h.dunkel : h.hell;
+    koerper.style.setProperty('--hg-bild', bild || 'none');
+    koerper.style.setProperty('--hg-schleier', 'transparent');
+    koerper.classList.toggle('hat-hg', !!bild);
+  }
+
+  // Begrüßung statt "Heute"
+  const name = (st.anzeigename || '').trim();
+  const gruss = $('#heute-gruss');
+  const titel = $('#heute-titel');
+  if (name) {
+    const std = new Date().getHours();
+    const tageszeit = std < 5 ? 'Gute Nacht' : std < 11 ? 'Guten Morgen'
+      : std < 18 ? 'Hallo' : 'Guten Abend';
+    gruss.textContent = tageszeit;
+    gruss.hidden = false;
+    titel.textContent = name;
+  } else {
+    gruss.hidden = true;
+    titel.textContent = 'Heute';
+  }
+
+  // App-Name
+  const appName = (st.appName || '').trim() || 'Grünzeug';
+  document.title = appName;
+  const loginTitel = document.querySelector('.login-box h1');
+  if (loginTitel) loginTitel.textContent = appName;
+
+  // Symbol im Kopf
+  const knopf = $('#btn-profil');
+  if (st.avatarFoto) {
+    knopf.innerHTML = '<img src="' + st.avatarFoto + '" alt="">';
+    knopf.hidden = false;
+  } else if (st.avatar) {
+    knopf.textContent = st.avatar;
+    knopf.hidden = false;
+  } else {
+    knopf.textContent = '';
+    knopf.hidden = true;
+  }
+}
+
+/* ---------- Sheet "Persönliches" ---------- */
+function oeffnePersoenlich() {
+  const st = DB.settings;
+  $('#ps-name').value = st.anzeigename || '';
+  $('#ps-appname').value = st.appName || '';
+  $('#ps-foto-weg').style.display = st.avatarFoto ? 'block' : 'none';
+  $('#ps-hgfoto-weg').style.display = st.hintergrundFoto ? 'block' : 'none';
+  zeichnePersoenlich();
+  openSheet('#sheet-persoenlich');
+}
+
+function zeichnePersoenlich() {
+  const st = DB.settings;
+  const dunkel = dunkelAktiv();
+
+  $('#ps-emoji').innerHTML = PROFIL_EMOJIS.map(e =>
+    `<button data-pemoji="${e}" class="${e === st.avatar && !st.avatarFoto ? 'on' : ''}">${e}</button>`
+  ).join('');
+
+  $('#ps-farben').innerHTML = Object.entries(AKZENTE).map(([schluessel, f]) =>
+    `<button class="farbe ${schluessel === (st.akzent || 'gruen') ? 'on' : ''}"
+       data-farbe="${schluessel}" title="${f.name}"
+       style="background:${dunkel ? f.dunkel : f.hell}"></button>`
+  ).join('');
+
+  $('#ps-hintergruende').innerHTML = Object.entries(HINTERGRUENDE).map(([schluessel, h]) => {
+    const bild = dunkel ? h.dunkel : h.hell;
+    const aktiv = (st.hintergrund || 'keiner') === schluessel;
+    const flaeche = bild || (dunkel ? '#1c1c1e' : '#fff');
+    return `<button class="hg ${aktiv ? 'on' : ''} ${dunkel ? '' : 'hell'}"
+      data-hg="${schluessel}" style="background:${flaeche}"><span>${h.name}</span></button>`;
+  }).join('') + (DB.settings.hintergrundFoto
+    ? `<button class="hg ${st.hintergrund === 'foto' ? 'on' : ''}" data-hg="foto">
+         <img src="${st.hintergrundFoto}" alt=""><span>Eigenes</span></button>`
+    : '');
+}
+
+/** Bild verkleinern und als JPEG zurückgeben. */
+function bildVerkleinern(datei, maxKante, guete) {
+  return new Promise((fertig, fehler) => {
+    const leser = new FileReader();
+    leser.onerror = () => fehler(new Error('Datei nicht lesbar'));
+    leser.onload = e => {
+      const bild = new Image();
+      bild.onerror = () => fehler(new Error('Kein gültiges Bild'));
+      bild.onload = () => {
+        const f = Math.min(maxKante / bild.width, maxKante / bild.height, 1);
+        const c = document.createElement('canvas');
+        c.width = Math.round(bild.width * f);
+        c.height = Math.round(bild.height * f);
+        c.getContext('2d').drawImage(bild, 0, 0, c.width, c.height);
+        fertig(c.toDataURL('image/jpeg', guete));
+      };
+      bild.src = e.target.result;
+    };
+    leser.readAsDataURL(datei);
+  });
+}
+
+function bindePersoenlich() {
+  $('#zeile-persoenlich').onclick = oeffnePersoenlich;
+  $('#btn-profil').onclick = oeffnePersoenlich;
+
+  $('#ps-name').oninput = e => {
+    DB.settings.anzeigename = e.target.value.slice(0, 30);
+    save(); applyPersonalisierung();
+  };
+  $('#ps-appname').oninput = e => {
+    DB.settings.appName = e.target.value.slice(0, 30);
+    save(); applyPersonalisierung();
+  };
+
+  $('#ps-foto-btn').onclick = () => $('#ps-foto').click();
+  $('#ps-foto').onchange = async e => {
+    if (!e.target.files[0]) return;
+    try {
+      DB.settings.avatarFoto = await bildVerkleinern(e.target.files[0], 200, 0.8);
+      save(); applyPersonalisierung(); zeichnePersoenlich();
+      $('#ps-foto-weg').style.display = 'block';
+      toast('Symbol übernommen');
+    } catch (err) { toast(err.message); }
+    e.target.value = '';
+  };
+  $('#ps-foto-weg').onclick = () => {
+    DB.settings.avatarFoto = null;
+    save(); applyPersonalisierung(); zeichnePersoenlich();
+    $('#ps-foto-weg').style.display = 'none';
+  };
+
+  $('#ps-hgfoto-btn').onclick = () => $('#ps-hgfoto').click();
+  $('#ps-hgfoto').onchange = async e => {
+    if (!e.target.files[0]) return;
+    try {
+      DB.settings.hintergrundFoto = await bildVerkleinern(e.target.files[0], 1200, 0.72);
+      DB.settings.hintergrund = 'foto';
+      save(); applyPersonalisierung(); zeichnePersoenlich();
+      $('#ps-hgfoto-weg').style.display = 'block';
+      toast('Hintergrund übernommen');
+    } catch (err) { toast(err.message); }
+    e.target.value = '';
+  };
+  $('#ps-hgfoto-weg').onclick = () => {
+    DB.settings.hintergrundFoto = null;
+    if (DB.settings.hintergrund === 'foto') DB.settings.hintergrund = 'keiner';
+    save(); applyPersonalisierung(); zeichnePersoenlich();
+    $('#ps-hgfoto-weg').style.display = 'none';
+  };
+
+  $('#set-start').onchange = e => { DB.settings.startAnsicht = e.target.value; save(); };
+}
+
 /* ---------- Versionshistorie ----------
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.4.0', datum: '29.08.2026', punkte: [
+    'Eigener Name: die Startseite begrüßt dich tageszeitabhängig.',
+    'Acht Akzentfarben statt festem Grün.',
+    'Hintergrund wählbar: sechs Verläufe oder ein eigenes Foto.',
+    'Eigenes Symbol als Emoji oder Foto im Kopf der Startseite.',
+    'Name der App änderbar.',
+    'Startansicht wählbar: Heute, Pflanzen oder Plan.'
+  ]},
   { v: '1.3.0', datum: '29.08.2026', punkte: [
     'Beispielpflanzen zum Ausprobieren – anlegbar über den leeren Startbildschirm oder unter Mehr.',
     'Pflanze löschen jetzt direkt in der Detailansicht, nicht mehr nur über Bearbeiten.'
@@ -420,6 +639,9 @@ function applyTheme() {
     knopf.textContent = dunkel ? '☀️' : '🌙';
     knopf.title = dunkel ? 'Auf Hell umschalten' : 'Auf Dunkel umschalten';
   }
+
+  // Akzentfarbe und Hintergrund haben je Modus eigene Werte
+  if (typeof applyPersonalisierung === 'function') applyPersonalisierung();
 }
 
 /** Umschalter im Kopf der Startseite: springt zwischen Hell und Dunkel.
@@ -574,6 +796,10 @@ function renderMore() {
   $('#dat-anzahl').textContent = DB.plants.length;
   $('#dat-logs').textContent = DB.logs.length;
   $('#set-theme').value = DB.settings.theme || 'auto';
+  $('#set-start').value = DB.settings.startAnsicht || 'heute';
+  $('#persoenlich-kurz').textContent =
+    (DB.settings.anzeigename || '').trim() ||
+    (AKZENTE[DB.settings.akzent] || AKZENTE.gruen).name + ' ›';
   $('#set-winter').value = DB.settings.winter;
   $('#set-vorwarn').value = String(DB.settings.vorwarn);
   $('#set-pushzeit').value = DB.settings.pushZeit;
@@ -826,6 +1052,7 @@ function tab(name) {
 /* ---------- Events ---------- */
 function bind() {
   $$('.tabbar button').forEach(b => b.onclick = () => tab(b.dataset.tab));
+  bindePersoenlich();
   $('#zeile-historie').onclick = zeigeHistorie;
   $('#btn-theme').onclick = themeUmschalten;
   $('#btn-add-top').onclick = () => openEdit(null);
@@ -881,7 +1108,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.water) { e.stopPropagation(); giessen(t.dataset.water); if ($('#sheet-detail').classList.contains('open')) openDetail(t.dataset.water); return; }
@@ -891,6 +1118,20 @@ function bind() {
     if (t.dataset.open) { openDetail(t.dataset.open); return; }
     if (t.dataset.emoji) { editEmoji = t.dataset.emoji; editFoto = null; $('#btn-foto-del').style.display = 'none'; renderEmojiPick(); return; }
     if (t.dataset.raum) { raumFilter = t.dataset.raum; renderPflanzen(); return; }
+    if (t.dataset.farbe) {
+      DB.settings.akzent = t.dataset.farbe;
+      save(); applyPersonalisierung(); zeichnePersoenlich(); renderMore(); return;
+    }
+    if (t.dataset.hg) {
+      DB.settings.hintergrund = t.dataset.hg;
+      save(); applyPersonalisierung(); zeichnePersoenlich(); return;
+    }
+    if (t.dataset.pemoji) {
+      DB.settings.avatar = t.dataset.pemoji;
+      DB.settings.avatarFoto = null;
+      $('#ps-foto-weg').style.display = 'none';
+      save(); applyPersonalisierung(); zeichnePersoenlich(); return;
+    }
   });
 
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheets(); });
@@ -909,8 +1150,10 @@ function bind() {
 load();
 ladeSync();
 applyTheme();
+applyPersonalisierung();
 bind();
 renderAll();
+if (DB.settings.startAnsicht && DB.settings.startAnsicht !== 'heute') tab(DB.settings.startAnsicht);
 starte();
 
 /* Systemwechsel nur nachziehen, solange 'System' eingestellt ist */
