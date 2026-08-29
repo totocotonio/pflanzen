@@ -4,7 +4,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.16.0';
+const VERSION = '1.16.1';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -411,6 +411,9 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.16.1', datum: '29.08.2026', punkte: [
+    'Behoben: Ein gescannter QR-Code fand die Pflanze nicht, wenn das Gerät die Daten noch nicht geladen hatte.'
+  ]},
   { v: '1.16.0', datum: '29.08.2026', punkte: [
     'Archivieren statt löschen: Pflanze verschwindet aus der Liste, Verlauf und Fotos bleiben.',
     'Pflanzenliste sortierbar nach Dringlichkeit, Name oder Standort.',
@@ -714,12 +717,14 @@ async function starte() {
     speichereSync();
     versteckeLogin();
     await abgleichen();
+    hashOeffnen(true);
     pushZustandPruefen();
   } catch (e) {
     // Kein Netz oder kein Server: wer die App schon nutzt, arbeitet weiter
     SYNC.status = SYNC.user ? 'offline' : 'lokal';
     if (SYNC.user || SYNC.lokalOk || DB.plants.length) versteckeLogin();
     else zeigeLogin();
+    hashOeffnen(true);
     renderMore();
   }
 }
@@ -1926,15 +1931,35 @@ function qrZeigen(id) {
   openSheet('#sheet-qr');
 }
 
-/** Beim Start prüfen, ob die App über einen QR-Code geöffnet wurde. */
-function hashPruefen() {
+/* Ein gescannter QR-Code kann auf einem Gerät landen, das die Pflanzen noch
+   gar nicht hat – etwa in Safari statt in der installierten App. Deshalb wird
+   die Kennung gemerkt und mehrfach versucht: sofort, nach dem Abgleich mit dem
+   Server und nach einer Anmeldung. */
+let offeneKennung = null;
+
+function hashMerken() {
   const treffer = /^#p=([A-Za-z0-9_-]+)$/.exec(location.hash || '');
   if (!treffer) return;
-  const id = treffer[1];
-  history.replaceState(null, '', location.pathname);
+  offeneKennung = treffer[1];
+  history.replaceState(null, '', location.pathname + location.search);
+}
+
+/** Versucht, die gemerkte Pflanze zu öffnen.
+    @param endgueltig - letzter Versuch, sonst still abwarten */
+function hashOeffnen(endgueltig) {
+  if (!offeneKennung) return;
+  const id = offeneKennung;
   const p = DB.plants.find(x => x.id === id);
-  if (p) setTimeout(() => openDetail(id), 250);
-  else toast('Diese Pflanze gibt es hier nicht');
+  if (p) {
+    offeneKennung = null;
+    if (p.archiviert) toast(p.name + ' liegt im Archiv');
+    setTimeout(() => openDetail(id), 200);
+    return;
+  }
+  if (endgueltig) {
+    offeneKennung = null;
+    toast('Diese Pflanze gibt es in diesem Konto nicht');
+  }
 }
 
 /* ---------- Sheets ---------- */
@@ -2447,6 +2472,7 @@ function bind() {
       await abgleichen();
       updatePushUI();
       pushZustandPruefen();
+      hashOeffnen(true);
       toast('Angemeldet als ' + SYNC.user);
     } catch (err) {
       $('#lg-fehler').textContent = err.message;
@@ -2546,7 +2572,8 @@ applyPersonalisierung();
 bind();
 renderAll();
 if (DB.settings.startAnsicht && DB.settings.startAnsicht !== 'heute') tab(DB.settings.startAnsicht);
-hashPruefen();
+hashMerken();
+hashOeffnen(false);   // klappt sofort, wenn die Daten schon lokal liegen
 starte();
 
 /* Systemwechsel nur nachziehen, solange 'System' eingestellt ist */

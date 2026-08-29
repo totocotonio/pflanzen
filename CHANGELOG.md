@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.16.1 - 2026-08-29
+
+- Behoben: Ein gescannter QR-Code meldete "Diese Pflanze gibt es hier nicht",
+  wenn das Gerät die Daten noch nicht geladen hatte. Die Kennung wurde sofort
+  beim Start ausgewertet – zu einem Zeitpunkt, an dem der Abgleich mit dem
+  Server noch lief. Betraf genau den Normalfall: Scannen mit der Kamera öffnet
+  Safari, nicht die installierte App, und Safari hat einen eigenen Speicher.
+- Die Kennung wird jetzt gemerkt und dreimal versucht: sofort, nach dem
+  Abgleich mit dem Server und nach einer Anmeldung. Liegt die Pflanze im
+  Archiv, wird darauf hingewiesen.
+
 ## v1.16.0 - 2026-08-29
 
 - Archivieren statt löschen: Eine Pflanze verschwindet aus allen Listen,
