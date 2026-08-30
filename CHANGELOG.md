@@ -1,5 +1,23 @@
 # Changelog
 
+## v3.5.0 - 2026-08-30
+
+### „Alle Daten löschen" ist die gefährlichste Schaltfläche der App
+
+Sie räumt nicht nur dieses Gerät leer, sondern schiebt den leeren Stand über
+den Sync innerhalb von Sekunden auf alle anderen. Eine einzelne Rückfrage im
+Vorbeigehen war dafür zu wenig – und sie stimmte nicht einmal.
+
+- Statt einer Ja/Nein-Frage jetzt eine Übersicht: **wie viele Pflanzen,
+  Verlaufseinträge und Fotos** verschwinden, und dass die Einstellungen bleiben.
+- Der alte Satz „Das lässt sich nicht rückgängig machen" war **falsch**, seit es
+  frühere Stände gibt. Jetzt steht der Weg zurück dabei – beziehungsweise der
+  klare Hinweis, dass es ohne Anmeldung tatsächlich keinen gibt.
+- Der Löschknopf ist gesperrt, bis eine Bestätigung angehakt wurde.
+- Direkt daneben ein Knopf **„Vorher sichern (JSON)"**.
+- **Die Fotos werden mitgelöscht.** Vorher blieben sie in IndexedDB liegen –
+  nach „Alle Daten löschen" war der Speicher also weiterhin belegt.
+
 ## v3.4.2 - 2026-08-30
 
 - **Der Export wartet jetzt auf die Bilder.** Seit v3.4.1 liegen sie in

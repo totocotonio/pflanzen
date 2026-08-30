@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.4.2';
+const VERSION = '3.5.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -714,6 +714,12 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.5.0', datum: '30.08.2026', punkte: [
+    '„Alle Daten löschen“ zeigt jetzt, was genau verschwindet, und der Knopf wird erst nach einer bewussten Bestätigung scharf.',
+    'Der alte Hinweis „lässt sich nicht rückgängig machen“ stimmte nicht mehr – über frühere Stände geht es sehr wohl. Jetzt steht der Weg zurück dabei.',
+    'Direkt daneben ein Knopf zum Sichern, bevor gelöscht wird.',
+    'Die Fotos werden mitgelöscht; sie blieben vorher als Datenmüll liegen.'
+  ]},
   { v: '3.4.2', datum: '30.08.2026', punkte: [
     'Der Export wartet jetzt auf die Bilder – sonst konnte kurz nach dem Start ein Backup ohne Fotos herauskommen, ohne dass man es merkt.',
     'Nach dem Export steht in der Meldung, wie groß die Datei ist und wie viele Bilder drin sind.'
@@ -5255,6 +5261,83 @@ function speicherAnzeigen() {
   });
 }
 
+/* ---------- Alles löschen ----------
+   Die gefährlichste Schaltfläche der App: Sie räumt nicht nur dieses Gerät
+   leer, sondern schiebt den leeren Stand über den Sync innerhalb von Sekunden
+   auf alle anderen. Eine einzelne Rückfrage im Vorbeigehen ist dafür zu wenig.
+
+   Deshalb steht hier, was genau verschwindet, was der Weg zurück ist, und der
+   Knopf wird erst nach einer bewussten Bestätigung scharf. */
+function allesLoeschenOeffnen() {
+  const pflanzen = DB.plants.length;
+  const eintraege = DB.logs.length;
+
+  $('#loeschen-inhalt').innerHTML = `
+    <div class="grabber"></div>
+    <h2>Alle Daten löschen</h2>
+    <p class="sheet-hinweis">Das betrifft nicht nur dieses Gerät: Bist du angemeldet,
+      ist der leere Stand in wenigen Sekunden auch auf allen anderen.</p>
+
+    <div class="section-title">Was gelöscht wird</div>
+    <div class="group">
+      <div class="field"><label>Pflanzen</label><span class="hint">${pflanzen}</span></div>
+      <div class="field"><label>Verlaufseinträge</label><span class="hint">${eintraege}</span></div>
+      <div class="field"><label>Fotos</label><span class="hint" id="loesch-bilder">…</span></div>
+      <div class="field"><label>Einstellungen</label><span class="hint">bleiben erhalten</span></div>
+    </div>
+
+    <div class="section-title">Der Weg zurück</div>
+    <div class="karte" style="color:var(--text-2);line-height:1.5">
+      ${SYNC.user
+        ? 'Der jetzige Stand wird auf dem Server als Version abgelegt. Unter ' +
+          '<b>Mehr → Frühere Stände wiederherstellen</b> kannst du ihn zurückholen – ' +
+          'solange du dich nicht abmeldest und keine sieben neueren Stände entstehen.'
+        : 'Du bist nicht angemeldet. Damit gibt es <b>keinen Weg zurück</b> – ' +
+          'ohne Server werden keine früheren Stände gesichert.'}
+    </div>
+
+    <button class="btn sec" id="btn-loesch-export">Vorher sichern (JSON)</button>
+
+    <label class="bestaetigung">
+      <input type="checkbox" id="loesch-sicher">
+      <span>Ja, ich will ${pflanzen === 1 ? 'die Pflanze' : 'alle ' + pflanzen + ' Pflanzen'}
+        und den gesamten Verlauf löschen</span>
+    </label>
+
+    <button class="btn danger" id="btn-loesch-jetzt" disabled>Endgültig löschen</button>
+    <button class="btn sec" data-close>Abbrechen</button>`;
+
+  bilderGroesse().then(({ anzahl, bytes }) => {
+    const z = $('#loesch-bilder');
+    if (z) z.textContent = anzahl ? anzahl + ' (' + byteText(bytes) + ')' : 'keine';
+  });
+
+  $('#loesch-sicher').onchange = e => {
+    $('#btn-loesch-jetzt').disabled = !e.target.checked;
+  };
+  $('#btn-loesch-export').onclick = exportieren;
+  $('#btn-loesch-jetzt').onclick = allesLoeschen;
+
+  openSheet('#sheet-loeschen');
+}
+
+async function allesLoeschen() {
+  const anzahl = DB.plants.length;
+
+  // Die Bilder gehören dazu – sie lägen sonst als Datenmüll in IndexedDB
+  const schluessel = Object.keys(bilderSammeln());
+  DB.plants = [];
+  DB.logs = [];
+  save();
+  await Promise.all(schluessel.map(bildLoeschen)).catch(() => {});
+
+  renderAll();
+  closeSheets();
+  toast(anzahl ? 'Alles gelöscht (' + anzahl + ' Pflanzen)' : 'Es war nichts da',
+        SYNC.user ? 'Frühere Stände' : null,
+        SYNC.user ? zeigeStaende : null);
+}
+
 /* ---------- Export / Import ---------- */
 async function exportieren() {
   /* Seit die Bilder in IndexedDB liegen, sind sie kurz nach dem Start noch
@@ -5678,10 +5761,7 @@ function bind() {
   $('#btn-export').onclick = exportieren;
   $('#btn-import').onclick = () => $('#file-import').click();
   $('#file-import').onchange = e => { if (e.target.files[0]) importieren(e.target.files[0]); e.target.value = ''; };
-  $('#btn-reset').onclick = () => {
-    if (!confirm('Wirklich ALLE Pflanzen und Verläufe löschen? Das lässt sich nicht rückgängig machen.')) return;
-    DB.plants = []; DB.logs = []; save(); renderAll(); toast('Alle Daten gelöscht');
-  };
+  $('#btn-reset').onclick = allesLoeschenOeffnen;
 
   $('#login-form').onsubmit = async e => {
     e.preventDefault();
