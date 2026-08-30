@@ -1,5 +1,37 @@
 # Changelog
 
+## v3.4.1 - 2026-08-30
+
+### Behoben: „Speichern fehlgeschlagen", obwohl alles gespeichert schien
+
+Gemeldet: Die Meldung erschien, aber die Daten waren da.
+
+- Ursache: **Der localStorage war voll.** Ein Handyfoto wiegt als Base64 100
+  bis 200 KB, bei sechs Bildern je Pflanze plus Hauptbild ist das Limit von
+  rund 5 MB schnell erreicht. Dann schlägt jedes Speichern fehl – auch für
+  Dinge, die nichts mit Fotos zu tun haben.
+- Dass trotzdem alles vorhanden schien, lag am Sync: Die Daten standen im
+  Arbeitsspeicher und gingen an den Server. Nur der lokale Zwischenspeicher
+  blieb auf dem alten Stand – beim nächsten Start hätte das auffallen können.
+- **Fotos liegen jetzt in IndexedDB**, wo deutlich mehr Platz ist. Im
+  localStorage steht nur noch der Rest. In einem Testlauf: 3 KB statt vorher
+  über 100 KB für vier Bilder – und das skaliert.
+- Für den Sync ändert sich nichts: Der Server bekommt weiter den vollständigen
+  Datensatz mit Bildern, damit sie auf allen Geräten ankommen.
+- Bilder, die der Server nicht kennt, werden nach dem Abgleich aus dem lokalen
+  Speicher wieder eingesetzt – ein älterer Serverstand löscht sie nicht.
+- Sollte der Speicher trotzdem einmal voll sein, sagt die Meldung jetzt die
+  Wahrheit: „Auf diesem Gerät ist kein Platz mehr – deine Daten liegen aber auf
+  dem Server."
+
+### Speicherübersicht
+
+- Unter **Mehr → Daten** steht, wie viel Platz Daten und Bilder belegen.
+- Bilder ohne zugehörige Pflanze lassen sich dort entfernen. Bewusst nur auf
+  Knopfdruck: Liefert der Server einmal einen älteren Stand, sähen die lokalen
+  Bilder für einen Moment verwaist aus – und wären bei automatischem Aufräumen
+  weg.
+
 ## v3.4.0 - 2026-08-30
 
 ### Temperaturbereiche je Raum

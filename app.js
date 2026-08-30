@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.4.0';
+const VERSION = '3.4.1';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -54,10 +54,212 @@ function load() {
     }
   } catch (e) { console.error('Laden fehlgeschlagen', e); }
 }
+
+/* Die Bilder kommen aus IndexedDB und damit erst kurz nach dem Start.
+   Einmalige Umstellung: Wer noch Bilder im localStorage hatte, bekommt sie
+   beim ersten Speichern automatisch hinübergeschoben – `save` schreibt sie
+   nach IndexedDB und legt den Datensatz ohne sie ab. */
+function bilderStarten() {
+  bilderNachladen().then(() => {
+    // Sicherstellen, dass der schlanke Datensatz auch wirklich geschrieben ist
+    if (localStorage.getItem(KEY) && (localStorage.getItem(KEY) || '').length > 1048576) {
+      save(false);
+    }
+  });
+}
+/* Nur einmal melden statt bei jedem Klick – sonst hängt die Meldung dauerhaft
+   auf dem Schirm, während man versucht, Platz zu schaffen. */
+let speicherFehler = false;
+
 function save(sync) {
-  try { localStorage.setItem(KEY, JSON.stringify(DB)); }
-  catch (e) { toast('Speichern fehlgeschlagen – Speicher voll?'); }
+  try {
+    // Ohne Bilder: die liegen in IndexedDB, sonst ist der localStorage
+    // nach ein paar Fotos voll und gar nichts lässt sich mehr speichern
+    localStorage.setItem(KEY, JSON.stringify(datensatzOhneBilder()));
+    speicherFehler = false;
+  } catch (e) {
+    if (!speicherFehler) {
+      speicherFehler = true;
+      toast(SYNC.user
+        ? 'Auf diesem Gerät ist kein Platz mehr – deine Daten liegen aber auf dem Server'
+        : 'Speicher voll (' + speicherText() + ') – unter Mehr → Daten steht, was Platz braucht',
+        'Nachsehen', () => { tab('more'); renderMore(); });
+    }
+  }
+  bilderSichern();
   if (sync !== false && SYNC.user) { SYNC.dirty = true; speichereSync(); planeSync(); }
+}
+
+/* ---------- Bildspeicher ----------
+   Ein Handyfoto wiegt als Base64 100 bis 200 KB. Bei sechs Bildern je Pflanze
+   plus Hauptbild ist der localStorage nach wenigen Pflanzen voll – Browser
+   geben dort nur rund 5 MB pro Seite her. Dann schlägt jedes Speichern fehl,
+   auch für Dinge, die nichts mit Fotos zu tun haben.
+
+   Die Bilder liegen deshalb in IndexedDB, wo deutlich mehr Platz ist. Im
+   localStorage steht nur noch der Rest: Pflanzen, Verlauf, Einstellungen.
+
+   Wichtig: Für den Sync bleibt alles zusammen. Der Server bekommt weiterhin
+   den vollständigen Datensatz mit Bildern, damit sie auf allen Geräten
+   ankommen – nur der lokale Zwischenspeicher wird entlastet. */
+const BILD_DB = 'gruenzeug-bilder';
+const BILD_STORE = 'bilder';
+let bildDb = null;
+let bilderGeladen = false;
+
+function bildDbOeffnen() {
+  if (bildDb) return Promise.resolve(bildDb);
+  return new Promise((fertig, fehler) => {
+    let anfrage;
+    try { anfrage = indexedDB.open(BILD_DB, 1); }
+    catch (e) { fehler(e); return; }
+    anfrage.onupgradeneeded = () => {
+      const db = anfrage.result;
+      if (!db.objectStoreNames.contains(BILD_STORE)) db.createObjectStore(BILD_STORE);
+    };
+    anfrage.onsuccess = () => { bildDb = anfrage.result; fertig(bildDb); };
+    anfrage.onerror = () => fehler(anfrage.error);
+  });
+}
+
+function bildSchreiben(schluessel, wert) {
+  return bildDbOeffnen().then(db => new Promise((fertig, fehler) => {
+    const t = db.transaction(BILD_STORE, 'readwrite');
+    t.objectStore(BILD_STORE).put(wert, schluessel);
+    t.oncomplete = fertig;
+    t.onerror = () => fehler(t.error);
+  }));
+}
+
+function bilderLesen() {
+  return bildDbOeffnen().then(db => new Promise((fertig, fehler) => {
+    const t = db.transaction(BILD_STORE, 'readonly');
+    const store = t.objectStore(BILD_STORE);
+    const schluessel = store.getAllKeys();
+    const werte = store.getAll();
+    t.oncomplete = () => {
+      const karte = {};
+      schluessel.result.forEach((k, i) => { karte[k] = werte.result[i]; });
+      fertig(karte);
+    };
+    t.onerror = () => fehler(t.error);
+  }));
+}
+
+function bildLoeschen(schluessel) {
+  return bildDbOeffnen().then(db => new Promise(fertig => {
+    const t = db.transaction(BILD_STORE, 'readwrite');
+    t.objectStore(BILD_STORE).delete(schluessel);
+    t.oncomplete = fertig;
+    t.onerror = fertig;
+  })).catch(() => {});
+}
+
+/** Bilder, zu denen es keine Pflanze mehr gibt.
+
+    Bewusst nicht automatisch: Liefert der Server einmal einen älteren Stand,
+    sähen die lokalen Bilder für einen Moment verwaist aus – und wären weg.
+    Aufgeräumt wird deshalb nur auf Knopfdruck. */
+function verwaisteBilder() {
+  if (!('indexedDB' in window)) return Promise.resolve([]);
+  const gebraucht = new Set(Object.keys(bilderSammeln()));
+  // Auch Bilder von Pflanzen, deren Daten gerade nicht geladen sind, zählen
+  for (const p of DB.plants) {
+    gebraucht.add('p:' + p.id);
+    for (const f of (Array.isArray(p.fotos) ? p.fotos : [])) gebraucht.add('g:' + f.id);
+  }
+  gebraucht.add('s:avatar');
+  gebraucht.add('s:hintergrund');
+  return bilderLesen()
+    .then(karte => Object.keys(karte).filter(k => !gebraucht.has(k)))
+    .catch(() => []);
+}
+
+function verwaisteLoeschen() {
+  return verwaisteBilder().then(liste => {
+    if (!liste.length) { toast('Nichts aufzuräumen'); return; }
+    return Promise.all(liste.map(bildLoeschen)).then(() => {
+      renderMore();
+      toast(liste.length === 1 ? 'Ein altes Bild entfernt'
+                               : liste.length + ' alte Bilder entfernt');
+    });
+  });
+}
+
+/** Alle Bilder aus dem Datensatz, als Schlüssel-Wert-Paare. */
+function bilderSammeln() {
+  const raus = {};
+  for (const p of DB.plants) {
+    if (p.foto) raus['p:' + p.id] = p.foto;
+    for (const f of (Array.isArray(p.fotos) ? p.fotos : [])) {
+      if (f.bild) raus['g:' + f.id] = f.bild;
+    }
+  }
+  if (DB.settings.avatarFoto) raus['s:avatar'] = DB.settings.avatarFoto;
+  if (DB.settings.hintergrundFoto) raus['s:hintergrund'] = DB.settings.hintergrundFoto;
+  return raus;
+}
+
+/** Kopie des Datensatzes ohne Bilddaten – das kommt in den localStorage. */
+function datensatzOhneBilder() {
+  return {
+    v: DB.v,
+    plants: DB.plants.map(p => {
+      const kopie = Object.assign({}, p);
+      if (kopie.foto) kopie.foto = '';
+      if (Array.isArray(kopie.fotos)) {
+        kopie.fotos = kopie.fotos.map(f => ({ id: f.id, ts: f.ts, bild: '' }));
+      }
+      return kopie;
+    }),
+    logs: DB.logs,
+    settings: Object.assign({}, DB.settings, { avatarFoto: null, hintergrundFoto: null })
+  };
+}
+
+/** Schreibt die Bilder weg. Läuft nebenher, das Speichern wartet nicht darauf. */
+function bilderSichern() {
+  if (!('indexedDB' in window)) return;
+  const bilder = bilderSammeln();
+  Promise.all(Object.entries(bilder).map(([k, v]) => bildSchreiben(k, v)))
+    .catch(e => console.warn('Bilder konnten nicht gesichert werden:', e));
+}
+
+/** Setzt die Bilder nach dem Start wieder in den Datensatz ein. */
+function bilderNachladen() {
+  if (!('indexedDB' in window)) { bilderGeladen = true; return Promise.resolve(); }
+  return bilderLesen().then(karte => {
+    let gefunden = 0;
+    for (const p of DB.plants) {
+      if (!p.foto && karte['p:' + p.id]) { p.foto = karte['p:' + p.id]; gefunden++; }
+      for (const f of (Array.isArray(p.fotos) ? p.fotos : [])) {
+        if (!f.bild && karte['g:' + f.id]) { f.bild = karte['g:' + f.id]; gefunden++; }
+      }
+    }
+    if (!DB.settings.avatarFoto && karte['s:avatar']) DB.settings.avatarFoto = karte['s:avatar'];
+    if (!DB.settings.hintergrundFoto && karte['s:hintergrund']) {
+      DB.settings.hintergrundFoto = karte['s:hintergrund'];
+    }
+    bilderGeladen = true;
+    if (gefunden || karte['s:avatar'] || karte['s:hintergrund']) {
+      applyPersonalisierung();
+      renderAll();
+    }
+  }).catch(e => {
+    // bilderGeladen bleibt bewusst false: Wer nicht weiß, welche Bilder es
+    // gibt, darf keine löschen.
+    console.warn('Bilder nicht lesbar:', e);
+  });
+}
+
+/** Wie viel Platz die Bilder belegen. */
+function bilderGroesse() {
+  if (!('indexedDB' in window)) return Promise.resolve({ anzahl: 0, bytes: 0 });
+  return bilderLesen().then(karte => {
+    const werte = Object.values(karte);
+    return { anzahl: werte.length,
+             bytes: werte.reduce((n, v) => n + String(v || '').length, 0) };
+  }).catch(() => ({ anzahl: 0, bytes: 0 }));
 }
 
 /* ---------- Helfer ---------- */
@@ -236,6 +438,9 @@ function loeschePflanze(id) {
   const p = DB.plants.find(x => x.id === id);
   if (!p) return;
   if (!confirm(p.name + ' wirklich löschen?\n\nDer Gießverlauf dieser Pflanze wird mitgelöscht.')) return;
+  // Bilder gehören zur Pflanze und gehen mit ihr
+  bildLoeschen('p:' + id);
+  for (const f of fotosVon(p)) bildLoeschen('g:' + f.id);
   DB.plants = DB.plants.filter(x => x.id !== id);
   DB.logs = DB.logs.filter(l => l.plantId !== id);
   save();
@@ -445,10 +650,12 @@ function speicherBytes() {
   catch (e) { return 0; }
 }
 
-function speicherText() {
-  const mb = speicherBytes() / 1048576;
-  return mb < 1 ? Math.round(mb * 1024) + ' KB' : mb.toFixed(1) + ' MB';
+function byteText(n) {
+  const mb = n / 1048576;
+  return mb < 1 ? Math.round(n / 1024) + ' KB' : mb.toFixed(1) + ' MB';
 }
+
+function speicherText() { return byteText(speicherBytes()); }
 
 function bindePersoenlich() {
   $('#zeile-persoenlich').onclick = oeffnePersoenlich;
@@ -507,6 +714,11 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.4.1', datum: '30.08.2026', punkte: [
+    'Behoben: „Speichern fehlgeschlagen“, obwohl alles gespeichert schien. Der Browserspeicher war durch die Fotos voll.',
+    'Fotos liegen jetzt in IndexedDB statt im localStorage – dort ist deutlich mehr Platz, und der Datensatz bleibt klein.',
+    'Unter Mehr → Daten steht, wie viel Platz Daten und Bilder belegen.'
+  ]},
   { v: '3.4.0', datum: '30.08.2026', punkte: [
     'Temperaturbereiche je Standort, getrennt nach Sommer und Winter – das Schlafzimmer hat im Januar eben keine 20 Grad.',
     'Wo Werte hinterlegt sind, ersetzen sie den pauschalen Winter-Modus: von ×0,75 bei über 27 Grad bis ×2,4 unter 8 Grad.',
@@ -817,7 +1029,10 @@ function uebernehmeServer(s) {
   SYNC.rev = s.rev;
   SYNC.dirty = false;
   SYNC.status = 'ok';
-  save(false);
+  save(false);          // schreibt auch die Bilder vom Server nach IndexedDB
+  // Hatte der Server keine Bilder – etwa weil das andere Gerät sie nie
+  // hochgeladen hat –, kommen die lokalen wieder rein. Ergänzt nur, wo fehlt.
+  bilderNachladen();
   speichereSync();
   applyTheme();
   renderAll();
@@ -1268,6 +1483,7 @@ function renderMore() {
   $('#btn-anmelden').style.display = SYNC.user ? 'none' : 'block';
   $('#about-version').textContent = VERSION;
   $('#dat-anzahl').textContent = DB.plants.length;
+  speicherAnzeigen();
   $('#dat-logs').textContent = DB.logs.length;
   const imArchiv = DB.plants.filter(p => p.archiviert).length;
   $('#zeile-archiv').hidden = !imArchiv;
@@ -1855,10 +2071,10 @@ async function fotoHinzufuegen(pid, datei) {
   if (!p) return;
   const liste = fotosVon(p);
   if (liste.length >= FOTOS_MAX) { toast('Mehr als ' + FOTOS_MAX + ' Fotos gehen nicht'); return; }
-  // Der Browser gibt rund 5 MB je Seite frei. Kurz vorher lieber warnen,
-  // als die Speicherung fehlschlagen zu lassen.
+  // Seit die Bilder in IndexedDB liegen, ist Platz selten das Problem. Der
+  // Datensatz selbst sollte trotzdem nicht über 4 MB wachsen.
   if (speicherBytes() > 4 * 1048576) {
-    toast('Speicher fast voll (' + speicherText() + ') – erst alte Fotos löschen');
+    toast('Speicher fast voll (' + speicherText() + ') – unter Mehr → Daten nachsehen');
     return;
   }
   try {
@@ -1891,6 +2107,7 @@ function fotoLoeschen(pid, fid) {
   const p = DB.plants.find(x => x.id === pid);
   if (!p) return;
   p.fotos = fotosVon(p).filter(f => f.id !== fid);
+  bildLoeschen('g:' + fid);
   save();
   closeSheets();
   setTimeout(() => openDetail(pid), 160);
@@ -5012,6 +5229,28 @@ function fotoVerarbeiten(file) {
   reader.readAsDataURL(file);
 }
 
+/** Zeigt in den Einstellungen, was wie viel Platz braucht. */
+function speicherAnzeigen() {
+  const zeile = $('#dat-speicher');
+  if (!zeile) return;
+  const daten = speicherBytes();
+  zeile.textContent = byteText(daten) + ' Daten';
+  bilderGroesse().then(({ anzahl, bytes }) => {
+    if (!$('#dat-speicher')) return;
+    $('#dat-speicher').textContent = byteText(daten) + ' Daten · ' +
+      (anzahl ? anzahl + ' Bilder (' + byteText(bytes) + ')' : 'keine Bilder');
+  });
+  verwaisteBilder().then(liste => {
+    const zeile2 = $('#zeile-verwaist');
+    if (!zeile2) return;
+    zeile2.hidden = !liste.length;
+    if (liste.length) {
+      $('#dat-verwaist').textContent = liste.length +
+        (liste.length === 1 ? ' Bild ohne Pflanze ›' : ' Bilder ohne Pflanze ›');
+    }
+  });
+}
+
 /* ---------- Export / Import ---------- */
 function exportieren() {
   const blob = new Blob([JSON.stringify(DB, null, 2)], { type: 'application/json' });
@@ -5457,6 +5696,7 @@ function bind() {
   $('#f-phase').onchange = phaseAnzeigen;
   $('#f-methode').onchange = phaseAnzeigen;
   $('#btn-eigen-neu').onclick = eigeneNeuOeffnen;
+  $('#zeile-verwaist').onclick = verwaisteLoeschen;
   $('#zeile-raeume').onclick = raeumeOeffnen;
   $('#zeile-ort').onclick = ortOeffnen;
   $('#set-wetter').onchange = e => {
@@ -5656,6 +5896,7 @@ window.matchMedia('(prefers-color-scheme: dark)')
 
 wetterLaden();
 abschnitteLaden();
+bilderStarten();
 window.addEventListener('load', () => { updatePruefungStarten(); wetterHolen(); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) wetterHolen(); });
 neuerungenZeigen();
