@@ -88,6 +88,20 @@ sqlite3 /opt/gruenzeug-api/gruenzeug.db ".backup /root/gruenzeug-$(date +%F).db"
 Die beiden VAPID-Dateien gehören mit ins Backup. Gehen sie verloren, werden
 alle Push-Abos ungültig und jedes Gerät muss sich neu anmelden.
 
+## Wartung
+
+Sicherheitsupdates laufen automatisch (`unattended-upgrades`, nur
+`trixie-security`, **kein** automatischer Neustart). Normale Updates bleiben
+manuell.
+
+```bash
+journalctl -u unattended-upgrades -n 30     # was wurde installiert
+cat /var/run/reboot-required 2>/dev/null    # Neustart nötig?
+```
+
+**Speicher:** Normalbetrieb rund 200 MB, Höchststand mit laufendem apt 597 MB.
+1 GB genügt, 512 MB wären zu knapp.
+
 ## Merkposten
 
 - Zeitzone steht auf **Europe/Berlin** — `cron.py` vergleicht die eingestellte

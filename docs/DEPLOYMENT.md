@@ -196,6 +196,37 @@ timedatectl                      # muss Europe/Berlin zeigen
 
 ---
 
+## Wartung
+
+Der Container zieht Sicherheitsupdates selbst:
+
+```bash
+systemctl list-timers "apt-daily*"          # Zeitplan
+unattended-upgrades --dry-run --debug       # was würde installiert
+journalctl -u unattended-upgrades -n 30     # was wurde installiert
+cat /var/run/reboot-required 2>/dev/null    # Neustart nötig?
+```
+
+Eingestellt ist bewusst **nur** `trixie-security`, kein automatischer Neustart.
+Normale Paketupdates bleiben manuell (`apt update && apt upgrade`), damit sich
+an der laufenden App nichts ändert, ohne dass jemand hinsieht.
+
+⚠️ **APT-Listen aus mehreren Dateien werden ergänzt, nicht ersetzt.** Ohne das
+`#clear Unattended-Upgrade::Origins-Pattern;` in
+`/etc/apt/apt.conf.d/52unattended-upgrades-local` hängt sich die eigene Liste an
+die Debian-Standardliste an – und die erlaubt auch normale Updates.
+
+**Abgeschaltete Dienste** (beide erzeugten nur Log-Rauschen):
+`systemd-networkd-wait-online` lief bei jedem Start in einen Zwei-Minuten-Timeout;
+`ssh.socket` kollidierte mit `ssh.service`. Der SSH-Zugang läuft über
+`ssh.service`, der ist `enabled`.
+
+**Speicherbedarf:** Im Normalbetrieb rund 200 MB (uvicorn 78 MB, nginx 7 MB,
+Rest System). Höchststand mit laufendem `apt` gemessen: 597 MB. 1 GB reicht
+also mit Reserve, 512 MB wären für apt-Läufe zu knapp.
+
+---
+
 ## Stolperstellen
 
 **Der Service Worker darf die API nicht cachen.** In der ersten Fassung tat er das: `/api/data` kam aus dem Cache, die App rechnete mit einem veralteten Serverstand und meldete „aktuell", obwohl der Server etwas anderes hatte. `sw.js` nimmt Pfade unter `/api/` deshalb ausdrücklich vom Caching aus – diese Zeile nicht entfernen.
