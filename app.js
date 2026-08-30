@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '2.5.0';
+const VERSION = '2.5.1';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -474,6 +474,9 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '2.5.1', datum: '30.08.2026', punkte: [
+    'Die Vorschläge für Name und Art stehen jetzt alphabetisch, vorher in der Reihenfolge, in der sie eingepflegt wurden.'
+  ]},
   { v: '2.5.0', datum: '30.08.2026', punkte: [
     'Die App meldet jetzt selbst, wenn eine neue Fassung bereitliegt.',
     'Semi-Hydrokultur als eigene Haltung – Blähton, Pon, Seramis.',
@@ -2547,6 +2550,24 @@ function closeSheets() {
   document.body.style.overflow = '';
 }
 
+/* Die Vorschlagslisten für Name und Art.
+
+   ARTEN selbst bleibt in seiner gewachsenen Reihenfolge: artFinden nimmt den
+   ersten Treffer, und die Reihenfolge entscheidet dort mit, welche Art bei
+   mehrdeutigen Namen gewinnt. Sortiert wird deshalb nur die Anzeige.
+
+   Bei „Art" fallen Einträge ohne botanischen Namen auf den deutschen zurück,
+   und mehrere Sorten teilen sich eine Gattung – doppelte Einträge fliegen
+   deshalb raus. */
+function vorschlagslisten() {
+  const alphabetisch = liste => Array.from(new Set(liste))
+    .sort((a, b) => a.localeCompare(b, 'de'))
+    .map(v => `<option value="${esc(v)}">`).join('');
+
+  $('#art-liste').innerHTML = alphabetisch(ARTEN.map(a => a.art || a.n));
+  $('#name-liste').innerHTML = alphabetisch(ARTEN.map(a => a.n));
+}
+
 function openEdit(id) {
   editId = id || null;
   const p = id ? DB.plants.find(x => x.id === id) : null;
@@ -2580,8 +2601,7 @@ function openEdit(id) {
   $('#btn-delete').style.display = p ? 'block' : 'none';
   $('#btn-foto-del').style.display = editFoto ? 'block' : 'none';
   renderEmojiPick();
-  $('#art-liste').innerHTML = ARTEN.map(a => `<option value="${esc(a.art || a.n)}">`).join('');
-  $('#name-liste').innerHTML = ARTEN.map(a => `<option value="${esc(a.n)}">`).join('');
+  vorschlagslisten();
   $('#art-vorschlag').hidden = true;
   if (p) artVorschlagPruefen();
   openSheet('#sheet-edit');

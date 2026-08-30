@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.5.1 - 2026-08-30
+
+- Die Vorschlagslisten für **Name** und **Art** standen in der Reihenfolge, in
+  der die 91 Arten über die Zeit eingepflegt wurden – also thematisch gruppiert
+  statt alphabetisch. Bei „Art" fiel das besonders auf, weil dort Einträge ohne
+  botanischen Namen auf den deutschen zurückfallen und sich beides mischte.
+- Beide Listen werden jetzt alphabetisch nach deutscher Sortierung ausgegeben,
+  doppelte Einträge fallen weg.
+- `ARTEN` selbst bleibt unverändert: `artFinden` nimmt den ersten Treffer, die
+  Reihenfolge entscheidet dort mit, welche Art bei mehrdeutigen Namen gewinnt.
+  Sortiert wird nur die Anzeige.
+
 ## v2.5.0 - 2026-08-30
 
 ### Semi-Hydrokultur
