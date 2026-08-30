@@ -1,5 +1,16 @@
 # Changelog
 
+## v2.0.1 - 2026-08-30
+
+- Der helle Modus war mit #F1F4EE praktisch weiß – der neue Grünton war kaum
+  zu erkennen, der Unterschied zeigte sich nur im dunklen Modus. Der Grund ist
+  jetzt sichtbar grün, Flächen und Trennlinien entsprechend kräftiger.
+- Die Pflanzenliste zieht mit: Der Status steht in seiner Farbe (rot für
+  überfällig, grün für heute, ocker für demnächst), die Symbolfläche bekommt
+  denselben Verlauf wie das große Bild in der Detailansicht.
+- Fällige Pflanzen haben einen Abhak-Kreis direkt auf der Kachel – abhaken,
+  ohne die Pflanze zu öffnen.
+
 ## v2.0.0 - 2026-08-30
 
 Neues Erscheinungsbild. Das bisherige folgte dem iOS-Systemlook – neutrales

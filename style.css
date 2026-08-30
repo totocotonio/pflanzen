@@ -36,11 +36,11 @@
    Nur auf :root, niemals zusätzlich auf body: die Akzentfarbe wird per JS
    inline auf <html> gesetzt, eine Definition auf body würde sie überschreiben. */
 :root[data-theme="light"]{
-  --bg:#F1F4EE;
+  --bg:#E6EDE0;
   --surface:#FFFFFF;
-  --surface-2:#E7EDE3;
-  --surface-3:#D5DED0;
-  --sep:rgba(26,45,32,.13);
+  --surface-2:#D8E3D1;
+  --surface-3:#C3D1BB;
+  --sep:rgba(26,45,32,.15);
   --text:#1A2D20;
   --text-2:#5C6E60;
   --text-3:#92A095;
@@ -50,8 +50,8 @@
   --orange:#C08328;
   --red:#BC5138;
   --on-accent:#FFFFFF;
-  --tabbar-bg:rgba(246,248,244,.88);
-  --sheet-bg:#F1F4EE;
+  --tabbar-bg:rgba(238,244,234,.90);
+  --sheet-bg:#E6EDE0;
   --schatten:0 1px 2px rgba(26,45,32,.05);
   --glas:rgba(255,255,255,.80);
   --glas-rand:rgba(26,45,32,.07);
@@ -60,11 +60,11 @@
 }
 @media (prefers-color-scheme: light){
   :root:not([data-theme="dark"]){
-    --bg:#F1F4EE;
+    --bg:#E6EDE0;
     --surface:#FFFFFF;
-    --surface-2:#E7EDE3;
-    --surface-3:#D5DED0;
-    --sep:rgba(26,45,32,.13);
+    --surface-2:#D8E3D1;
+    --surface-3:#C3D1BB;
+    --sep:rgba(26,45,32,.15);
     --text:#1A2D20;
     --text-2:#5C6E60;
     --text-3:#92A095;
@@ -74,8 +74,8 @@
     --orange:#C08328;
     --red:#BC5138;
     --on-accent:#FFFFFF;
-    --tabbar-bg:rgba(246,248,244,.88);
-    --sheet-bg:#F1F4EE;
+    --tabbar-bg:rgba(238,244,234,.90);
+    --sheet-bg:#E6EDE0;
     --schatten:0 1px 2px rgba(26,45,32,.05);
     --glas:rgba(255,255,255,.80);
     --glas-rand:rgba(26,45,32,.07);
@@ -158,10 +158,27 @@ a{color:var(--blue);text-decoration:none}
 
 /* ---------- Grid ---------- */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
-.tile{background:var(--surface);border-radius:var(--r-lg);padding:14px;text-align:left;box-shadow:var(--schatten)}
-.tile .avatar{width:100%;height:96px;border-radius:14px;font-size:42px;margin-bottom:10px}
+.tile{background:var(--surface);border-radius:18px;padding:12px;text-align:left;
+  box-shadow:var(--schatten);position:relative}
+.tile .avatar{width:100%;height:104px;border-radius:14px;font-size:46px;margin-bottom:10px;
+  background:linear-gradient(160deg,
+    color-mix(in srgb, var(--accent) 18%, var(--surface)),
+    color-mix(in srgb, var(--accent) 6%, var(--surface-2)))}
 .tile .nm{font-weight:600;font-size:15.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tile .meta{color:var(--text-2);font-size:12.5px;margin-top:2px}
+.tile .meta{font-size:12.5px;margin-top:2px;color:var(--text-2)}
+.tile .meta.over{color:var(--red)}
+.tile .meta.due{color:var(--accent)}
+.tile .meta.soon{color:var(--orange)}
+
+/* Abhaken direkt in der Kachel, ohne sie zu öffnen */
+.tile-kreis{position:absolute;top:20px;right:20px;width:30px;height:30px;border-radius:50%;
+  border:2px solid var(--surface);background:color-mix(in srgb, var(--surface) 82%, transparent);
+  display:grid;place-items:center;backdrop-filter:blur(6px);transition:transform .12s;
+  box-shadow:0 1px 3px rgba(26,45,32,.18)}
+.tile-kreis:active{transform:scale(.88)}
+.tile-kreis::after{content:'';width:12px;height:12px;border-radius:50%}
+.tile-kreis.due::after{background:var(--accent)}
+.tile-kreis.over::after{background:var(--red)}
 
 /* ---------- Formulare ---------- */
 .field{display:flex;align-items:center;justify-content:space-between;gap:12px;
@@ -287,7 +304,8 @@ a{color:var(--blue);text-decoration:none}
 .hero img{width:100%;height:100%;object-fit:cover;display:block}
 .hero-emoji{width:100%;height:100%;display:grid;place-items:center;font-size:96px;
   background:linear-gradient(160deg,
-    color-mix(in srgb, var(--accent) 16%, var(--surface)), var(--surface-2))}
+    color-mix(in srgb, var(--accent) 22%, var(--surface)),
+    color-mix(in srgb, var(--accent) 8%, var(--surface-2)))}
 .hero-chips{position:absolute;left:12px;right:12px;bottom:12px;display:flex;gap:8px;
   flex-wrap:wrap}
 .hero-chip{background:rgba(255,255,255,.92);color:#1A2D20;font-size:12.5px;font-weight:600;

@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '2.0.0';
+const VERSION = '2.0.1';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -419,6 +419,10 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '2.0.1', datum: '30.08.2026', punkte: [
+    'Heller Modus deutlich grüner – vorher war der Farbton fast weiß und der Unterschied kaum zu sehen.',
+    'Pflanzenliste zieht mit: Status farbig, Abhak-Kreis direkt auf der Kachel.'
+  ]},
   { v: '2.0.0', datum: '30.08.2026', punkte: [
     'Neue Farbwelt: warme Grün- und Erdtöne statt Systemgrau.',
     'Detailansicht neu: großes Bild, Fortschrittsringe je Aufgabe, Aufgabenkarte zum Abhaken.',
@@ -962,12 +966,18 @@ function renderPflanzen() {
        Antippen und „Zurück in die Liste“ holt sie wieder.</div>`
     : '';
 
-  const kachel = p => `
-    <button class="tile ${p.archiviert ? 'archiviert' : ''}" data-open="${p.id}">
+  const kachel = p => {
+    const st = p.archiviert ? '' : statusOf(p);
+    const faellig = !p.archiviert && tageBis(p) <= 0;
+    return `
+    <div class="tile ${p.archiviert ? 'archiviert' : ''}" data-open="${p.id}">
       ${avatarHTML(p)}
       <div class="nm">${esc(p.name)}</div>
-      <div class="meta">${p.archiviert ? 'archiviert' : statusText(p)}</div>
-    </button>`;
+      <div class="meta ${st}">${p.archiviert ? 'archiviert' : statusText(p)}</div>
+      ${faellig ? `<button class="tile-kreis ${st}" data-water="${p.id}"
+        title="Gegossen"></button>` : ''}
+    </div>`;
+  };
 
   // Nach Standort wird gruppiert, sonst einfach sortiert
   if (sortierung === 'raum' && !archivAn) {
