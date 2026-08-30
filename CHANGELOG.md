@@ -1,5 +1,16 @@
 # Changelog
 
+## v3.4.2 - 2026-08-30
+
+- **Der Export wartet jetzt auf die Bilder.** Seit v3.4.1 liegen sie in
+  IndexedDB und stehen kurz nach dem Start noch nicht im Datensatz – wer in
+  diesem Moment exportierte, bekam ein Backup ohne Fotos, ohne es zu merken.
+  Ein still unvollständiges Backup ist schlimmer als gar keins.
+- Nach dem Export steht in der Meldung, wie groß die Datei ist und wie viele
+  Bilder darin sind. So sieht man sofort, ob es vollständig ist.
+- Wird ein Backup ohne Fotos eingespielt, setzt die App die vorhandenen Bilder
+  wieder ein und sagt in der Meldung, dass das Backup keine enthielt.
+
 ## v3.4.1 - 2026-08-30
 
 ### Behoben: „Speichern fehlgeschlagen", obwohl alles gespeichert schien

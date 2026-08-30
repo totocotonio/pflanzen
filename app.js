@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.4.1';
+const VERSION = '3.4.2';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -714,6 +714,10 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.4.2', datum: '30.08.2026', punkte: [
+    'Der Export wartet jetzt auf die Bilder – sonst konnte kurz nach dem Start ein Backup ohne Fotos herauskommen, ohne dass man es merkt.',
+    'Nach dem Export steht in der Meldung, wie groß die Datei ist und wie viele Bilder drin sind.'
+  ]},
   { v: '3.4.1', datum: '30.08.2026', punkte: [
     'Behoben: „Speichern fehlgeschlagen“, obwohl alles gespeichert schien. Der Browserspeicher war durch die Fotos voll.',
     'Fotos liegen jetzt in IndexedDB statt im localStorage – dort ist deutlich mehr Platz, und der Datensatz bleibt klein.',
@@ -5252,13 +5256,25 @@ function speicherAnzeigen() {
 }
 
 /* ---------- Export / Import ---------- */
-function exportieren() {
-  const blob = new Blob([JSON.stringify(DB, null, 2)], { type: 'application/json' });
+async function exportieren() {
+  /* Seit die Bilder in IndexedDB liegen, sind sie kurz nach dem Start noch
+     nicht im Datensatz. Ein Backup, das dann still ohne Fotos rausgeht, ist
+     schlimmer als gar keins – deshalb hier warten. */
+  if (!bilderGeladen) {
+    toast('Bilder werden noch geladen …');
+    await bilderNachladen();
+  }
+  const inhalt = JSON.stringify(DB, null, 2);
+  const blob = new Blob([inhalt], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'gruenzeug-' + toISO(new Date()) + '.json';
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+
+  const bilder = Object.keys(bilderSammeln()).length;
+  toast('Backup gespeichert · ' + byteText(inhalt.length) +
+        (bilder ? ' inkl. ' + bilder + (bilder === 1 ? ' Bild' : ' Bildern') : ''));
 }
 function importieren(file) {
   const r = new FileReader();
@@ -5271,7 +5287,11 @@ function importieren(file) {
       DB.logs = d.logs || [];
       DB.settings = Object.assign(DB.settings, d.settings || {});
       save(); renderAll();
-      toast(d.plants.length + ' Pflanzen importiert');
+      // Enthielt das Backup keine Bilder, kommen die vorhandenen wieder rein
+      bilderNachladen();
+      const ohneBilder = !JSON.stringify(d).includes('data:image');
+      toast(d.plants.length + ' Pflanzen importiert' +
+            (ohneBilder ? ' (das Backup enthielt keine Fotos)' : ''));
     } catch (err) { toast('Import fehlgeschlagen: ' + err.message); }
   };
   r.readAsText(file);
