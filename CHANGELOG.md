@@ -1,5 +1,29 @@
 # Changelog
 
+## v3.6.0 - 2026-08-30
+
+### Sicherungen aus der App anstoßen
+
+Die nächtliche Sicherung läuft per systemd-Timer, von Hand ging sie bisher nur
+per SSH. Für einen kurzen Blick vor einer größeren Änderung ist das zu
+umständlich.
+
+- **Mehr → Sicherungen auf dem Server** zeigt, welche es gibt, von wann und wie
+  groß. **„Jetzt sichern"** stößt eine an.
+- Zwei neue Endpunkte, beide nur für angemeldete Nutzer: `GET /api/backup`
+  (Liste) und `POST /api/backup` (auslösen). Eine Bremse von einer Minute
+  verhindert Dauerfeuer; mehr braucht es nicht, weil der Dateiname das Datum
+  enthält und ein zweiter Lauf am selben Tag nur überschreibt.
+
+### Nebenbei behoben
+
+- **`backup.py` fand die Datenbank anders als `main.py`.** Wer sie per
+  `GRUENZEUG_DB` woanders hinlegt, hätte unbemerkt eine falsche oder gar keine
+  Datei gesichert. Beide nutzen jetzt dieselbe Herkunft, und fehlt die Quelle,
+  bricht die Sicherung mit klarer Meldung ab statt still etwas Leeres zu
+  schreiben.
+- Das Zielverzeichnis lässt sich über `GRUENZEUG_BACKUP` setzen.
+
 ## v3.5.0 - 2026-08-30
 
 ### „Alle Daten löschen" ist die gefährlichste Schaltfläche der App

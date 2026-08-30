@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.5.0';
+const VERSION = '3.6.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -714,6 +714,10 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.6.0', datum: '30.08.2026', punkte: [
+    'Die Server-Sicherungen lassen sich jetzt aus der App ansehen und von Hand anstoßen – vorher ging das nur per SSH.',
+    'Unter Mehr → Daten steht, welche Sicherungen es gibt, von wann und wie groß.'
+  ]},
   { v: '3.5.0', datum: '30.08.2026', punkte: [
     '„Alle Daten löschen“ zeigt jetzt, was genau verschwindet, und der Knopf wird erst nach einer bewussten Bestätigung scharf.',
     'Der alte Hinweis „lässt sich nicht rückgängig machen“ stimmte nicht mehr – über frühere Stände geht es sehr wohl. Jetzt steht der Weg zurück dabei.',
@@ -1493,6 +1497,7 @@ function renderMore() {
   $('#btn-anmelden').style.display = SYNC.user ? 'none' : 'block';
   $('#about-version').textContent = VERSION;
   $('#dat-anzahl').textContent = DB.plants.length;
+  $('#zeile-sicherungen').hidden = !SYNC.user;
   speicherAnzeigen();
   $('#dat-logs').textContent = DB.logs.length;
   const imArchiv = DB.plants.filter(p => p.archiviert).length;
@@ -5338,6 +5343,78 @@ async function allesLoeschen() {
         SYNC.user ? zeigeStaende : null);
 }
 
+/* ---------- Sicherungen auf dem Server ----------
+   Die Datenbank wird nachts um halb vier automatisch gesichert, sieben Tage
+   werden aufgehoben. Von Hand ging das bisher nur per SSH – für einen kurzen
+   Blick vor einer größeren Änderung ist das zu umständlich. */
+function sicherungenOeffnen() {
+  if (!SYNC.user) {
+    toast('Dafür musst du angemeldet sein – gesichert wird auf dem Server');
+    return;
+  }
+  $('#sicherung-inhalt').innerHTML = `
+    <div class="grabber"></div>
+    <h2>Sicherungen</h2>
+    <p class="sheet-hinweis">Die Datenbank auf dem Server wird jede Nacht um halb vier
+      automatisch gesichert. Die letzten sieben Tage bleiben liegen, ältere werden
+      entfernt. Die Push-Schlüssel liegen mit dabei – ohne sie wären nach einer
+      Wiederherstellung alle Erinnerungen stumm.</p>
+    <div id="sicherung-liste"><div class="karte karte-ruhig" style="color:var(--text-2)">
+      Wird geladen …</div></div>
+    <button class="btn" id="btn-sicherung-jetzt">Jetzt sichern</button>
+    <button class="btn sec" data-close>Schließen</button>`;
+  $('#btn-sicherung-jetzt').onclick = sicherungStarten;
+  openSheet('#sheet-sicherung');
+  sicherungenLaden();
+}
+
+async function sicherungenLaden() {
+  try {
+    const r = await api('/backup');
+    if (!r.ok) throw new Error('Status ' + r.status);
+    sicherungenZeichnen((await r.json()).sicherungen || []);
+  } catch (e) {
+    $('#sicherung-liste').innerHTML =
+      `<div class="karte karte-ruhig" style="color:var(--text-2)">Liste nicht abrufbar.</div>`;
+  }
+}
+
+function sicherungenZeichnen(liste) {
+  const box = $('#sicherung-liste');
+  if (!box) return;
+  const heute = toISO(new Date());
+  box.innerHTML = liste.length
+    ? `<div class="section-title">Vorhanden (${liste.length})</div><div class="group">` +
+      liste.map(x => `<div class="field">
+        <label>${fromISO(x.datum).toLocaleDateString('de-DE',
+          { weekday: 'short', day: 'numeric', month: 'long' })}${
+          x.datum === heute ? ' · heute' : ''}</label>
+        <span class="hint">${x.zeit} Uhr · ${byteText(x.bytes)}</span></div>`).join('') +
+      `</div>`
+    : `<div class="karte karte-ruhig" style="color:var(--text-2)">
+         Noch keine Sicherung vorhanden.</div>`;
+}
+
+async function sicherungStarten() {
+  const knopf = $('#btn-sicherung-jetzt');
+  knopf.disabled = true;
+  knopf.textContent = 'Sichert …';
+  try {
+    const r = await api('/backup', { method: 'POST' });
+    if (r.status === 429) { toast('Gerade eben schon gesichert'); return; }
+    if (!r.ok) throw new Error('Status ' + r.status);
+    const a = await r.json();
+    sicherungenZeichnen(a.sicherungen || []);
+    toast('Gesichert · ' + byteText(a.bytes) +
+          (a.entfernt ? ' · ' + a.entfernt + ' alte entfernt' : ''));
+  } catch (e) {
+    toast('Sicherung fehlgeschlagen');
+  } finally {
+    knopf.disabled = false;
+    knopf.textContent = 'Jetzt sichern';
+  }
+}
+
 /* ---------- Export / Import ---------- */
 async function exportieren() {
   /* Seit die Bilder in IndexedDB liegen, sind sie kurz nach dem Start noch
@@ -5797,6 +5874,7 @@ function bind() {
   $('#f-methode').onchange = phaseAnzeigen;
   $('#btn-eigen-neu').onclick = eigeneNeuOeffnen;
   $('#zeile-verwaist').onclick = verwaisteLoeschen;
+  $('#zeile-sicherungen').onclick = sicherungenOeffnen;
   $('#zeile-raeume').onclick = raeumeOeffnen;
   $('#zeile-ort').onclick = ortOeffnen;
   $('#set-wetter').onchange = e => {

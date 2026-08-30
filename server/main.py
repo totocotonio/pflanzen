@@ -80,6 +80,7 @@ class Version(Base):
 
 import push  # noqa: E402  (braucht Base, deshalb hier)
 import wetter  # noqa: E402
+import backup as sicherung  # noqa: E402
 
 PushAbo = push.modell_anlegen(Base)
 
@@ -393,6 +394,36 @@ def qr_code(p: str = "", name: str = ""):
 @app.get("/api/health")
 def health():
     return {"ok": True}
+
+
+# --------------------------------------------------------------- Sicherung
+# Die naechtliche Sicherung laeuft per systemd-Timer. Hier laesst sie sich
+# zusaetzlich von Hand anstossen - sonst braeuchte es dafuer jedes Mal SSH.
+_letzte_sicherung = [0.0]
+
+
+@app.get("/api/backup")
+def backup_liste(user: User = Depends(aktueller_user)):
+    return {"sicherungen": sicherung.liste()}
+
+
+@app.post("/api/backup")
+def backup_starten(user: User = Depends(aktueller_user)):
+    # Eine Bremse reicht: Der Dateiname enthaelt das Datum, ein zweiter Lauf
+    # am selben Tag ueberschreibt nur - vollaufen kann die Platte also nicht.
+    jetzt = time.time()
+    if jetzt - _letzte_sicherung[0] < 60:
+        raise HTTPException(429, "Gerade eben schon gesichert")
+    _letzte_sicherung[0] = jetzt
+    try:
+        datei = sicherung.sichern()
+        weg = sicherung.aufraeumen()
+    except Exception as fehler:                       # noqa: BLE001
+        raise HTTPException(500, f"Sicherung fehlgeschlagen: {fehler}")
+    return {"datei": os.path.basename(datei),
+            "bytes": os.path.getsize(datei),
+            "entfernt": weg,
+            "sicherungen": sicherung.liste()}
 
 
 # --------------------------------------------------------------- Wetter
