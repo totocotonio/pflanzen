@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** ✅ Live (v2.1.1)
+**Status:** ✅ Live (v2.2.0)
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -35,6 +35,8 @@ Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in 
 ### Pflanzen-Datenbank
 
 ✅ **Pflanze anlegen** – Name mit Vorschlägen, Art, Standort per Dropdown, Gießintervall, Wassermenge
+✅ **Mehrere Pflanzen im Topf** – der Topf bleibt die Einheit, die App prüft ob die Arten zusammenpassen
+✅ **Ableger im Wasser** – Erinnerung ans Wasserwechseln statt ans Gießen, mit Übergang zum Eintopfen
 ✅ **Foto oder Emoji** – Kamera-/Galerie-Foto wird auf 400 px verkleinert und als JPEG in den localStorage gelegt; alternativ 24 Emoji zur Auswahl
 ✅ **Pflegevorschläge** – 80 Arten und Sorten mit Richtwerten für Intervall, Licht, Menge und Pflegehinweis; erkennt Zweitnamen („Benjamini"), Mehrzahl („Efeutüten") und Umlaut-Schreibweisen
 ✅ **Fotoverlauf** – bis zu sechs Bilder je Pflanze mit Datum, Großansicht per Antippen
@@ -93,7 +95,7 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
 | Design | warme Grün- und Erdtöne, hell und dunkel, System-Schriften, `env(safe-area-inset-*)` |
 | Speicher | `localStorage`, Schlüssel `pg_data` |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v2.1.1` |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v2.2.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
 | Push | Web Push API + VAPID, pywebpush, systemd-Timer alle 15 Minuten |
 | Hosting | LXC Container auf Proxmox |
@@ -261,6 +263,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v2.2.0** | Ableger im Wasser mit Wasserwechsel-Erinnerung |
 | **v2.1.0** | Mehrere Pflanzen in einem Topf, Wassermenge aus dem Topfdurchmesser |
 | **v2.0.0** | Neues Erscheinungsbild: warme Farbwelt, Detailansicht mit Bild und Fortschrittsringen |
 | **v1.18.0** | Frühere Stände wiederherstellbar, tägliches Datenbank-Backup |

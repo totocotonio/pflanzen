@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '2.1.1';
+const VERSION = '2.2.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -89,6 +89,8 @@ function winterAktiv() {
   return m >= 10 || m <= 1;        // Nov, Dez, Jan, Feb
 }
 function effIntervall(p) {
+  // Ein Glas Wasser kippt im Winter genauso schnell wie im Sommer
+  if (istAbleger(p)) return Math.max(1, Number(p.intervall) || 5);
   // Eigener Winterwert der Pflanze schlägt die allgemeine Einstellung
   const eigen = Number(p.winterFaktor) || 0;
   const f = winterAktiv() ? (eigen || 1.5) : 1;
@@ -124,7 +126,7 @@ function statusOf(p) {
 function statusText(p) {
   const t = tageBis(p);
   if (t < 0) return Math.abs(t) === 1 ? '1 Tag überfällig' : Math.abs(t) + ' Tage überfällig';
-  if (t === 0) return 'Heute gießen';
+  if (t === 0) return wasserWorte(p).heute;
   if (t === 1) return 'Morgen';
   return 'in ' + t + ' Tagen';
 }
@@ -419,6 +421,11 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '2.2.0', datum: '30.08.2026', punkte: [
+    'Ableger im Wasser: eigene Haltung mit Erinnerung ans Wasserwechseln statt ans Gießen.',
+    'Zeigt, wie lange der Steckling schon im Glas steht.',
+    'Ist er bewurzelt, macht ein Knopf daraus eine eingetopfte Pflanze mit passendem Gießintervall.'
+  ]},
   { v: '2.1.1', datum: '30.08.2026', punkte: [
     'Behoben: Pflanzen mit Verlaufseinträgen ließen sich seit v2.0.0 nicht mehr öffnen.'
   ]},
@@ -1074,7 +1081,8 @@ function giessen(id) {
   DB.logs.push({ id: logId, plantId: id, typ: 'wasser', ts: Date.now() });
   save(); renderAll();
   if (navigator.vibrate) navigator.vibrate(12);
-  toast('💧 ' + p.name + ' gegossen', 'Rückgängig', rueckgaengig);
+  const w = wasserWorte(p);
+  toast(w.emoji + ' ' + p.name + ': ' + w.partizip, 'Rückgängig', rueckgaengig);
 }
 function duengen(id) { aufgabeErledigt(id, 'duenger'); }
 
@@ -1973,6 +1981,60 @@ function problemZeigen(id) {
     `<button class="btn sec" data-problem-zurueck>Zurück zur Übersicht</button>`;
 }
 
+/* ---------- Ableger im Wasser ----------
+   Ein Steckling im Glas wird nicht gegossen – das Wasser wird gewechselt,
+   sonst kippt es und die Wurzeln faulen. Sonst verhält er sich wie jede
+   andere Pflanze: Intervall, Fälligkeit, Erinnerung.
+   Sobald er bewurzelt ist, wird er eingetopft und damit zur normalen Pflanze. */
+
+function istAbleger(p) {
+  return !!p.imWasser;
+}
+
+/** Wortwahl für die Hauptaufgabe – gießen oder Wasser wechseln. */
+function wasserWorte(p) {
+  return istAbleger(p)
+    ? { titel: 'Wasser wechseln', kurz: 'wechseln', partizip: 'Wasser gewechselt',
+        emoji: '🫙', heute: 'Heute wechseln' }
+    : { titel: 'Gießen', kurz: 'gießen', partizip: 'gegossen',
+        emoji: '💧', heute: 'Heute gießen' };
+}
+
+/** Wie lange steht der Ableger schon im Wasser? */
+function abegerSeit(p) {
+  if (!istAbleger(p) || !p.imWasserSeit) return null;
+  const tage = tageDiff(fromISO(p.imWasserSeit), heute0());
+  if (tage < 0) return null;
+  if (tage < 14) return tage === 1 ? 'seit einem Tag' : `seit ${tage} Tagen`;
+  const wochen = Math.round(tage / 7);
+  return wochen < 9 ? `seit ${wochen} Wochen` : `seit ${Math.round(tage / 30)} Monaten`;
+}
+
+/** Aus dem Ableger wird eine eingetopfte Pflanze. */
+function abelegerEintopfen(id) {
+  const p = DB.plants.find(x => x.id === id);
+  if (!p) return;
+  if (!confirm(p.name + ' ist bewurzelt und kommt in Erde?\n\n' +
+               'Ab dann erinnert die App ans Gießen statt ans Wasserwechseln.')) return;
+
+  const art = artFinden(p.name) || artFinden(p.art);
+  p.imWasser = false;
+  delete p.imWasserSeit;
+  p.intervall = art ? art.iv : 7;
+  p.letzt = toISO(new Date());
+  if (art && !p.menge) p.menge = art.menge;
+  if (art && !p.licht) p.licht = art.licht;
+  if (art && !Number(p.duengerInt)) {
+    p.duengerInt = art.d;
+    p.duengerLetzt = toISO(new Date());
+  }
+  DB.logs.push({ id: uid(), plantId: id, typ: 'eingetopft', ts: Date.now() });
+  save();
+  renderAll();
+  openDetail(id);
+  toast(p.name + ' ist eingetopft – jetzt alle ' + p.intervall + ' Tage gießen');
+}
+
 /* ---------- Mehrere Pflanzen in einem Topf ----------
    Eine Schale mit drei Arten wird einmal gegossen, nicht dreimal. Deshalb ist
    der Topf die Einheit: ein Gießintervall, eine Wassermenge. Die Arten darin
@@ -2234,6 +2296,28 @@ function hashOeffnen(endgueltig) {
   }
 }
 
+/** Passt das Formular an die gewählte Haltung an. */
+function haltungAnzeigen() {
+  const wasser = $('#f-haltung').value === 'wasser';
+  $('#titel-giessen').textContent = wasser ? 'Wasser wechseln' : 'Gießen';
+  $('#label-intervall').textContent = 'Alle … Tage';
+  $('#label-letzt').textContent = wasser ? 'Zuletzt gewechselt' : 'Zuletzt gegossen';
+  $('#feld-wasser-seit').hidden = !wasser;
+  // Erde-Themen ergeben im Glas keinen Sinn
+  for (const wahl of ['#f-topfgroesse', '#f-winter', '#f-umtopfen-int', '#f-schneiden-int']) {
+    const feld = $(wahl);
+    if (feld && feld.closest('.field')) feld.closest('.field').hidden = wasser;
+  }
+  const duenger = $('#f-duenger-int');
+  if (duenger && duenger.closest('.field')) duenger.closest('.field').hidden = wasser;
+  const duengerLetzt = $('#f-duenger-letzt');
+  if (duengerLetzt && duengerLetzt.closest('.field')) duengerLetzt.closest('.field').hidden = wasser;
+  const umtopfenLetzt = $('#f-umtopfen-letzt');
+  if (umtopfenLetzt && umtopfenLetzt.closest('.field')) umtopfenLetzt.closest('.field').hidden = wasser;
+  const schneidenLetzt = $('#f-schneiden-letzt');
+  if (schneidenLetzt && schneidenLetzt.closest('.field')) schneidenLetzt.closest('.field').hidden = wasser;
+}
+
 /* ---------- Sheets ---------- */
 /* Alle Sheets haben denselben z-index, also entscheidet die Reihenfolge im
    HTML, welches oben liegt. Ein aus der Detailansicht geöffnetes Sheet stünde
@@ -2266,6 +2350,9 @@ function openEdit(id) {
   $('#f-letzt').value = p ? (p.letzt || toISO(new Date())) : toISO(new Date());
   $('#f-menge').value = p ? (p.menge || '') : '';
   $('#f-topfgroesse').value = p ? (p.topfGroesse || '') : '';
+  $('#f-haltung').value = p && istAbleger(p) ? 'wasser' : 'erde';
+  $('#f-wasser-seit').value = p ? (p.imWasserSeit || '') : toISO(new Date());
+  haltungAnzeigen();
   topfListe = p ? mitbewohner(p).map(m => ({ ...m })) : [];
   $('#topf-menge-hinweis').hidden = true;
   zeichneTopf();
@@ -2309,6 +2396,9 @@ function speichern() {
     letzt: $('#f-letzt').value || toISO(new Date()),
     menge: $('#f-menge').value.trim(),
     topfGroesse: Number($('#f-topfgroesse').value) || 0,
+    imWasser: $('#f-haltung').value === 'wasser',
+    imWasserSeit: $('#f-haltung').value === 'wasser'
+      ? ($('#f-wasser-seit').value || toISO(new Date())) : '',
     mitbewohner: topfListe.filter(m => m.name.trim()).map(m => ({
       name: m.name.trim(), art: m.art || ''
     })),
@@ -2382,16 +2472,18 @@ function openDetail(id) {
   const datum = wert => wert ? fromISO(wert).toLocaleDateString('de-DE',
     { day: 'numeric', month: 'short' }) : null;
 
-  // Offene Aufgaben: Gießen plus alles, was sonst ansteht
+  // Offene Aufgaben: Gießen bzw. Wasserwechsel plus alles, was sonst ansteht
+  const w0 = wasserWorte(p);
   const offen = [];
-  if (t <= 0) offen.push({ art: 'wasser', titel: 'Gießen', tage: t,
-                           zusatz: p.menge ? esc(p.menge) : '' });
+  if (t <= 0) offen.push({ art: 'wasser', titel: w0.titel, tage: t,
+                           zusatz: !istAbleger(p) && p.menge ? esc(p.menge) : '' });
   for (const a of AUFGABEN) {
     const at = aufgabeTageBis(p, a);
     if (at !== null && at <= 0) offen.push({ art: a.schluessel, titel: a.name, tage: at, zusatz: '' });
   }
 
-  const kacheln = [statusKachel('Gießen', t, anteil, '💧', datum(p.letzt))]
+  const w = wasserWorte(p);
+  const kacheln = [statusKachel(w.titel, t, anteil, w.emoji, datum(p.letzt))]
     .concat(AUFGABEN.filter(a => Number(p[a.feldInt]) > 0).map(a => {
       const at = aufgabeTageBis(p, a);
       const gesamt = a.einheit === 'monate' ? Number(p[a.feldInt]) * 30 : Number(p[a.feldInt]);
@@ -2413,6 +2505,10 @@ function openDetail(id) {
 
     <h2 class="detail-name">${esc(p.name)}</h2>
     ${p.art ? `<p class="detail-art">${esc(p.art)}</p>` : ''}
+    ${istAbleger(p) ? `<div class="topf-arten">
+      <span class="topf-art">🫙 Ableger im Wasser</span>
+      ${abegerSeit(p) ? `<span class="topf-art">${esc(abegerSeit(p))}</span>` : ''}
+    </div>` : ''}
     ${mitbewohner(p).length ? `<div class="topf-arten">
       <span class="topf-art">im selben Topf:</span>
       ${mitbewohner(p).map(m => `<span class="topf-art">${esc(m.name)}</span>`).join('')}
@@ -2439,7 +2535,7 @@ function openDetail(id) {
 
     <div class="section-title">Pflege</div>
     <div class="group">
-      <div class="field"><label>Gießintervall</label><span class="hint">alle ${p.intervall} Tage${
+      <div class="field"><label>${istAbleger(p) ? 'Wasserwechsel' : 'Gießintervall'}</label><span class="hint">alle ${p.intervall} Tage${
         winterAktiv() && effIntervall(p) !== Number(p.intervall) ? ' · Winter: ' + effIntervall(p) : ''}</span></div>
       ${p.winterFaktor ? `<div class="field"><label>Winterruhe</label><span class="hint">×${
         String(p.winterFaktor).replace('.', ',')}</span></div>` : ''}
@@ -2456,6 +2552,7 @@ function openDetail(id) {
       <div class="log-item"><span>${logText(l.typ)}</span>
       <span>${new Date(l.ts).toLocaleDateString('de-DE')}</span></div>`).join('') + `</div>` : ''}
 
+    ${istAbleger(p) ? `<button class="btn sec" data-eintopfen="${p.id}">🪴 Ist bewurzelt, kommt in Erde</button>` : ''}
     <button class="btn sec" data-hilfe="${p.id}">Problem mit dieser Pflanze?</button>
     <button class="btn sec" data-qr="${p.id}">QR-Code für den Topf</button>
     <button class="btn sec" data-edit="${p.id}">Bearbeiten</button>
@@ -2815,6 +2912,13 @@ function bind() {
   $$('.tabbar button').forEach(b => b.onclick = () => tab(b.dataset.tab));
   bindePersoenlich();
   bindeTopf();
+  $('#f-haltung').onchange = () => {
+    haltungAnzeigen();
+    // Ein Glas will alle paar Tage frisches Wasser, unabhängig von der Art
+    if ($('#f-haltung').value === 'wasser' && $('#f-intervall').value === '7') {
+      $('#f-intervall').value = 5;
+    }
+  };
   $('#sortierung').onchange = e => { sortierung = e.target.value; renderPflanzen(); };
   $('#suchfeld').oninput = e => {
     suchText = e.target.value.trim().toLowerCase();
@@ -2912,7 +3016,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -2946,6 +3050,7 @@ function bind() {
     if (t.dataset.qr) { e.stopPropagation(); qrZeigen(t.dataset.qr); return; }
     if (t.dataset.tun) { e.stopPropagation(); tunErledigt(t.dataset.pid, t.dataset.tun); return; }
     if (t.dataset.allesHier) { e.stopPropagation(); allesHier(t.dataset.allesHier); return; }
+    if (t.dataset.eintopfen) { e.stopPropagation(); abelegerEintopfen(t.dataset.eintopfen); return; }
     if (t.dataset.topfWeg !== undefined) {
       topfListe.splice(Number(t.dataset.topfWeg), 1);
       zeichneTopf();

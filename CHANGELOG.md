@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.2.0 - 2026-08-30
+
+- Ableger im Wasser als eigene Haltung. Ein Steckling im Glas wird nicht
+  gegossen – sein Wasser muss gewechselt werden, sonst kippt es und die
+  Wurzeln faulen. Die App spricht entsprechend von "Wasser wechseln" statt
+  "Gießen", voreingestellt alle fünf Tage.
+- Im Formular unter "Haltung" wählbar. Was im Glas keinen Sinn ergibt –
+  Topfgröße, Winterruhe, Düngen, Umtopfen, Schneiden – wird ausgeblendet.
+- Die Winterruhe gilt für Ableger nicht: Ein Glas Wasser kippt im Januar
+  genauso schnell wie im Juli.
+- "Im Wasser seit" wird mitgeführt und in der Detailansicht angezeigt
+  ("seit 3 Wochen").
+- Ist der Steckling bewurzelt, macht ein Knopf daraus eine eingetopfte
+  Pflanze: Gießintervall, Wassermenge, Licht und Düngerrhythmus kommen aus
+  der Artenliste, der Wechsel steht im Verlauf.
+- Auch die Erinnerungen unterscheiden: "Bei Monstera-Steckling das Wasser
+  wechseln." statt "braucht Wasser".
+
 ## v2.1.1 - 2026-08-30
 
 - Behoben: Seit v2.0.0 ließen sich Pflanzen mit Verlaufseinträgen nicht mehr
