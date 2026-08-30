@@ -3,6 +3,8 @@
 
     python deploy.py          nur die statischen Dateien
     python deploy.py --api    zusätzlich das Backend, danach Dienst-Neustart
+
+© 2026 Torsten Michaely – Alle Rechte vorbehalten
 """
 import os
 import subprocess

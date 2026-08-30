@@ -8,6 +8,8 @@ erreichbar. Benutzer werden hier auf dem Server angelegt.
     python manage.py passwd torsten      # Passwort ändern
     python manage.py list                # Benutzer anzeigen
     python manage.py deluser name        # Benutzer und Daten löschen
+
+© 2026 Torsten Michaely – Alle Rechte vorbehalten
 """
 import getpass
 import sys

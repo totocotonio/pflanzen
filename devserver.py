@@ -8,6 +8,8 @@ genauso verhält wie hinter Nginx (relative /api-Aufrufe, gleiche Herkunft).
 
 Legt beim ersten Start den Benutzer "test" mit dem Passwort "test12345" an.
 Die Testdatenbank liegt im Temp-Verzeichnis, nicht im Projekt.
+
+© 2026 Torsten Michaely – Alle Rechte vorbehalten
 """
 import os
 import sys

@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
 <title>Grünzeug</title>
 <meta name="description" content="Gießplan, Pflanzen-Datenbank und Erinnerungen für deine Zimmerpflanzen">
+<meta name="author" content="Torsten Michaely">
+<meta name="copyright" content="© 2026 Torsten Michaely – Alle Rechte vorbehalten">
 <meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -12,7 +14,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=1.17.0">
+<link rel="stylesheet" href="style.css?v=1.17.1">
 </head>
 <body>
 
@@ -27,6 +29,7 @@
     <button class="btn" id="lg-btn" type="submit">Anmelden</button>
     <p class="login-fehler" id="lg-fehler"></p>
     <button type="button" class="login-link" id="lg-offline">Ohne Anmeldung auf diesem Gerät nutzen</button>
+    <p class="login-copyright">© 2026 Torsten Michaely</p>
   </form>
 </div>
 
@@ -192,8 +195,9 @@
         <label>Versionshistorie</label><span class="hint">alle Änderungen ›</span>
       </div>
     </div>
-    <p style="color:var(--text-3);font-size:13px;text-align:center;margin:20px 0 8px">
-      Grünzeug · lokal gespeichert, offline nutzbar
+    <p class="fusszeile">
+      Grünzeug · lokal gespeichert, offline nutzbar<br>
+      © 2026 Torsten Michaely · Alle Rechte vorbehalten
     </p>
   </section>
 
@@ -412,6 +416,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=1.17.0"></script>
+<script src="app.js?v=1.17.1"></script>
 </body>
 </html>

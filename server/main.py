@@ -6,6 +6,8 @@ hoch; die Revisionsnummer verhindert, dass ein Gerät die Änderungen eines
 anderen unbemerkt überschreibt.
 
 Start:  uvicorn main:app --host 127.0.0.1 --port 8500
+
+© 2026 Torsten Michaely – Alle Rechte vorbehalten
 """
 from __future__ import annotations
 

@@ -10,6 +10,8 @@ Winterfaktor je Pflanze eingeschlossen. Weichen beide voneinander ab,
 erinnert der Server an Dinge, die die App gar nicht als fällig anzeigt.
 
 Aufruf:  venv/bin/python cron.py [--trocken]
+
+© 2026 Torsten Michaely – Alle Rechte vorbehalten
 """
 import calendar
 import json

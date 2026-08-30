@@ -1,10 +1,12 @@
 /* ============================================================
    Grünzeug – Pflanzen gießen
-   Single-File PWA, Daten in localStorage (Prefix pg_)
+   PWA mit localStorage (Prefix pg_) und Server-Sync
+
+   © 2026 Torsten Michaely – Alle Rechte vorbehalten
    ============================================================ */
 'use strict';
 
-const VERSION = '1.17.0';
+const VERSION = '1.17.1';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -411,6 +413,9 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.17.1', datum: '30.08.2026', punkte: [
+    'Urheberrechtshinweis in der App, auf der Anmeldeseite und im Quelltext.'
+  ]},
   { v: '1.17.0', datum: '29.08.2026', punkte: [
     'Erinnerungen jetzt auch für Düngen, Umtopfen und Schneiden, nicht nur fürs Gießen.',
     'Behoben: Der Versand hat archivierte Pflanzen mitgezählt und die Winterruhe je Pflanze ignoriert.'

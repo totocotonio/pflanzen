@@ -2,6 +2,8 @@
 
 Aufruf:  python gen_icons.py
 Ergebnis: icon-192.png, icon-512.png, icon-maskable.png, favicon.ico
+
+© 2026 Torsten Michaely – Alle Rechte vorbehalten
 """
 from PIL import Image, ImageDraw, ImageChops
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.17.1 - 2026-08-30
+
+- Urheberrechtshinweis ergänzt: in der Fußzeile unter Mehr, auf der
+  Anmeldeseite, als Meta-Angabe im HTML und im Kopf aller Quelldateien.
+
 ## v1.17.0 - 2026-08-29
 
 - Erinnerungen gelten jetzt für alle Pflegeaufgaben. Bisher meldete der Server

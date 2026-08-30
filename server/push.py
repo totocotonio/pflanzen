@@ -6,6 +6,8 @@ sie bleiben damit über Neustarts hinweg gleich, was Bedingung dafür ist, dass
 bestehende Abos weiter funktionieren.
 
 Der Versand wird von cron.py angestoßen, nicht von der App.
+
+© 2026 Torsten Michaely – Alle Rechte vorbehalten
 """
 from __future__ import annotations
 

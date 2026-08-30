@@ -97,3 +97,7 @@ alle Push-Abos ungültig und jedes Gerät muss sich neu anmelden.
   SQLAlchemy legt beim Start nur fehlende Tabellen an, keine fehlenden Spalten.
 - Auf dem iPhone gibt es Benachrichtigungen nur, wenn die Seite über
   *Teilen → Zum Home-Bildschirm* installiert wurde (ab iOS 16.4).
+
+---
+
+© 2026 Torsten Michaely — Alle Rechte vorbehalten
