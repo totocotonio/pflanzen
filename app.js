@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '2.2.0';
+const VERSION = '2.3.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -130,20 +130,25 @@ function statusText(p) {
   if (t === 1) return 'Morgen';
   return 'in ' + t + ' Tagen';
 }
-function toast(msg, aktionText, aktion) {
+/** Meldung mit optionalen Aktionen.
+    Entweder toast(text, 'Knopf', fn) oder toast(text, [{text, fn}, …]). */
+function toast(msg, a1, a2) {
   const el = $('#toast');
   el.textContent = msg;
-  if (aktionText && aktion) {
+  const aktionen = Array.isArray(a1) ? a1
+    : (a1 && a2) ? [{ text: a1, fn: a2 }] : [];
+
+  for (const a of aktionen) {
     const knopf = document.createElement('button');
     knopf.className = 'toast-aktion';
-    knopf.textContent = aktionText;
-    knopf.onclick = () => { el.classList.remove('show'); aktion(); };
+    knopf.textContent = a.text;
+    knopf.onclick = () => { el.classList.remove('show'); a.fn(); };
     el.appendChild(knopf);
   }
   el.classList.add('show');
   clearTimeout(toast._t);
   // Mit Aktion länger stehen lassen, sonst ist sie nicht zu treffen
-  toast._t = setTimeout(() => el.classList.remove('show'), aktionText ? 6000 : 2200);
+  toast._t = setTimeout(() => el.classList.remove('show'), aktionen.length ? 6000 : 2200);
 }
 function avatarHTML(p, cls) {
   const c = 'avatar' + (cls ? ' ' + cls : '');
@@ -421,6 +426,10 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '2.3.0', datum: '30.08.2026', punkte: [
+    'Erledigtes nachtragen: „war gestern" in der Meldung, oder ein beliebiges Datum in der Aufgabenkarte.',
+    'Der Verlaufseintrag bekommt den richtigen Zeitpunkt, damit die Pünktlichkeit stimmt.'
+  ]},
   { v: '2.2.0', datum: '30.08.2026', punkte: [
     'Ableger im Wasser: eigene Haltung mit Erinnerung ans Wasserwechseln statt ans Gießen.',
     'Zeigt, wie lange der Steckling schon im Glas steht.',
@@ -1072,17 +1081,49 @@ function renderMore() {
 }
 
 /* ---------- Aktionen ---------- */
-function giessen(id) {
+/* Erledigt wird normalerweise heute. Wer das Abhaken vergessen hat, kann
+   nachtragen: über "war gestern" in der Meldung oder über das Datum in der
+   Aufgabenkarte. Sonst verschiebt sich der Rhythmus und die Pünktlichkeit
+   in der Statistik stimmt nicht mehr. */
+let erledigtAm = null;   // ISO-Datum oder null für heute
+
+/** Zeitstempel für den Verlauf: bei zurückliegenden Tagen mittags. */
+function zeitstempel(iso) {
+  if (!iso) return Date.now();
+  const d = fromISO(iso);
+  d.setHours(12, 0, 0, 0);
+  return Math.min(d.getTime(), Date.now());
+}
+
+function giessen(id, datum) {
   const p = DB.plants.find(x => x.id === id);
   if (!p) return;
+  const wann = datum || erledigtAm || toISO(new Date());
   const logId = uid();
   letzteAktion = { eintraege: [{ feld: 'letzt', plantId: id, vorher: p.letzt, logId }] };
-  p.letzt = toISO(new Date());
-  DB.logs.push({ id: logId, plantId: id, typ: 'wasser', ts: Date.now() });
+  p.letzt = wann;
+  DB.logs.push({ id: logId, plantId: id, typ: 'wasser', ts: zeitstempel(wann) });
   save(); renderAll();
   if (navigator.vibrate) navigator.vibrate(12);
+
   const w = wasserWorte(p);
-  toast(w.emoji + ' ' + p.name + ': ' + w.partizip, 'Rückgängig', rueckgaengig);
+  const heute = toISO(new Date());
+  const meldung = w.emoji + ' ' + p.name + ': ' + w.partizip +
+    (wann !== heute ? ' am ' + fromISO(wann).toLocaleDateString('de-DE',
+      { day: 'numeric', month: 'short' }) : '');
+  const aktionen = [{ text: 'Rückgängig', fn: rueckgaengig }];
+  if (wann === heute) {
+    aktionen.push({ text: 'war gestern', fn: () => nachtragen(id, 'wasser') });
+  }
+  toast(meldung, aktionen);
+}
+
+/** Korrigiert die zuletzt abgehakte Aufgabe auf gestern. */
+function nachtragen(id, art) {
+  rueckgaengig();
+  const gestern = toISO(new Date(Date.now() - 86400000));
+  if (art === 'wasser') giessen(id, gestern);
+  else aufgabeErledigt(id, art, gestern);
 }
 function duengen(id) { aufgabeErledigt(id, 'duenger'); }
 
@@ -1144,18 +1185,28 @@ function faelligeAufgaben() {
 }
 
 /** Aufgabe als erledigt eintragen. */
-function aufgabeErledigt(id, schluessel) {
+function aufgabeErledigt(id, schluessel, datum) {
   const p = DB.plants.find(x => x.id === id);
   const a = AUFGABEN.find(x => x.schluessel === schluessel);
   if (!p || !a) return;
+  const wann = datum || erledigtAm || toISO(new Date());
   const logId = uid();
   letzteAktion = { eintraege: [{ feld: a.feldLetzt, plantId: id, vorher: p[a.feldLetzt], logId }] };
-  p[a.feldLetzt] = toISO(new Date());
-  DB.logs.push({ id: logId, plantId: id, typ: schluessel, ts: Date.now() });
+  p[a.feldLetzt] = wann;
+  DB.logs.push({ id: logId, plantId: id, typ: schluessel, ts: zeitstempel(wann) });
   save();
   renderAll();
   if ($('#sheet-detail').classList.contains('open')) openDetail(id);
-  toast(a.emoji + ' ' + p.name + ' ' + a.partizip, 'Rückgängig', rueckgaengig);
+
+  const heute = toISO(new Date());
+  const meldung = a.emoji + ' ' + p.name + ' ' + a.partizip +
+    (wann !== heute ? ' am ' + fromISO(wann).toLocaleDateString('de-DE',
+      { day: 'numeric', month: 'short' }) : '');
+  const aktionen = [{ text: 'Rückgängig', fn: rueckgaengig }];
+  if (wann === heute) {
+    aktionen.push({ text: 'war gestern', fn: () => nachtragen(id, schluessel) });
+  }
+  toast(meldung, aktionen);
 }
 
 /* ---------- Alles auf einmal ---------- */
@@ -2464,6 +2515,7 @@ function statusKachel(titel, tage, anteil, symbol, letztDatum) {
 function openDetail(id) {
   const p = DB.plants.find(x => x.id === id);
   if (!p) return;
+  if (!$('#sheet-detail').classList.contains('open')) erledigtAm = null;
 
   const iv = effIntervall(p);
   const t = tageBis(p);
@@ -2527,6 +2579,11 @@ function openDetail(id) {
               Math.abs(o.tage) === 1 ? 'Tag' : 'Tage'} zu spät</span>` : ''}
           </button>`).join('')}
         ${offen.length > 1 ? `<button class="btn" data-alles-hier="${p.id}">Alles erledigen</button>` : ''}
+        <div class="wann-zeile">
+          <span class="wann-text">Erledigt am</span>
+          <input type="date" id="erledigt-datum" max="${toISO(new Date())}"
+                 value="${erledigtAm || toISO(new Date())}">
+        </div>
       </div>` : `
       <div class="karte karte-ruhig">
         <div class="tun-text" style="text-align:center;color:var(--text-2)">
@@ -2562,6 +2619,14 @@ function openDetail(id) {
     <button class="btn danger" data-del="${p.id}">Pflanze löschen</button>
     <button class="btn sec" data-close>Schließen</button>
   `;
+  const feld = $('#erledigt-datum');
+  if (feld) feld.onchange = e => {
+    const heute = toISO(new Date());
+    erledigtAm = e.target.value && e.target.value !== heute ? e.target.value : null;
+    if (erledigtAm) {
+      toast('Wird auf den ' + fromISO(erledigtAm).toLocaleDateString('de-DE') + ' eingetragen');
+    }
+  };
   openSheet('#sheet-detail');
 }
 
@@ -2575,14 +2640,14 @@ function tunErledigt(pid, art) {
 function allesHier(pid) {
   const p = DB.plants.find(x => x.id === pid);
   if (!p) return;
-  const heute = toISO(new Date());
+  const heute = erledigtAm || toISO(new Date());
   const eintraege = [];
 
   if (tageBis(p) <= 0) {
     const logId = uid();
     eintraege.push({ feld: 'letzt', plantId: pid, vorher: p.letzt, logId });
     p.letzt = heute;
-    DB.logs.push({ id: logId, plantId: pid, typ: 'wasser', ts: Date.now() });
+    DB.logs.push({ id: logId, plantId: pid, typ: 'wasser', ts: zeitstempel(heute) });
   }
   for (const a of AUFGABEN) {
     const at = aufgabeTageBis(p, a);
@@ -2590,7 +2655,7 @@ function allesHier(pid) {
     const logId = uid();
     eintraege.push({ feld: a.feldLetzt, plantId: pid, vorher: p[a.feldLetzt], logId });
     p[a.feldLetzt] = heute;
-    DB.logs.push({ id: logId, plantId: pid, typ: a.schluessel, ts: Date.now() });
+    DB.logs.push({ id: logId, plantId: pid, typ: a.schluessel, ts: zeitstempel(heute) });
   }
   if (!eintraege.length) return;
 

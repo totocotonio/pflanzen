@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** ✅ Live (v2.2.0)
+**Status:** ✅ Live (v2.3.0)
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -25,6 +25,7 @@ Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in 
 ✅ **Fälligkeitsberechnung** – letztes Gießdatum + Intervall, tagesgenau
 ✅ **Ein-Tipp-Gießen** – Tropfen-Button in Liste und Detailansicht, mit Haptik-Feedback
 ✅ **Rückgängig** – die Meldung nach dem Gießen oder Düngen enthält sechs Sekunden lang einen Rückgängig-Knopf
+✅ **Nachtragen** – „war gestern" in der Meldung oder freie Datumswahl in der Aufgabenkarte, falls das Abhaken vergessen wurde
 ✅ **Farbcodierung** – grün (heute fällig), orange (demnächst), rot (überfällig)
 ✅ **Fortschrittsbalken** – zeigt, wie weit das Intervall aufgebraucht ist
 ✅ **Kacheln als Filter** – Tippen auf „fällig", „in 2 Tagen" oder „Pflanzen" zeigt nur diese Auswahl
@@ -95,7 +96,7 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
 | Design | warme Grün- und Erdtöne, hell und dunkel, System-Schriften, `env(safe-area-inset-*)` |
 | Speicher | `localStorage`, Schlüssel `pg_data` |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v2.2.0` |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v2.3.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
 | Push | Web Push API + VAPID, pywebpush, systemd-Timer alle 15 Minuten |
 | Hosting | LXC Container auf Proxmox |
@@ -263,6 +264,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v2.3.0** | Erledigtes für zurückliegende Tage nachtragbar |
 | **v2.2.0** | Ableger im Wasser mit Wasserwechsel-Erinnerung |
 | **v2.1.0** | Mehrere Pflanzen in einem Topf, Wassermenge aus dem Topfdurchmesser |
 | **v2.0.0** | Neues Erscheinungsbild: warme Farbwelt, Detailansicht mit Bild und Fortschrittsringen |

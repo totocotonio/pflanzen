@@ -352,6 +352,11 @@ a{color:var(--blue);text-decoration:none}
   background:color-mix(in srgb, var(--red) 14%, transparent);
   padding:3px 8px;border-radius:20px;white-space:nowrap}
 .karte .btn{margin-top:12px}
+.wann-zeile{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin-top:12px;padding-top:11px;border-top:.5px solid var(--sep)}
+.wann-text{font-size:14px;color:var(--text-2)}
+.wann-zeile input{background:transparent;border:0;outline:none;font-size:15px;
+  color:var(--text-2);text-align:right}
 
 .log-item{display:flex;justify-content:space-between;padding:10px 16px;background:var(--surface);
   border-bottom:.5px solid var(--sep);font-size:15px}

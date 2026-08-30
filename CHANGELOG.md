@@ -1,5 +1,20 @@
 # Changelog
 
+## v2.3.0 - 2026-08-30
+
+- Erledigtes lässt sich nachtragen. Bisher galt jedes Abhaken für den aktuellen
+  Tag: Wer gestern gegossen und erst heute abgehakt hat, verschob damit den
+  Rhythmus um einen Tag – und die Pünktlichkeit in der Statistik zählte es als
+  verspätet, obwohl alles rechtzeitig war.
+- Zwei Wege: In der Meldung nach dem Abhaken steht neben "Rückgängig" jetzt
+  "war gestern" – ein Tipp korrigiert es. Für weiter zurückliegende Tage gibt
+  es in der Aufgabenkarte die Zeile "Erledigt am" mit Datumsauswahl; sie gilt
+  für alles, was danach in dieser Ansicht abgehakt wird.
+- Der Verlaufseintrag bekommt den passenden Zeitpunkt (mittags am gewählten
+  Tag), damit die Auswertung stimmt.
+- Das gewählte Datum gilt nur, solange die Pflanze geöffnet ist – beim nächsten
+  Öffnen steht wieder "heute", damit ein vergessenes Datum nichts verfälscht.
+
 ## v2.2.0 - 2026-08-30
 
 - Ableger im Wasser als eigene Haltung. Ein Steckling im Glas wird nicht
