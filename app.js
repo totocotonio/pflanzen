@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.0.0';
+const VERSION = '3.1.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -495,6 +495,12 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.1.0', datum: '30.08.2026', punkte: [
+    'Geführte Anleitung zum Umtopfen: zehn Schritte, immer nur einer auf dem Schirm.',
+    'Vorweg Zeitpunkt, Anzeichen und Material – und zu jedem Schritt der Fehler, den man dabei macht.',
+    'Am Ende lässt sich „umgetopft“ direkt eintragen.',
+    'Erreichbar aus der Pflanze heraus und unter Mehr → Anleitungen.'
+  ]},
   { v: '3.0.0', datum: '30.08.2026', punkte: [
     'Eigene Pflegeaufgaben je Pflanze – Zurückschneiden, Schädlingskontrolle, Abduschen, was auch immer. Mit eigenem Symbol, Intervall in Tagen oder Monaten und Push-Erinnerung.',
     'Zehn Vorlagen für den schnellen Start.',
@@ -1191,6 +1197,7 @@ function renderPlan() {
 
 function renderMore() {
   $('#version-sub').textContent = 'Version ' + VERSION;
+  $('#anleitungen-liste').innerHTML = anleitungenListe();
   $('#ort-name').textContent = (DB.settings.ort ? DB.settings.ort.name : 'nicht gesetzt') + ' ›';
   $('#set-wetter').value = DB.settings.wetterAn === false ? '0' : '1';
   $('#wetter-lage').textContent = wetterLageText();
@@ -2432,6 +2439,185 @@ const LAGE_WORTE = {
 function lageWorte(u, lage) {
   return (u.wenn || []).filter(k => lage.has(k))
     .map(k => LAGE_WORTE[k] || k).join(', ');
+}
+
+/* ---------- Anleitungen ----------
+   Die App sagt, wann etwas fällig ist. Beim Gießen reicht das. Beim Umtopfen
+   nicht: Da hängt viel daran, dass man es richtig macht, und die häufigsten
+   Fehler passieren aus Unwissen – zu großer Topf, zu tief gesetzt, danach
+   sofort gedüngt.
+
+   Eine Anleitung führt deshalb Schritt für Schritt durch, immer nur ein
+   Handgriff auf dem Schirm. Am Ende lässt sich die zugehörige Aufgabe direkt
+   abhaken, damit man nicht noch einmal suchen muss. */
+const ANLEITUNGEN = [
+  {
+    id: 'umtopfen', emoji: '🪴', titel: 'Umtopfen',
+    kurz: 'Wann es Zeit ist, welcher Topf passt, und wie die Wurzeln heil bleiben.',
+    dauer: '20 Minuten', zeitpunkt: 'Februar bis Mai, kurz vor dem Austrieb',
+    aufgabe: 'umtopfen',
+    woran: [
+      'Wurzeln wachsen unten aus dem Abzugsloch',
+      'Beim Austopfen zeigt sich ein dichter Wurzelfilz an der Topfwand',
+      'Gießwasser läuft sofort durch, ohne dass Erde es hält',
+      'Die Pflanze kippt oder trocknet auffällig schnell aus',
+      'Weiße Krusten auf der Erde, seit über zwei Jahren derselbe Topf'
+    ],
+    material: [
+      'Neuer Topf, nur 2 bis 4 cm größer im Durchmesser – mit Abzugsloch',
+      'Frische Erde, passend zur Art (Kakteenerde, Orchideensubstrat, Einheitserde)',
+      'Blähton oder grober Kies für die Drainageschicht',
+      'Saubere Schere für kaputte Wurzeln',
+      'Unterlage und Untersetzer, bei Wolfsmilchgewächsen Handschuhe'
+    ],
+    schritte: [
+      { titel: 'Einen Tag vorher gießen',
+        text: 'Aus einem feuchten Ballen löst sich der Topf leichter, und die Wurzeln reißen weniger.',
+        tipp: 'Bei staubtrockener Erde bricht der Ballen auseinander und nimmt Feinwurzeln mit.' },
+      { titel: 'Topf auswählen',
+        text: 'Nur zwei bis vier Zentimeter mehr Durchmesser als bisher. Ein Abzugsloch ist Pflicht.',
+        tipp: 'Der häufigste Fehler: zu groß. Die Erde in der Mitte bleibt dann wochenlang nass – der schnellste Weg zur Wurzelfäule.' },
+      { titel: 'Austopfen',
+        text: 'Den Topf seitlich zusammendrücken oder auf der Kante rollen. Die Pflanze am Ballen fassen und herausziehen, nie am Stamm.',
+        tipp: 'Sitzt sie fest, mit einem langen Messer innen am Topfrand entlangfahren.' },
+      { titel: 'Wurzeln ansehen',
+        text: 'Gesunde Wurzeln sind hell und fest. Braune, matschige oder faulig riechende gehören bis ins Gesunde abgeschnitten.',
+        tipp: 'Wurzeln, die sich unten im Kreis drehen, vorsichtig auseinanderziehen – sonst wachsen sie im neuen Topf genauso weiter.' },
+      { titel: 'Alte Erde lockern',
+        text: 'Etwa ein Drittel der alten Erde abschütteln. Bei Wurzelfäule alles unter lauwarmem Wasser abspülen.',
+        tipp: 'Verbrauchte Erde ist der Grund, warum Umtopfen überhaupt nötig ist – Nährstoffe sind weg, Salze sind drin.' },
+      { titel: 'Drainage einfüllen',
+        text: 'Zwei bis drei Zentimeter Blähton auf den Topfboden, darüber eine Schicht frische Erde.',
+        tipp: 'In einem Topf ohne Abzugsloch bringt Drainage nichts – das Wasser steht dann nur weiter unten.' },
+      { titel: 'Pflanze einsetzen',
+        text: 'Auf die gleiche Höhe wie vorher setzen. Der Übergang von Stamm zu Wurzel bleibt frei.',
+        tipp: 'Zu tief gesetzt fault der Stammansatz. Nur Tomaten mögen das, Zimmerpflanzen nicht.' },
+      { titel: 'Erde auffüllen',
+        text: 'Ringsum auffüllen und mit den Fingern andrücken, nicht feststampfen. Oben zwei Zentimeter Gießrand lassen.',
+        tipp: 'Zu fest gedrückte Erde lässt keine Luft an die Wurzeln.' },
+      { titel: 'Angießen',
+        text: 'Durchdringend gießen, bis unten Wasser austritt. Nach 20 Minuten den Untersetzer leeren.',
+        tipp: 'Das Angießen schließt Hohlräume – wichtiger als die Menge.' },
+      { titel: 'Die ersten Wochen',
+        text: 'Zwei bis drei Wochen nicht düngen, frische Erde hat genug. Ein paar Tage etwas schattiger stellen, dann zurück an den gewohnten Platz.',
+        tipp: 'Ein paar abgeworfene Blätter danach sind normal. Neuer Austrieb kommt meist nach drei bis sechs Wochen.' }
+    ],
+    warnung: 'Nicht im Winter umtopfen, außer es ist ein Notfall wie Wurzelfäule. ' +
+      'Zwischen November und Januar wächst kaum etwas nach, und die Pflanze steht dann ' +
+      'monatelang in Erde, die sie nicht durchwurzeln kann.'
+  }
+];
+
+let anleitung = null;   // { id, schritt, pflanzeId }
+
+function anleitungOeffnen(id, pflanzeId) {
+  const a = ANLEITUNGEN.find(x => x.id === id);
+  if (!a) return;
+  anleitung = { id, schritt: -1, pflanzeId: pflanzeId || null };
+  anleitungZeichnen();
+  openSheet('#sheet-anleitung');
+}
+
+function anleitungZeichnen() {
+  if (!anleitung) return;
+  const a = ANLEITUNGEN.find(x => x.id === anleitung.id);
+  const box = $('#anleitung-inhalt');
+  const p = anleitung.pflanzeId ? DB.plants.find(x => x.id === anleitung.pflanzeId) : null;
+
+  // Übersicht vor dem ersten Schritt: Zeitpunkt, Anzeichen, Material
+  if (anleitung.schritt < 0) {
+    box.innerHTML = `
+      <div class="grabber"></div>
+      <h2>${a.emoji} ${esc(a.titel)}</h2>
+      <p class="sheet-hinweis">${esc(a.kurz)}${p ? ' Für ' + esc(p.name) + '.' : ''}</p>
+
+      <div class="group">
+        <div class="field"><label>Bester Zeitpunkt</label><span class="hint">${esc(a.zeitpunkt)}</span></div>
+        <div class="field"><label>Dauer</label><span class="hint">${esc(a.dauer)}</span></div>
+        <div class="field"><label>Schritte</label><span class="hint">${a.schritte.length}</span></div>
+      </div>
+
+      ${a.warnung ? `<div class="karte" style="border-left:3px solid var(--orange);
+        color:var(--text-2);line-height:1.5">${esc(a.warnung)}</div>` : ''}
+
+      <div class="section-title">Woran du es erkennst</div>
+      <div class="karte"><ul class="liste">${
+        a.woran.map(w => `<li>${esc(w)}</li>`).join('')}</ul></div>
+
+      <div class="section-title">Was du brauchst</div>
+      <div class="karte"><ul class="liste">${
+        a.material.map(m => `<li>${esc(m)}</li>`).join('')}</ul></div>
+
+      <button class="btn" data-anleitung-schritt="weiter">Los geht's</button>
+      <button class="btn sec" data-close>Schließen</button>`;
+    return;
+  }
+
+  // Abschluss
+  if (anleitung.schritt >= a.schritte.length) {
+    const offen = p && a.aufgabe && aufgabenVon(p)
+      .some(x => x.schluessel === a.aufgabe && tageBisAufgabe(x) !== null);
+    box.innerHTML = `
+      <div class="grabber"></div>
+      <div class="empty">
+        <div class="big">✅</div>
+        <p><b>Geschafft</b></p>
+        <p>${p ? esc(p.name) + ' steht im neuen Topf.' : 'Fertig.'}</p>
+      </div>
+      ${offen
+        ? `<button class="btn" data-anleitung-fertig="${p.id}">Als „umgetopft" eintragen</button>`
+        : ''}
+      <button class="btn sec" data-anleitung-schritt="zurueck">Nochmal ansehen</button>
+      <button class="btn sec" data-close>Schließen</button>`;
+    return;
+  }
+
+  const s = a.schritte[anleitung.schritt];
+  const nummer = anleitung.schritt + 1;
+  const anteil = Math.round((anleitung.schritt / a.schritte.length) * 100);
+
+  box.innerHTML = `
+    <div class="grabber"></div>
+    <div class="runde-fortschritt">
+      <div class="bar"><i style="width:${anteil}%"></i></div>
+      <div class="runde-zaehler">Schritt ${nummer} von ${a.schritte.length}</div>
+    </div>
+
+    <div class="karte">
+      <div class="karte-kopf" style="font-size:18px;margin-bottom:10px">${esc(s.titel)}</div>
+      <p style="font-size:16px;line-height:1.5;margin:0">${esc(s.text)}</p>
+      ${s.tipp ? `<p class="anleitung-tipp">${esc(s.tipp)}</p>` : ''}
+    </div>
+
+    <button class="btn" data-anleitung-schritt="weiter">${
+      nummer === a.schritte.length ? 'Fertig' : 'Weiter'}</button>
+    <button class="btn sec" data-anleitung-schritt="zurueck">Zurück</button>
+    <button class="btn sec" data-close>Abbrechen</button>`;
+}
+
+function anleitungSchritt(richtung) {
+  if (!anleitung) return;
+  anleitung.schritt += richtung === 'weiter' ? 1 : -1;
+  if (anleitung.schritt < -1) anleitung.schritt = -1;
+  anleitungZeichnen();
+}
+
+function anleitungFertig(pid) {
+  const a = anleitung && ANLEITUNGEN.find(x => x.id === anleitung.id);
+  const aufgabe = (a && a.aufgabe) || 'umtopfen';
+  closeSheets();
+  aufgabeErledigt(pid, aufgabe);
+}
+
+/** Liste aller Anleitungen, für „Mehr“. */
+function anleitungenListe() {
+  return ANLEITUNGEN.map(a => `
+    <button class="problem" data-anleitung="${a.id}">
+      <span class="problem-emoji">${a.emoji}</span>
+      <span class="problem-titel">${esc(a.titel)}<span style="display:block;color:var(--text-3);
+        font-size:13px;font-weight:400">${esc(a.kurz)}</span></span>
+      <span class="problem-pfeil">›</span>
+    </button>`).join('');
 }
 
 /* ---------- Eigene Pflegeaufgaben ----------
@@ -3982,6 +4168,9 @@ function openDetail(id) {
               Math.abs(o.tage) === 1 ? 'Tag' : 'Tage'} zu spät</span>` : ''}
           </button>`).join('')}
         ${offen.length > 1 ? `<button class="btn" data-alles-hier="${p.id}">Alles erledigen</button>` : ''}
+        ${offen.some(o => o.art === 'umtopfen')
+          ? `<button class="btn sec" data-anleitung="umtopfen" data-pid="${p.id}">
+               🪴 Anleitung zum Umtopfen</button>` : ''}
         <button class="btn sec" data-aufschub-frage="${p.id}">Noch nicht – später erinnern</button>
         <div class="wann-zeile">
           <span class="wann-text">Erledigt am</span>
@@ -4023,6 +4212,7 @@ function openDetail(id) {
       ${istAbleger(p) ? `<button class="btn sec" data-eintopfen="${p.id}">🪴 Ist bewurzelt, kommt in Erde</button>` : ''}
       <button class="btn sec" data-hilfe="${p.id}">${
         behandlungVon(p) ? 'Weiteres Problem?' : 'Problem mit dieser Pflanze?'}</button>
+      <button class="btn sec" data-anleitung="umtopfen" data-pid="${p.id}">🪴 Anleitung zum Umtopfen</button>
       <button class="btn sec" data-qr="${p.id}">QR-Code für den Topf</button>
       ${p.archiviert
         ? `<button class="btn sec" data-entarchiv="${p.id}">Zurück in die Liste</button>`
@@ -4579,7 +4769,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -4606,6 +4796,15 @@ function bind() {
       return;
     }
     if (t.dataset.ort) { e.stopPropagation(); ortWaehlen(t.dataset.ort); return; }
+    if (t.dataset.anleitung) {
+      e.stopPropagation();
+      const pid = t.dataset.pid || null;
+      if (pid) { closeSheets(); setTimeout(() => anleitungOeffnen(t.dataset.anleitung, pid), 180); }
+      else anleitungOeffnen(t.dataset.anleitung, null);
+      return;
+    }
+    if (t.dataset.anleitungSchritt) { e.stopPropagation(); anleitungSchritt(t.dataset.anleitungSchritt); return; }
+    if (t.dataset.anleitungFertig) { e.stopPropagation(); anleitungFertig(t.dataset.anleitungFertig); return; }
     if (t.dataset.abschnitt) {
       e.stopPropagation();
       abschnittUmschalten(t.dataset.abschnitt);

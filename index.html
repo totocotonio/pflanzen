@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=3.0.0">
+<link rel="stylesheet" href="style.css?v=3.1.0">
 </head>
 <body>
 
@@ -144,6 +144,9 @@
         </select>
       </div>
     </div>
+
+    <div class="section-title">Anleitungen</div>
+    <div class="group" id="anleitungen-liste"></div>
 
     <div class="section-title">Wetter</div>
     <div class="group">
@@ -480,6 +483,11 @@
   <div class="panel" id="detail-body"></div>
 </div>
 
+<div class="sheet" id="sheet-anleitung">
+  <div class="backdrop" data-close></div>
+  <div class="panel" id="anleitung-inhalt"></div>
+</div>
+
 <div class="sheet" id="sheet-eigen">
   <div class="backdrop" data-close></div>
   <div class="panel" id="eigen-inhalt"></div>
@@ -508,6 +516,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=3.0.0"></script>
+<script src="app.js?v=3.1.0"></script>
 </body>
 </html>

@@ -1,5 +1,25 @@
 # Changelog
 
+## v3.1.0 - 2026-08-30
+
+### Anleitung zum Umtopfen
+
+Die App sagt, wann etwas fällig ist. Beim Gießen reicht das. Beim Umtopfen
+nicht: Da hängt viel daran, dass man es richtig macht, und die häufigsten
+Fehler passieren aus Unwissen – zu großer Topf, zu tief gesetzt, danach sofort
+gedüngt.
+
+- **Zehn Schritte, immer nur einer auf dem Schirm**, mit Fortschrittsbalken.
+- Vorweg eine Übersicht: bester Zeitpunkt (Februar bis Mai), Dauer, die fünf
+  Anzeichen, dass es soweit ist, und die Materialliste.
+- Zu jedem Schritt steht der Fehler dabei, den man an dieser Stelle macht: „Der
+  häufigste Fehler: zu groß. Die Erde in der Mitte bleibt dann wochenlang nass."
+- Am Ende lässt sich **„umgetopft" direkt eintragen**, ohne noch einmal zu
+  suchen.
+- Erreichbar aus der Pflanze heraus – bei fälligem Umtopfen steht der Knopf
+  gleich bei der Aufgabe – und unter **Mehr → Anleitungen**.
+- Die Struktur ist auf weitere Anleitungen ausgelegt.
+
 ## v3.0.0 - 2026-08-30
 
 ### Eigene Pflegeaufgaben

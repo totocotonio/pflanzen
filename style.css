@@ -412,6 +412,14 @@ a{color:var(--blue);text-decoration:none}
 .runde-naechste{text-align:center;color:var(--text-3);font-size:13px;margin:16px 0 0}
 
 /* Problem-Hilfe */
+/* Anleitungen */
+.liste{margin:0;padding-left:20px;color:var(--text-2);font-size:15px;line-height:1.5}
+.liste li{margin-bottom:7px}
+.liste li:last-child{margin-bottom:0}
+.anleitung-tipp{margin:12px 0 0;padding:11px 13px;border-radius:12px;
+  background:var(--surface-2);color:var(--text-2);font-size:14.5px;line-height:1.45}
+.anleitung-tipp::before{content:'Achtung: ';font-weight:650;color:var(--orange)}
+
 /* Aufklappbare Abschnitte in der Detailansicht */
 .abschnitt{display:flex;align-items:center;justify-content:space-between;width:100%;
   padding:14px 16px;margin-bottom:10px;border-radius:16px;background:var(--surface);
