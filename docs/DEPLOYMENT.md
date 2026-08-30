@@ -126,6 +126,32 @@ venv/bin/python manage.py adduser torsten
 
 Weitere Befehle: `list`, `passwd <name>`, `deluser <name>`.
 
+### Sicherungen
+
+Zwei Ebenen:
+
+1. **Frühere Stände** in der Tabelle `version` – die letzten 20 Datenstände je
+   Benutzer, in der App wiederherstellbar. Angelegt stündlich und immer dann,
+   wenn die Zahl der Pflanzen abnimmt.
+2. **Tägliches Datenbank-Backup** um 3:30 Uhr nach `/var/backups/gruenzeug`,
+   gepackt, sieben Tage aufbewahrt. `backup.py` nutzt die SQLite-Backup-
+   Schnittstelle statt einer Dateikopie – die ist auch bei gleichzeitigen
+   Schreibzugriffen konsistent. Die VAPID-Dateien werden mitkopiert.
+
+```bash
+systemctl list-timers gruenzeug-backup.timer
+ls -la /var/backups/gruenzeug/
+cd /opt/gruenzeug-api && venv/bin/python backup.py    # von Hand
+```
+
+Wiederherstellen aus einem Backup:
+
+```bash
+systemctl stop gruenzeug
+gunzip -c /var/backups/gruenzeug/gruenzeug-2026-08-30.db.gz > /opt/gruenzeug-api/gruenzeug.db
+systemctl start gruenzeug
+```
+
 ### Datenbank
 
 `/opt/gruenzeug-api/gruenzeug.db` (SQLite). Enthält Benutzer, Sitzungen und je Benutzer einen JSON-Datensatz mit Pflanzen, Verlauf und Einstellungen. Sichern:

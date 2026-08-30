@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.18.0 - 2026-08-30
+
+- Frühere Stände: Der Server hebt die letzten zwanzig Datenstände auf. Unter
+  Mehr → Daten → "Frühere Stände" lassen sie sich ansehen und wiederherstellen.
+  Damit ist ein versehentliches "Alle Daten löschen" nicht mehr endgültig –
+  bisher verteilte der Sync so etwas binnen Sekunden auf alle Geräte.
+- Gesichert wird stündlich und immer dann, wenn Pflanzen verschwinden. Der
+  zweite Fall ist der wichtige: genau dann will man zurück.
+- Auch das Wiederherstellen wird gesichert, ist also selbst umkehrbar.
+- Zusätzlich sichert der Server die Datenbank täglich um 3:30 Uhr nach
+  /var/backups/gruenzeug, gepackt und sieben Tage aufbewahrt. Die
+  VAPID-Schlüssel liegen dabei – ohne sie wären nach einer Wiederherstellung
+  alle Push-Abos ungültig.
+
 ## v1.17.1 - 2026-08-30
 
 - Urheberrechtshinweis ergänzt: in der Fußzeile unter Mehr, auf der

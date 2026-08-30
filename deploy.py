@@ -22,8 +22,9 @@ STATISCH = [
 ]
 
 API_ZIEL = "/opt/gruenzeug-api/"
-API = ["main.py", "push.py", "cron.py", "manage.py", "requirements.txt",
+API = ["main.py", "push.py", "cron.py", "backup.py", "manage.py", "requirements.txt",
        "gruenzeug.service", "gruenzeug-push.service", "gruenzeug-push.timer",
+       "gruenzeug-backup.service", "gruenzeug-backup.timer",
        "install_api.sh"]
 
 mit_api = "--api" in sys.argv

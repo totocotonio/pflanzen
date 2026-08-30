@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=1.17.1">
+<link rel="stylesheet" href="style.css?v=1.18.0">
 </head>
 <body>
 
@@ -172,6 +172,9 @@
     <div class="group">
       <div class="field"><label>Pflanzen gespeichert</label><span class="hint" id="dat-anzahl">0</span></div>
       <div class="field"><label>Gieß-Einträge</label><span class="hint" id="dat-logs">0</span></div>
+      <div class="field" id="zeile-staende" style="cursor:pointer">
+        <label>Frühere Stände</label><span class="hint">wiederherstellen ›</span>
+      </div>
       <div class="field" id="zeile-archiv" style="cursor:pointer" hidden>
         <label>Archiv</label><span class="hint" id="dat-archiv">0 Pflanzen ›</span>
       </div>
@@ -292,6 +295,17 @@
     <button class="btn" id="btn-save">Speichern</button>
     <button class="btn sec" data-close>Abbrechen</button>
     <button class="btn danger" id="btn-delete" style="display:none">Pflanze löschen</button>
+  </div>
+</div>
+
+<!-- ===== Sheet: Frühere Stände ===== -->
+<div class="sheet" id="sheet-staende">
+  <div class="backdrop" data-close></div>
+  <div class="panel">
+    <div class="grabber"></div>
+    <h2>Frühere Stände</h2>
+    <div id="staende-inhalt"></div>
+    <button class="btn sec" data-close>Schließen</button>
   </div>
 </div>
 
@@ -416,6 +430,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=1.17.1"></script>
+<script src="app.js?v=1.18.0"></script>
 </body>
 </html>

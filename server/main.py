@@ -62,6 +62,22 @@ class Datensatz(Base):
     geaendert = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
+class Version(Base):
+    """Früherer Stand eines Datensatzes.
+
+    Die App überschreibt beim Sync immer den ganzen Datensatz. Ohne diese
+    Tabelle wäre ein versehentliches "Alle Daten löschen" endgültig – es
+    verteilt sich in Sekunden auf alle Geräte.
+    """
+    __tablename__ = "version"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("user.id"), nullable=False, index=True)
+    inhalt = Column(Text, nullable=False)
+    rev = Column(Integer, nullable=False)
+    pflanzen = Column(Integer, nullable=False, default=0)
+    erstellt = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 import push  # noqa: E402  (braucht Base, deshalb hier)
 
 PushAbo = push.modell_anlegen(Base)
@@ -163,6 +179,49 @@ def bremse(ip: str, limit: int = 8, fenster: int = 300) -> None:
     _versuche[ip] = liste
 
 
+# --------------------------------------------------------------- Versionen
+VERSIONEN_MAX = 20          # je Benutzer
+VERSION_ABSTAND_MIN = 60    # Minuten zwischen zwei regulären Schnappschüssen
+
+
+def version_sichern(s: Session, user_id: int, alt: "Datensatz", anzahl_neu: int) -> None:
+    """Legt den bisherigen Stand ab, bevor er überschrieben wird.
+
+    Nicht bei jedem Sync – der Client schiebt oft. Gesichert wird, wenn die
+    letzte Sicherung eine Stunde her ist, oder sobald Pflanzen verschwinden.
+    Verglichen wird dafür der neue Stand mit dem, der gleich überschrieben
+    wird – nicht mit der letzten Sicherung, die kann Stunden alt sein.
+    """
+    try:
+        anzahl_alt = len(json.loads(alt.inhalt).get("plants") or [])
+    except ValueError:
+        return
+
+    verlust = anzahl_neu < anzahl_alt
+
+    letzte = (s.query(Version)
+              .filter(Version.user_id == user_id)
+              .order_by(Version.id.desc()).first())
+
+    if letzte and not verlust:
+        vorher = letzte.erstellt or datetime.now(timezone.utc)
+        if vorher.tzinfo is None:
+            vorher = vorher.replace(tzinfo=timezone.utc)
+        if (datetime.now(timezone.utc) - vorher) < timedelta(minutes=VERSION_ABSTAND_MIN):
+            return
+
+    s.add(Version(user_id=user_id, inhalt=alt.inhalt, rev=alt.rev, pflanzen=anzahl_alt))
+    s.flush()   # sonst zählt die neue Version beim Aufräumen nicht mit
+
+    # Älteste über der Grenze wegräumen
+    ueberzaehlig = (s.query(Version)
+                    .filter(Version.user_id == user_id)
+                    .order_by(Version.id.desc())
+                    .offset(VERSIONEN_MAX).all())
+    for v in ueberzaehlig:
+        s.delete(v)
+
+
 # --------------------------------------------------------------- Schemas
 class LoginDaten(BaseModel):
     name: str = Field(min_length=1, max_length=64)
@@ -254,11 +313,56 @@ def daten_speichern(eingabe: SyncDaten,
             detail={"grund": "konflikt", "rev": d.rev, "daten": json.loads(d.inhalt)},
         )
 
+    version_sichern(s, user.id, d, len(eingabe.daten.get("plants") or []))
     d.inhalt = inhalt
     d.rev += 1
     d.geaendert = datetime.now(timezone.utc)
     s.commit()
     return {"rev": d.rev}
+
+
+@app.get("/api/versionen")
+def versionen_liste(user: User = Depends(aktueller_user), s: Session = Depends(db)):
+    """Frühere Stände, neuester zuerst."""
+    liste = (s.query(Version)
+             .filter(Version.user_id == user.id)
+             .order_by(Version.id.desc()).all())
+    return {"versionen": [{
+        "id": v.id,
+        "rev": v.rev,
+        "pflanzen": v.pflanzen,
+        "groesse": len(v.inhalt),
+        "erstellt": (v.erstellt.replace(tzinfo=timezone.utc).isoformat()
+                     if v.erstellt and v.erstellt.tzinfo is None
+                     else (v.erstellt.isoformat() if v.erstellt else None)),
+    } for v in liste]}
+
+
+@app.post("/api/versionen/{version_id}/wiederherstellen")
+def version_wiederherstellen(version_id: int,
+                             user: User = Depends(aktueller_user),
+                             s: Session = Depends(db)):
+    """Macht einen früheren Stand zum aktuellen.
+
+    Der bisherige Stand wird vorher gesichert – auch ein Wiederherstellen
+    soll sich rückgängig machen lassen.
+    """
+    v = s.get(Version, version_id)
+    if not v or v.user_id != user.id:
+        raise HTTPException(404, "Diesen Stand gibt es nicht")
+
+    d = s.get(Datensatz, user.id)
+    if d:
+        s.add(Version(user_id=user.id, inhalt=d.inhalt, rev=d.rev,
+                      pflanzen=len((json.loads(d.inhalt).get("plants") or []))))
+        d.inhalt = v.inhalt
+        d.rev += 1
+        d.geaendert = datetime.now(timezone.utc)
+    else:
+        d = Datensatz(user_id=user.id, inhalt=v.inhalt, rev=1)
+        s.add(d)
+    s.commit()
+    return {"rev": d.rev, "daten": json.loads(d.inhalt)}
 
 
 @app.get("/api/qr")

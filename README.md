@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** ✅ Live (v1.17.1)
+**Status:** ✅ Live (v1.18.0)
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -59,6 +59,7 @@ Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in 
 ✅ **PWA** – installierbar auf iOS und Android, eigener Startbildschirm, Standalone-Modus
 ✅ **Offline** – Service Worker cached alle Assets (Network-First für HTML, Cache-First für Rest)
 ✅ **Export / Import** – vollständiges JSON-Backup aller Pflanzen, Verläufe und Einstellungen
+✅ **Frühere Stände** – die letzten zwanzig Datenstände auf dem Server, einzeln wiederherstellbar
 ✅ **Push-Erinnerungen** – täglich zur frei wählbaren Uhrzeit, für Gießen und alle Pflegeaufgaben, aber nur wenn etwas fällig ist
 ✅ **Versionshistorie** – in der App unter Mehr → Über einsehbar
 
@@ -92,7 +93,7 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
 | Design | iOS-orientiertes Dark UI, System-Schriften, `env(safe-area-inset-*)` |
 | Speicher | `localStorage`, Schlüssel `pg_data` |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v1.17.1` |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v1.18.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
 | Push | Web Push API + VAPID, pywebpush, systemd-Timer alle 15 Minuten |
 | Hosting | LXC Container auf Proxmox |
@@ -153,6 +154,8 @@ Alle Antworten JSON, Sitzung über das HttpOnly-Cookie `gz_session`.
 | GET | `/api/data` | `{rev, daten, geaendert}` – `daten` ist `null`, solange nichts gespeichert wurde |
 | PUT | `/api/data` | `{rev, daten}` → `{rev}`; bei veralteter `rev` **409** mit dem Serverstand |
 | GET | `/api/health` | Erreichbarkeitsprüfung, ohne Anmeldung |
+| GET | `/api/versionen` | frühere Stände, neuester zuerst |
+| POST | `/api/versionen/{id}/wiederherstellen` | macht einen früheren Stand zum aktuellen |
 | GET | `/api/qr?p=…` | QR-Code als SVG für den Topf-Aufkleber (ohne Anmeldung, enthält nur die Kennung) |
 | GET | `/api/push/key` | öffentlicher VAPID-Schlüssel (ohne Anmeldung, der Client braucht ihn zum Abonnieren) |
 | POST | `/api/push/subscribe` | Gerät anmelden bzw. Uhrzeit ändern |
@@ -258,6 +261,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v1.18.0** | Frühere Stände wiederherstellbar, tägliches Datenbank-Backup |
 | **v1.17.0** | Erinnerungen für alle Pflegeaufgaben |
 | **v1.16.0** | Archiv, Sortierung, Winterruhe je Pflanze, QR-Code |
 | **v1.15.0** | Gieß-Runde, Problem-Hilfe, Erinnerung verschieben |

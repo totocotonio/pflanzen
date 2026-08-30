@@ -1,0 +1,8 @@
+[Unit]
+Description=Gruenzeug: Datenbank sichern
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/gruenzeug-api
+ExecStart=/opt/gruenzeug-api/venv/bin/python backup.py

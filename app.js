@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.17.1';
+const VERSION = '1.18.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -413,6 +413,11 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '1.18.0', datum: '30.08.2026', punkte: [
+    'Frühere Stände: Der Server hebt die letzten zwanzig Datenstände auf, wiederherstellbar unter Mehr.',
+    'Gesichert wird stündlich und immer dann, wenn Pflanzen verschwinden.',
+    'Zusätzlich sichert der Server die Datenbank täglich, sieben Tage lang.'
+  ]},
   { v: '1.17.1', datum: '30.08.2026', punkte: [
     'Urheberrechtshinweis in der App, auf der Anmeldeseite und im Quelltext.'
   ]},
@@ -1935,6 +1940,82 @@ function problemZeigen(id) {
     `<button class="btn sec" data-problem-zurueck>Zurück zur Übersicht</button>`;
 }
 
+/* ---------- Frühere Stände ----------
+   Der Server hebt die letzten Stände auf. Das ist die Rückversicherung gegen
+   den Fall, dass hier versehentlich alles gelöscht wird – der Sync verteilt
+   so etwas sonst binnen Sekunden auf alle Geräte. */
+async function zeigeStaende() {
+  const box = $('#staende-inhalt');
+  box.innerHTML = '<div class="empty"><p>Wird geladen …</p></div>';
+  openSheet('#sheet-staende');
+
+  if (!SYNC.user) {
+    box.innerHTML = `<div class="empty"><div class="big">🔒</div>
+      <p>Frühere Stände liegen auf dem Server.</p>
+      <p>Dafür musst du angemeldet sein.</p></div>`;
+    return;
+  }
+
+  let liste;
+  try {
+    const r = await api('/versionen');
+    if (!r.ok) throw new Error('Status ' + r.status);
+    liste = (await r.json()).versionen;
+  } catch (e) {
+    box.innerHTML = `<div class="empty"><div class="big">📡</div>
+      <p>Server nicht erreichbar.</p></div>`;
+    return;
+  }
+
+  if (!liste.length) {
+    box.innerHTML = `<div class="empty"><div class="big">🕰</div>
+      <p>Noch keine früheren Stände.</p>
+      <p>Sie entstehen beim Speichern – stündlich und immer dann,
+         wenn Pflanzen verschwinden.</p></div>`;
+    return;
+  }
+
+  box.innerHTML =
+    `<p style="color:var(--text-2);font-size:14px;margin:0 0 14px">
+       Ein Stand ersetzt deine aktuellen Daten auf allen Geräten. Der bisherige
+       Stand wird vorher gesichert, du kannst also zurück.</p>` +
+    `<div class="group">` + liste.map(v => {
+      const d = new Date(v.erstellt);
+      const heute = d.toDateString() === new Date().toDateString();
+      const wann = heute
+        ? 'heute ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+        : d.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' }) +
+          ' ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+      return `<div class="field">
+        <label>${wann}<br><span style="color:var(--text-2);font-size:13px">${
+          v.pflanzen === 1 ? '1 Pflanze' : v.pflanzen + ' Pflanzen'}</span></label>
+        <button class="aktion" data-stand="${v.id}" data-anzahl="${v.pflanzen}"
+          style="background:none;padding:0">Wiederherstellen</button>
+      </div>`;
+    }).join('') + `</div>`;
+}
+
+async function standWiederherstellen(id, anzahl) {
+  const jetzt = DB.plants.length;
+  const text = 'Diesen Stand wiederherstellen?\n\n' +
+    'Danach: ' + (anzahl === 1 ? '1 Pflanze' : anzahl + ' Pflanzen') + '\n' +
+    'Aktuell: ' + (jetzt === 1 ? '1 Pflanze' : jetzt + ' Pflanzen') + '\n\n' +
+    'Der jetzige Stand wird vorher gesichert und lässt sich zurückholen.';
+  if (!confirm(text)) return;
+
+  try {
+    const r = await api('/versionen/' + encodeURIComponent(id) + '/wiederherstellen',
+                        { method: 'POST' });
+    if (!r.ok) throw new Error('Status ' + r.status);
+    const antwort = await r.json();
+    uebernehmeServer({ rev: antwort.rev, daten: antwort.daten });
+    closeSheets();
+    toast('Stand wiederhergestellt');
+  } catch (e) {
+    toast('Wiederherstellen fehlgeschlagen');
+  }
+}
+
 /* ---------- QR-Code fürs Etikett ----------
    Der Code enthält nur die Kennung der Pflanze in einer URL. Wer ihn scannt,
    landet in der App; ohne Anmeldung sieht er dort nichts. */
@@ -2467,6 +2548,7 @@ function bind() {
     $('#suchfeld').focus();
   };
   $('#zeile-historie').onclick = zeigeHistorie;
+  $('#zeile-staende').onclick = zeigeStaende;
   $('#zeile-archiv').onclick = () => {
     raumFilter = '__archiv';
     suchText = '';
@@ -2549,7 +2631,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -2581,6 +2663,11 @@ function bind() {
     if (t.dataset.edit) { closeSheets(); setTimeout(() => openEdit(t.dataset.edit), 180); return; }
     if (t.dataset.del) { loeschePflanze(t.dataset.del); return; }
     if (t.dataset.qr) { e.stopPropagation(); qrZeigen(t.dataset.qr); return; }
+    if (t.dataset.stand) {
+      e.stopPropagation();
+      standWiederherstellen(t.dataset.stand, Number(t.dataset.anzahl) || 0);
+      return;
+    }
     if (t.dataset.archiv) { archivieren(t.dataset.archiv, false); return; }
     if (t.dataset.entarchiv) { archivieren(t.dataset.entarchiv, true); return; }
     if (t.dataset.open) { openDetail(t.dataset.open); return; }
