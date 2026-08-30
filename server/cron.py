@@ -58,6 +58,13 @@ def plus_monate(d, anzahl):
     return date(jahr, monat, tag)
 
 
+def winter_jetzt(einstellungen, lage):
+    """Fuer die Raumtemperatur: Heizperiode aus dem Wetter geht vor Kalender."""
+    if lage and "heizperiode" in lage:
+        return bool(lage["heizperiode"])
+    return ist_winter(einstellungen)
+
+
 def ist_winter(einstellungen):
     modus = str(einstellungen.get("winter", "auto"))
     if modus == "1":
@@ -79,6 +86,40 @@ def wetter_faktor(pflanze, lage):
     return 0.7 if "sonne" in umgebung else 0.8
 
 
+# Stufen wie im Frontend: (Obergrenze, Faktor)
+TEMPERATUR_STUFEN = [(8, 2.4), (12, 2.0), (15, 1.7), (18, 1.4),
+                     (24, 1.0), (27, 0.9), (99, 0.75)]
+
+
+def raum_bereich(pflanze, einstellungen, ist_winter_jetzt):
+    """Der gueltige Temperaturbereich des Standorts, oder None."""
+    profil = (einstellungen.get("raeume") or {}).get(pflanze.get("raum"))
+    if not profil:
+        return None
+    bereich = profil.get("winter" if ist_winter_jetzt else "sommer")
+    if not isinstance(bereich, list) or len(bereich) != 2:
+        return None
+    try:
+        werte = [float(x) for x in bereich]
+    except (TypeError, ValueError):
+        return None
+    return (min(werte), max(werte))
+
+
+def raum_mittel(pflanze, einstellungen, ist_winter_jetzt):
+    b = raum_bereich(pflanze, einstellungen, ist_winter_jetzt)
+    return None if b is None else (b[0] + b[1]) / 2
+
+
+def raum_faktor(mittel):
+    if mittel is None:
+        return None
+    for grenze, faktor in TEMPERATUR_STUFEN:
+        if mittel <= grenze:
+            return faktor
+    return 1.0
+
+
 def zustand_faktor(pflanze):
     """Verlaengerung, wenn es der Pflanze nicht gut geht.
 
@@ -93,9 +134,16 @@ def zustand_faktor(pflanze):
     return 1.0
 
 
-def duengen_pausiert(pflanze):
-    """Geschwaechte Pflanzen und Stecklinge bekommen keinen Duenger."""
-    return pflanze.get("zustand") == "schlecht" or pflanze.get("phase") == "steckling"
+def duengen_pausiert(pflanze, einstellungen, ist_winter_jetzt):
+    """Geschwaechte Pflanzen, Stecklinge und kalte Raeume: kein Duenger.
+
+    Unter 15 Grad waechst nichts, was die Naehrstoffe verbrauchen koennte -
+    sie versalzen dann nur die Erde.
+    """
+    if pflanze.get("zustand") == "schlecht" or pflanze.get("phase") == "steckling":
+        return True
+    mittel = raum_mittel(pflanze, einstellungen, ist_winter_jetzt)
+    return mittel is not None and mittel < 15
 
 
 def eff_intervall(pflanze, einstellungen, lage=None):
@@ -110,9 +158,18 @@ def eff_intervall(pflanze, einstellungen, lage=None):
     if haltung_von(pflanze) in ("wasser", "hydro"):
         return max(1, intervall)
     faktor = wetter_faktor(pflanze, lage) * zustand_faktor(pflanze)
-    if ist_winter(einstellungen):
-        eigen = float(pflanze.get("winterFaktor") or 0)
-        faktor *= eigen if eigen else 1.5
+
+    eigen = float(pflanze.get("winterFaktor") or 0)
+    raum = raum_faktor(raum_mittel(pflanze, einstellungen,
+                                   winter_jetzt(einstellungen, lage)))
+
+    # Ohne Temperaturangabe bleibt es beim pauschalen Winter-Modus. Mit Angabe
+    # ersetzt sie ihn - ein geheiztes Wohnzimmer braucht keine Verlaengerung.
+    # Der artspezifische Winterwert bleibt gueltig (Kaktus will trocken stehen).
+    if raum is None:
+        faktor *= (eigen or 1.5) if ist_winter(einstellungen) else 1.0
+    else:
+        faktor *= max(raum, eigen or 1.0) if ist_winter(einstellungen) else raum
     return max(1, round(intervall * faktor))
 
 
@@ -179,7 +236,8 @@ def offene_punkte(daten):
             ziel.append(p.get("name") or "Pflanze")
 
         for a in AUFGABEN:
-            if a["verb"] == "düngen" and duengen_pausiert(p):
+            if a["verb"] == "düngen" and duengen_pausiert(
+                    p, einstellungen, winter_jetzt(einstellungen, lage)):
                 continue
             try:
                 intervall = int(p.get(a["int"]) or 0)

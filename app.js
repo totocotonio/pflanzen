@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.3.0';
+const VERSION = '3.4.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -93,7 +93,16 @@ function effIntervall(p) {
   if (istAbleger(p)) return Math.max(1, Number(p.intervall) || 5);
   // Eigener Winterwert der Pflanze schlägt die allgemeine Einstellung
   const eigen = Number(p.winterFaktor) || 0;
-  const f = winterAktiv() ? (eigen || 1.5) : 1;
+  const raum = raumFaktor(p);
+
+  /* Ohne Temperaturangabe bleibt es beim pauschalen Winter-Modus.
+     Mit Angabe ersetzt sie ihn – das ist der ganze Sinn der Sache: Ein
+     geheiztes Wohnzimmer mit 22 Grad im Januar braucht keine Verlängerung.
+     Der artspezifische Winterwert bleibt trotzdem gültig: Ein Kaktus will
+     trocken stehen, auch wenn sein Zimmer warm ist. */
+  const f = raum === null
+    ? (winterAktiv() ? (eigen || 1.5) : 1)
+    : (winterAktiv() ? Math.max(raum, eigen || 1) : raum);
   // Das Wetter wirkt nur verkürzend (Hitze); verlängern macht der Winter-Modus.
   // Der Zustand wirkt nur verlängernd: Wer bei kranken Wurzeln im gewohnten
   // Takt weitergießt, macht es schlimmer.
@@ -498,6 +507,13 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.4.0', datum: '30.08.2026', punkte: [
+    'Temperaturbereiche je Standort, getrennt nach Sommer und Winter – das Schlafzimmer hat im Januar eben keine 20 Grad.',
+    'Wo Werte hinterlegt sind, ersetzen sie den pauschalen Winter-Modus: von ×0,75 bei über 27 Grad bis ×2,4 unter 8 Grad.',
+    'Unter 15 Grad wird nicht mehr gedüngt – da wächst nichts, was die Nährstoffe verbrauchen könnte.',
+    'Vorlagen für 14 typische Räume, vom Bad bis zum Wintergarten.',
+    'Neuer Filter „Braucht Hilfe“ in der Pflanzenliste, plus ein Hinweis auf der Startseite.'
+  ]},
   { v: '3.3.0', datum: '30.08.2026', punkte: [
     'Zustand je Pflanze – und die App richtet sich danach: Bei „geht ihr schlecht“ wird das Gießintervall um 40 % verlängert und das Düngen pausiert.',
     'Die Karte sagt jedes Mal dazu, was sich dadurch ändert und warum.',
@@ -981,6 +997,17 @@ function renderHeute() {
 
   $$('.stat').forEach(k => k.classList.toggle('on', k.dataset.filter === heuteFilter));
 
+  const sorgenkinder = liste.filter(p => zustandVon(p) !== 'gut' || behandlungVon(p));
+  const sbox = $('#sorgen-hinweis');
+  sbox.hidden = !sorgenkinder.length;
+  if (sorgenkinder.length) {
+    sbox.innerHTML = `<span class="wetter-emoji">🩺</span><span>${
+      sorgenkinder.length === 1
+        ? esc(sorgenkinder[0].name) + ' braucht gerade Aufmerksamkeit.'
+        : sorgenkinder.length + ' Pflanzen brauchen gerade Aufmerksamkeit.'}</span>
+      <button class="aktion" data-sorgen>Ansehen</button>`;
+  }
+
   const wz = wetterZeile();
   const wbox = $('#wetter-hinweis');
   wbox.hidden = !wz;
@@ -1107,6 +1134,10 @@ function renderPflanzen() {
   // Weg mehr aus der leeren Archivansicht heraus
   if (raumFilter === '__archiv' && !archivZahl) raumFilter = 'alle';
   const archivAn = raumFilter === '__archiv';
+  const sorgenAn = raumFilter === '__sorgen';
+  // Alles, was Aufmerksamkeit braucht: schlechter Zustand oder laufende Behandlung
+  const sorgen = aktive().filter(p => zustandVon(p) !== 'gut' || behandlungVon(p));
+  if (sorgenAn && !sorgen.length) raumFilter = 'alle';
   const grundmenge = archivAn ? DB.plants.filter(p => p.archiviert) : aktive();
   const raeume = Array.from(new Set(aktive().map(p => p.raum).filter(Boolean))).sort();
 
@@ -1118,6 +1149,10 @@ function renderPflanzen() {
   $('#raum-chips').hidden = !!suchText;
   const chips = [`<button class="chip ${raumFilter === 'alle' ? 'on' : ''}" data-raum="alle">Alle</button>`];
   // Direkt hinter "Alle", nicht hinter allen Standorten: dort findet man es sonst nicht
+  if (sorgen.length) {
+    chips.push(`<button class="chip warn ${raumFilter === '__sorgen' ? 'on' : ''}" data-raum="__sorgen">
+      🩺 Braucht Hilfe (${sorgen.length})</button>`);
+  }
   if (archivZahl) {
     chips.push(`<button class="chip ${archivAn ? 'on' : ''}" data-raum="__archiv">📦 Archiv (${archivZahl})</button>`);
   }
@@ -1125,7 +1160,8 @@ function renderPflanzen() {
   $('#raum-chips').innerHTML = (raeume.length || archivZahl) ? chips.join('') : '';
 
   let liste = grundmenge
-    .filter(p => archivAn || raumFilter === 'alle' || p.raum === raumFilter)
+    .filter(p => archivAn || raumFilter === 'alle'
+      || (raumFilter === '__sorgen' ? sorgen.includes(p) : p.raum === raumFilter))
     .filter(passtZurSuche);
 
   if (suchText) {
@@ -1135,7 +1171,8 @@ function renderPflanzen() {
   const grid = $('#pflanzen-grid');
   if (!liste.length) {
     grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="big">${suchText ? '🔍' : archivAn ? '📦' : '🪴'}</div>
-      <p>${suchText ? 'Nichts gefunden.' : archivAn ? 'Das Archiv ist leer.' : 'Keine Pflanzen in dieser Ansicht.'}</p>
+      <p>${suchText ? 'Nichts gefunden.' : archivAn ? 'Das Archiv ist leer.'
+        : raumFilter === '__sorgen' ? 'Allen geht es gut.' : 'Keine Pflanzen in dieser Ansicht.'}</p>
       ${suchText ? '<p>Andere Schreibweise versuchen?</p>' : ''}</div>`;
     return;
   }
@@ -1144,7 +1181,10 @@ function renderPflanzen() {
   const kopfzeile = archivAn
     ? `<div class="archiv-hinweis" style="grid-column:1/-1">Archivierte Pflanzen zählen nirgends mit.
        Antippen und „Zurück in die Liste“ holt sie wieder.</div>`
-    : '';
+    : raumFilter === '__sorgen'
+      ? `<div class="archiv-hinweis" style="grid-column:1/-1">Pflanzen, bei denen du einen
+         schlechteren Zustand eingetragen hast oder bei denen eine Behandlung läuft.</div>`
+      : '';
 
   const kachel = p => {
     const st = p.archiviert ? '' : statusOf(p);
@@ -1214,6 +1254,10 @@ function renderPlan() {
 
 function renderMore() {
   $('#version-sub').textContent = 'Version ' + VERSION;
+  const anzahlRaeume = Object.keys(raumProfile()).length;
+  $('#raeume-stand').textContent = (anzahlRaeume
+    ? anzahlRaeume + (anzahlRaeume === 1 ? ' Raum' : ' Räume') + ' eingestellt'
+    : 'nicht eingestellt') + ' ›';
   $('#anleitungen-liste').innerHTML = anleitungenListe();
   $('#ort-name').textContent = (DB.settings.ort ? DB.settings.ort.name : 'nicht gesetzt') + ' ›';
   $('#set-wetter').value = DB.settings.wetterAn === false ? '0' : '1';
@@ -2388,6 +2432,13 @@ function pflanzenPruefung(p) {
 
   hinweise.push(...umgebungsHinweise(p));
 
+  const rh = raumHinweis(p);
+  if (rh) hinweise.push(rh);
+  if (raumZuKaltZumDuengen(p)) {
+    hinweise.push('Bei dieser Temperatur wächst nichts, deshalb ist das Düngen ' +
+      'ausgesetzt. Nährstoffe, die niemand verbraucht, versalzen nur die Erde.');
+  }
+
   if (zustandVon(p) === 'schlecht') {
     hinweise.push('Du hast eingetragen, dass es der Pflanze schlecht geht. Das ' +
       'Gießintervall ist deshalb verlängert und das Düngen pausiert.');
@@ -2467,6 +2518,218 @@ function lageWorte(u, lage) {
     .map(k => LAGE_WORTE[k] || k).join(', ');
 }
 
+/* ---------- Raumtemperaturen ----------
+   Der Winter-Modus verlängert das Gießintervall pauschal für die ganze
+   Wohnung. Das trifft die Wirklichkeit nicht: Das Wohnzimmer hat im Januar
+   22 Grad und im August 28, das Schlafzimmer im Januar 14. Für eine Pflanze
+   ist das ein anderer Planet – bei 14 Grad wächst sie praktisch nicht, braucht
+   halb so viel Wasser und verträgt keinen Dünger.
+
+   Deshalb bekommt jeder Standort zwei Temperaturbereiche, einen für den Sommer
+   und einen für den Winter. Wo ein Bereich hinterlegt ist, ersetzt er den
+   pauschalen Winter-Modus. */
+const RAUM_VORLAGEN = {
+  'Wohnzimmer': { sommer: [21, 27], winter: [19, 23] },
+  'Schlafzimmer': { sommer: [19, 25], winter: [15, 19] },
+  'Küche': { sommer: [21, 27], winter: [19, 23] },
+  'Bad': { sommer: [21, 26], winter: [20, 24] },
+  'Flur': { sommer: [19, 25], winter: [16, 20] },
+  'Büro': { sommer: [21, 26], winter: [19, 23] },
+  'Arbeitszimmer': { sommer: [21, 26], winter: [19, 23] },
+  'Kinderzimmer': { sommer: [20, 26], winter: [19, 22] },
+  'Wintergarten': { sommer: [24, 35], winter: [8, 16] },
+  'Keller': { sommer: [16, 21], winter: [10, 15] },
+  'Balkon': { sommer: [15, 30], winter: [-5, 8] },
+  'Terrasse': { sommer: [15, 30], winter: [-5, 8] },
+  'Garten': { sommer: [15, 30], winter: [-5, 8] },
+  'Fensterbank': { sommer: [22, 30], winter: [14, 20] }
+};
+
+/* Was welche Temperatur für eine Zimmerpflanze bedeutet. Die Grenzen sind
+   bewusst grob – zwischen 18 und 24 Grad ist alles in Ordnung, darunter und
+   darüber wird es zunehmend eng. */
+const TEMPERATUR_STUFEN = [
+  { bis: 8, faktor: 2.4, name: 'sehr kalt',
+    text: 'Unter 8 Grad wird es für tropische Zimmerpflanzen gefährlich. Die meisten ' +
+      'nehmen bleibende Schäden, lange bevor Frost kommt.' },
+  { bis: 12, faktor: 2.0, name: 'kalt',
+    text: 'Unter 12 Grad stellt fast jede Zimmerpflanze das Wachstum ein. Sehr sparsam ' +
+      'gießen, nicht düngen – und in kalter Erde faulen Wurzeln besonders schnell.' },
+  { bis: 15, faktor: 1.7, name: 'kühl',
+    text: 'Bei 12 bis 15 Grad ruht die Pflanze. Das ist für viele Arten sogar gut – sie ' +
+      'brauchen die kühle Ruhephase, um im Frühjahr zu blühen. Nur deutlich weniger gießen.' },
+  { bis: 18, faktor: 1.4, name: 'frisch',
+    text: 'Bei 15 bis 18 Grad wächst es langsam. Etwas seltener gießen als im warmen Raum.' },
+  { bis: 24, faktor: 1.0, name: 'normal', text: '' },
+  { bis: 27, faktor: 0.9, name: 'warm',
+    text: 'Über 24 Grad verdunstet spürbar mehr. Die Erde häufiger prüfen.' },
+  { bis: 99, faktor: 0.75, name: 'heiß',
+    text: 'Über 27 Grad trocknet der Topf schnell aus. Bei tropischen Arten steigt ' +
+      'außerdem der Bedarf an Luftfeuchte.' }
+];
+
+function raumProfile() {
+  return (DB.settings && DB.settings.raeume) || {};
+}
+
+/** Ist gerade Winter? Die Heizperiode aus dem Wetter geht vor dem Kalender. */
+function istWinterzeit() {
+  if (wetterAktiv() && WETTER.heizperiode !== undefined) return !!WETTER.heizperiode;
+  return winterAktiv();
+}
+
+/** Der aktuell gültige Bereich für einen Standort, oder null. */
+function raumBereich(raum) {
+  const profil = raumProfile()[raum];
+  if (!profil) return null;
+  const bereich = istWinterzeit() ? profil.winter : profil.sommer;
+  if (!Array.isArray(bereich) || bereich.length !== 2) return null;
+  const [min, max] = bereich.map(Number);
+  if (!isFinite(min) || !isFinite(max)) return null;
+  return [Math.min(min, max), Math.max(min, max)];
+}
+
+function raumMittel(raum) {
+  const b = raumBereich(raum);
+  return b ? (b[0] + b[1]) / 2 : null;
+}
+
+function stufeZu(grad) {
+  return TEMPERATUR_STUFEN.find(s => grad <= s.bis) || TEMPERATUR_STUFEN[TEMPERATUR_STUFEN.length - 1];
+}
+
+/** Faktor aufs Gießintervall aus der Raumtemperatur, oder null ohne Profil. */
+function raumFaktor(p) {
+  const mittel = raumMittel(p && p.raum);
+  return mittel === null ? null : stufeZu(mittel).faktor;
+}
+
+/** Wird bei dieser Temperatur überhaupt gedüngt? Unter 15 Grad wächst nichts. */
+function raumZuKaltZumDuengen(p) {
+  const mittel = raumMittel(p && p.raum);
+  return mittel !== null && mittel < 15;
+}
+
+/** Hinweis für die Detailansicht und die Hilfe. */
+function raumHinweis(p) {
+  const raum = p && p.raum;
+  const bereich = raumBereich(raum);
+  if (!bereich) return null;
+  const stufe = stufeZu((bereich[0] + bereich[1]) / 2);
+  if (!stufe.text) return null;
+  return `${raum} ${istWinterzeit() ? 'im Winter' : 'im Sommer'}: ` +
+    `${bereich[0]} bis ${bereich[1]} Grad – ${stufe.text}`;
+}
+
+function raumChipHTML(p) {
+  const bereich = raumBereich(p && p.raum);
+  if (!bereich) return '';
+  const stufe = stufeZu((bereich[0] + bereich[1]) / 2);
+  return `<span class="topf-art">🌡 ${bereich[0]}–${bereich[1]} °C · ${esc(stufe.name)}</span>`;
+}
+
+/* ---------- Verwaltung ---------- */
+function raeumeOeffnen() {
+  const genutzt = Array.from(new Set(DB.plants.map(p => p.raum).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b, 'de'));
+  const profile = raumProfile();
+
+  $('#raeume-inhalt').innerHTML = `
+    <div class="grabber"></div>
+    <h2>Räume und Temperatur</h2>
+    <p class="sheet-hinweis">Der Winter-Modus verlängert das Gießen pauschal für die
+      ganze Wohnung. Das trifft es selten: Das Wohnzimmer hat im Januar 22 Grad, das
+      Schlafzimmer 14. Für eine Pflanze ist das ein anderer Planet.</p>
+    <p class="sheet-hinweis">Wo du hier Werte einträgst, rechnet die App damit statt
+      mit dem pauschalen Winter-Modus. Unter 15 Grad wird außerdem nicht mehr gedüngt –
+      da wächst nichts, was Nährstoffe verbrauchen könnte.</p>
+
+    ${genutzt.length ? genutzt.map(raum => {
+      const pr = profile[raum] || RAUM_VORLAGEN[raum] || { sommer: ['', ''], winter: ['', ''] };
+      const gesetzt = !!profile[raum];
+      const jetzt = raumBereich(raum);
+      return `
+        <div class="section-title mit-aktion"><span>${esc(raum)}</span>
+          ${jetzt ? `<span style="text-transform:none;letter-spacing:0;font-weight:400">
+            jetzt ${jetzt[0]}–${jetzt[1]} °C · ${esc(stufeZu((jetzt[0] + jetzt[1]) / 2).name)}</span>` : ''}</div>
+        <div class="group">
+          <div class="field"><label>Sommer</label>
+            <span class="temp-paar">
+              <input type="number" min="-10" max="45" data-raum="${esc(raum)}" data-zeit="sommer" data-i="0"
+                     value="${gesetzt ? pr.sommer[0] : ''}" placeholder="${RAUM_VORLAGEN[raum] ? RAUM_VORLAGEN[raum].sommer[0] : 20}">
+              <span>bis</span>
+              <input type="number" min="-10" max="45" data-raum="${esc(raum)}" data-zeit="sommer" data-i="1"
+                     value="${gesetzt ? pr.sommer[1] : ''}" placeholder="${RAUM_VORLAGEN[raum] ? RAUM_VORLAGEN[raum].sommer[1] : 26}">
+              <span>°C</span>
+            </span></div>
+          <div class="field"><label>Winter</label>
+            <span class="temp-paar">
+              <input type="number" min="-10" max="45" data-raum="${esc(raum)}" data-zeit="winter" data-i="0"
+                     value="${gesetzt ? pr.winter[0] : ''}" placeholder="${RAUM_VORLAGEN[raum] ? RAUM_VORLAGEN[raum].winter[0] : 18}">
+              <span>bis</span>
+              <input type="number" min="-10" max="45" data-raum="${esc(raum)}" data-zeit="winter" data-i="1"
+                     value="${gesetzt ? pr.winter[1] : ''}" placeholder="${RAUM_VORLAGEN[raum] ? RAUM_VORLAGEN[raum].winter[1] : 21}">
+              <span>°C</span>
+            </span></div>
+          ${RAUM_VORLAGEN[raum] && !gesetzt
+            ? `<div class="field"><label>Übliche Werte</label>
+                 <span class="hint"><button type="button" class="aktion" data-raum-vorlage="${esc(raum)}">
+                   ${RAUM_VORLAGEN[raum].sommer.join('–')} / ${RAUM_VORLAGEN[raum].winter.join('–')} übernehmen
+                 </button></span></div>` : ''}
+        </div>`;
+    }).join('')
+    : `<div class="karte karte-ruhig" style="color:var(--text-2)">
+         Noch keine Standorte vergeben. Trag bei deinen Pflanzen einen Standort ein,
+         dann erscheint er hier.</div>`}
+
+    <button class="btn" id="btn-raeume-speichern">Speichern</button>
+    <button class="btn sec" data-close>Schließen</button>`;
+
+  $('#btn-raeume-speichern').onclick = raeumeSpeichern;
+  openSheet('#sheet-raeume');
+}
+
+function raumVorlageNehmen(raum) {
+  const v = RAUM_VORLAGEN[raum];
+  if (!v) return;
+  for (const zeit of ['sommer', 'winter']) {
+    for (const i of [0, 1]) {
+      const feld = document.querySelector(
+        `[data-raum="${CSS.escape(raum)}"][data-zeit="${zeit}"][data-i="${i}"]`);
+      if (feld) feld.value = v[zeit][i];
+    }
+  }
+}
+
+function raeumeSpeichern() {
+  const neu = {};
+  for (const feld of $$('#raeume-inhalt input[data-raum]')) {
+    const { raum, zeit, i } = feld.dataset;
+    const wert = feld.value === '' ? null : Number(feld.value);
+    if (wert === null || !isFinite(wert)) continue;
+    neu[raum] ||= { sommer: [null, null], winter: [null, null] };
+    neu[raum][zeit][Number(i)] = wert;
+  }
+
+  // Nur vollständige Bereiche übernehmen – ein halb ausgefülltes Paar wäre
+  // schlimmer als gar keins, weil die App dann mit Unsinn rechnet
+  const sauber = {};
+  for (const [raum, pr] of Object.entries(neu)) {
+    const s = pr.sommer.every(x => x !== null) ? pr.sommer : null;
+    const w = pr.winter.every(x => x !== null) ? pr.winter : null;
+    if (!s && !w) continue;
+    sauber[raum] = { sommer: s || w, winter: w || s };
+  }
+
+  DB.settings.raeume = sauber;
+  save();
+  renderAll();
+  closeSheets();
+  const anzahl = Object.keys(sauber).length;
+  toast(anzahl ? anzahl + (anzahl === 1 ? ' Raum gespeichert' : ' Räume gespeichert')
+               : 'Keine Temperaturen hinterlegt');
+}
+
 /* ---------- Zustand der Pflanze ----------
    Ein Gießplan rechnet stur nach Kalender. Das geht gut, solange es der
    Pflanze gut geht – und genau dann, wenn es das nicht tut, ist es falsch.
@@ -2502,7 +2765,7 @@ function zustandFaktor(p) {
 
 /** Wird gerade gedüngt? Bei geschwächten Pflanzen nicht. */
 function duengenPausiert(p) {
-  return zustandVon(p) === 'schlecht' || istSteckling(p);
+  return zustandVon(p) === 'schlecht' || istSteckling(p) || raumZuKaltZumDuengen(p);
 }
 
 function zustandSetzen(id, k) {
@@ -3578,6 +3841,10 @@ function wetterZeile() {
 /** Merkmale, die gerade zutreffen: Pflanze plus Wetterlage. */
 function lageJetzt(p) {
   const raus = new Set(umgebungVon(p));
+  const mittel = raumMittel(p && p.raum);
+  if (mittel !== null && mittel < 18) raus.add('kalt');
+  if (mittel !== null && mittel >= 27) raus.add('hitze');
+
   if (wetterAktiv()) {
     if (WETTER.heizperiode) raus.add('heizperiode');
     if (WETTER.hitze) raus.add('hitze');
@@ -4577,6 +4844,7 @@ function openDetail(id) {
       <span class="topf-art">Dünger bei jeder Gabe</span>
     </div>` : ''}
     ${phaseChipsHTML(p)}
+    ${raumChipHTML(p) ? `<div class="topf-arten">${raumChipHTML(p)}</div>` : ''}
     ${umgebungChipsHTML(p)}
     ${mitbewohner(p).length ? `<div class="topf-arten">
       <span class="topf-art">im selben Topf:</span>
@@ -4631,6 +4899,9 @@ function openDetail(id) {
           String(p.winterFaktor).replace('.', ',')}</span></div>` : ''}
         ${p.menge ? `<div class="field"><label>Wassermenge</label><span class="hint">${esc(p.menge)}</span></div>` : ''}
         ${p.licht ? `<div class="field"><label>Licht</label><span class="hint">${esc(p.licht)}</span></div>` : ''}
+        ${raumBereich(p.raum) ? `<div class="field"><label>Raumtemperatur</label>
+          <span class="hint">${raumBereich(p.raum)[0]}–${raumBereich(p.raum)[1]} °C ${
+          istWinterzeit() ? 'im Winter' : 'im Sommer'}</span></div>` : ''}
         ${aufgabenVon(p).map(a => `<div class="field"><label>${a.emoji} ${esc(a.name)}</label>
           <span class="hint">alle ${a.intervall} ${a.einheit === 'monate' ? 'Monate' : 'Tage'}</span></div>`).join('')}
       </div>
@@ -5186,6 +5457,7 @@ function bind() {
   $('#f-phase').onchange = phaseAnzeigen;
   $('#f-methode').onchange = phaseAnzeigen;
   $('#btn-eigen-neu').onclick = eigeneNeuOeffnen;
+  $('#zeile-raeume').onclick = raeumeOeffnen;
   $('#zeile-ort').onclick = ortOeffnen;
   $('#set-wetter').onchange = e => {
     DB.settings.wetterAn = e.target.value === '1';
@@ -5206,7 +5478,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -5233,6 +5505,17 @@ function bind() {
       return;
     }
     if (t.dataset.ort) { e.stopPropagation(); ortWaehlen(t.dataset.ort); return; }
+    if (t.dataset.sorgen !== undefined) {
+      e.stopPropagation();
+      raumFilter = '__sorgen';
+      suchText = '';
+      $('#suchfeld').value = '';
+      $('#suche-weg').hidden = true;
+      tab('pflanzen');
+      renderPflanzen();
+      return;
+    }
+    if (t.dataset.raumVorlage) { e.stopPropagation(); raumVorlageNehmen(t.dataset.raumVorlage); return; }
     if (t.dataset.zustand) { e.stopPropagation(); zustandSetzen(t.dataset.pid, t.dataset.zustand); return; }
     if (t.dataset.bewurzelt) { e.stopPropagation(); stecklingBewurzelt(t.dataset.bewurzelt); return; }
     if (t.dataset.erwachsen) { e.stopPropagation(); jungAusgewachsen(t.dataset.erwachsen); return; }

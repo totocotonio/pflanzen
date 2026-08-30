@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=3.3.0">
+<link rel="stylesheet" href="style.css?v=3.4.0">
 </head>
 <body>
 
@@ -56,6 +56,7 @@
       <button class="stat" data-filter="alle"><b id="st-gesamt">0</b><span>Pflanzen</span></button>
     </div>
 
+    <div id="sorgen-hinweis" hidden></div>
     <div id="wetter-hinweis" hidden></div>
     <div id="heute-liste"></div>
   </section>
@@ -165,6 +166,9 @@
 
     <div class="section-title">Gießverhalten</div>
     <div class="group">
+      <div class="field" id="zeile-raeume" style="cursor:pointer">
+        <label>Räume und Temperatur</label><span class="hint" id="raeume-stand">– ›</span>
+      </div>
       <div class="field">
         <label>Winter-Modus</label>
         <select id="set-winter">
@@ -504,6 +508,11 @@
   <div class="panel" id="detail-body"></div>
 </div>
 
+<div class="sheet" id="sheet-raeume">
+  <div class="backdrop" data-close></div>
+  <div class="panel" id="raeume-inhalt"></div>
+</div>
+
 <div class="sheet" id="sheet-anleitung">
   <div class="backdrop" data-close></div>
   <div class="panel" id="anleitung-inhalt"></div>
@@ -537,6 +546,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=3.3.0"></script>
+<script src="app.js?v=3.4.0"></script>
 </body>
 </html>

@@ -1,5 +1,38 @@
 # Changelog
 
+## v3.4.0 - 2026-08-30
+
+### Temperaturbereiche je Raum
+
+Der Winter-Modus verlängert das Gießintervall pauschal für die ganze Wohnung.
+Das trifft es selten: Das Wohnzimmer hat im Januar 22 Grad, das Schlafzimmer
+14. Für eine Pflanze ist das ein anderer Planet.
+
+- Jeder Standort bekommt **zwei Temperaturbereiche**, einen für den Sommer und
+  einen für den Winter. Vorlagen für 14 typische Räume, vom Bad bis zum
+  Wintergarten und Keller.
+- **Wo Werte eingetragen sind, ersetzen sie den pauschalen Winter-Modus.** Ein
+  geheiztes Wohnzimmer mit 22 Grad im Januar braucht keine Verlängerung – vor
+  dieser Fassung bekam es sie trotzdem.
+- Sieben Stufen von ×0,75 (über 27 Grad) bis ×2,4 (unter 8 Grad), jeweils mit
+  Erklärung: „Bei 12 bis 15 Grad ruht die Pflanze. Das ist für viele Arten
+  sogar gut – sie brauchen die kühle Ruhephase, um im Frühjahr zu blühen."
+- **Unter 15 Grad wird nicht mehr gedüngt.** Da wächst nichts, was die
+  Nährstoffe verbrauchen könnte; sie versalzen nur die Erde.
+- Der artspezifische Winterwert bleibt gültig: Ein Kaktus will trocken stehen,
+  auch wenn sein Zimmer warm ist – dort gewinnt der höhere der beiden Werte.
+- Ist ein Ort fürs Wetter gesetzt, entscheidet die **Heizperiode** statt des
+  Kalenders, welcher der beiden Bereiche gilt.
+- Ein kalter oder heißer Raum setzt automatisch die Merkmale „kalt" und
+  „Hitze", damit die Ursachensuche sie kennt.
+- Der Push-Versand rechnet mit denselben Regeln.
+
+### Filter „Braucht Hilfe"
+
+- Neuer Chip in der Pflanzenliste: alle Pflanzen mit schlechterem Zustand oder
+  laufender Behandlung, mit Anzahl.
+- Auf der Startseite steht eine Zeile darüber, mit direktem Weg dorthin.
+
 ## v3.3.0 - 2026-08-30
 
 ### Zustand der Pflanze – und die App richtet sich danach

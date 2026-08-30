@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** ✅ Live (v3.3.0)
+**Status:** ✅ Live (v3.4.0)
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -51,6 +51,7 @@ Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in 
 ✅ **Alle auf einmal** – ein Knopf hakt alle fälligen Pflanzen ab, Rückgängig nimmt den ganzen Schwung zurück
 ✅ **Gieß-Runde** – führt nach Standort geordnet durch die Wohnung, eine Pflanze nach der anderen
 ✅ **Problem-Hilfe** – zehn typische Symptome mit Ursachen und Maßnahmen, abgeglichen mit den Werten der Pflanze
+✅ **Raumtemperaturen** – Sommer- und Winterbereich je Standort; ersetzt den pauschalen Winter-Modus, unter 15 °C wird nicht gedüngt
 ✅ **Zustand** – gut / schwächelt / schlecht; verlängert das Gießintervall und pausiert das Düngen, mit Begründung
 ✅ **Lebensphase** – Steckling (vier Bewurzelungsmethoden), Jungpflanze oder ausgewachsen
 ✅ **Anleitungen** – geführtes Umtopfen und Bewurzeln von Stecklingen, Schritt für Schritt, mit Zeitpunkt, Anzeichen, Material und den typischen Fehlern
@@ -107,7 +108,7 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
 | Design | warme Grün- und Erdtöne, hell und dunkel, System-Schriften, `env(safe-area-inset-*)` |
 | Speicher | `localStorage`, Schlüssel `pg_data` |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v3.3.0` |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v3.4.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
 | Push | Web Push API + VAPID, pywebpush, systemd-Timer alle 15 Minuten |
 | Hosting | LXC Container auf Proxmox |
@@ -275,6 +276,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v3.4.0** | Temperaturbereiche je Raum, Filter „Braucht Hilfe" |
 | **v3.3.0** | Zustand der Pflanze mit echter Wirkung, Peperomien ergänzt |
 | **v3.2.0** | Stecklinge und Jungpflanzen, Anleitung zum Bewurzeln |
 | **v3.1.0** | Geführte Anleitung zum Umtopfen |
