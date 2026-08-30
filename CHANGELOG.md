@@ -1,5 +1,35 @@
 # Changelog
 
+## v2.8.0 - 2026-08-30
+
+### Fälligkeit um beliebig viele Tage verschieben
+
+Die Pflanze ist fällig, aber die Erde ist noch feucht. Gießen wäre falsch,
+ignorieren hilft nicht – morgen steht sie wieder da, dann überfällig.
+
+- Bisher gab es nur zwei Möglichkeiten: gießen (und damit das volle Intervall
+  neu starten) oder überfällig stehen lassen. Zwischen „morgen nochmal
+  schauen" und „in zehn Tagen wieder" fehlte alles dazwischen.
+- **Später erinnern** verschiebt die Fälligkeit um eine frei wählbare Anzahl
+  Tage: acht Vorschläge von morgen bis 14 Tage, dazu ein Feld für jede andere
+  Zahl bis 180.
+- **Der Rhythmus bleibt unangetastet.** `letzt` wird nicht verändert – wird
+  danach gegossen, zählt der tatsächliche Abstand, nicht der aufgeschobene.
+  Die Pünktlichkeit in der Statistik bleibt damit ehrlich.
+- Die zuletzt gewählte Zahl ist beim nächsten Mal vorausgewählt.
+- Erreichbar aus der Detailansicht und aus der Gieß-Runde („Noch nicht – später
+  erinnern"); die Runde läuft danach an derselben Stelle weiter.
+- Der Status zeigt „Verschoben, in 5 Tagen"; der Aufschub lässt sich jederzeit
+  aufheben, und Gießen räumt ihn von selbst weg.
+- Der Push-Versand hält sich daran – aber nur beim Gießen. Düngen, Umtopfen und
+  eine laufende Behandlung melden sich weiter.
+
+### Nachgezogen
+
+- Die beiden neuen Blätter aus v2.7.0 (Ort) und dieser Fassung hatten nicht die
+  Struktur der übrigen: ohne `backdrop` und `panel` schwebte der Inhalt
+  ohne Hintergrund über der Seite.
+
 ## v2.7.0 - 2026-08-30
 
 ### Umgebung der Pflanze

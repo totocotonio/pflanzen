@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=2.7.0">
+<link rel="stylesheet" href="style.css?v=2.8.0">
 </head>
 <body>
 
@@ -476,7 +476,15 @@
   <div class="panel" id="detail-body"></div>
 </div>
 
-<div class="sheet" id="sheet-ort"><div class="sheet-inhalt" id="ort-inhalt"></div></div>
+<div class="sheet" id="sheet-aufschub">
+  <div class="backdrop" data-close></div>
+  <div class="panel" id="aufschub-inhalt"></div>
+</div>
+
+<div class="sheet" id="sheet-ort">
+  <div class="backdrop" data-close></div>
+  <div class="panel" id="ort-inhalt"></div>
+</div>
 
 <div id="update-banner" hidden>
   <span>Neue Version verfügbar</span>
@@ -486,6 +494,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=2.7.0"></script>
+<script src="app.js?v=2.8.0"></script>
 </body>
 </html>

@@ -142,8 +142,15 @@ def offene_punkte(daten):
             b = p.get("behandlung") or {}
             behandlung.append((p.get("name") or "Pflanze", b.get("was") or "Behandlung"))
 
+        # Ein Aufschub verschiebt nur die Faelligkeit des Giessens, nicht den
+        # Rhythmus - und auch nicht Duengen, Umtopfen oder eine laufende
+        # Behandlung. Deshalb nur dieser eine Block, kein `continue`.
+        aufschub = als_datum(p.get("aufschubBis"))
+        verschoben = bool(aufschub and aufschub > heute)
+
         letzt = als_datum(p.get("letzt"))
-        if letzt and letzt + timedelta(days=eff_intervall(p, einstellungen, lage)) <= heute:
+        if (not verschoben and letzt
+                and letzt + timedelta(days=eff_intervall(p, einstellungen, lage)) <= heute):
             # Jede Haltung hat ihre eigene Handlung: Ableger bekommen
             # frisches Wasser, Semi-Hydro wird nachgefüllt, Erde gegossen.
             haltung = haltung_von(p)

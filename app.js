@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '2.7.0';
+const VERSION = '2.8.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -97,12 +97,28 @@ function effIntervall(p) {
   // Das Wetter wirkt nur verkürzend (Hitze); verlängern macht der Winter-Modus
   return Math.max(1, Math.round((Number(p.intervall) || 7) * f * wetterFaktor(p)));
 }
-/** Tage bis zum nächsten Gießen. Negativ = überfällig. */
-function tageBis(p) {
+/** Tage bis zum nächsten Gießen nach dem reinen Rhythmus. */
+function tageBisRhythmus(p) {
   if (!p.letzt) return 0;
   const naechste = new Date(fromISO(p.letzt).getTime() + effIntervall(p) * 86400000);
   naechste.setHours(0, 0, 0, 0);
   return tageDiff(heute0(), naechste);
+}
+
+/** Tage bis zum nächsten Gießen. Negativ = überfällig.
+
+    Ein Aufschub schiebt nur die Fälligkeit nach hinten, nicht den Rhythmus:
+    `letzt` bleibt unangetastet, damit die Statistik den echten Abstand sieht. */
+function tageBis(p) {
+  const normal = tageBisRhythmus(p);
+  const aufschub = aufschubTageBis(p);
+  return aufschub !== null ? Math.max(normal, aufschub) : normal;
+}
+
+/** Steht die Pflanze nur wegen eines Aufschubs nicht an? */
+function istAufgeschoben(p) {
+  const aufschub = aufschubTageBis(p);
+  return aufschub !== null && aufschub > tageBisRhythmus(p);
 }
 function duengerTageBis(p) {
   const iv = Number(p.duengerInt) || 0;
@@ -125,6 +141,10 @@ function statusOf(p) {
   return 'ok';
 }
 function statusText(p) {
+  if (istAufgeschoben(p)) {
+    const auf = aufschubTageBis(p);
+    return auf === 1 ? 'Verschoben auf morgen' : 'Verschoben, in ' + auf + ' Tagen';
+  }
   const t = tageBis(p);
   if (t < 0) return Math.abs(t) === 1 ? '1 Tag überfällig' : Math.abs(t) + ' Tage überfällig';
   if (t === 0) return wasserWorte(p).heute;
@@ -475,6 +495,12 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '2.8.0', datum: '30.08.2026', punkte: [
+    'Fällige Pflanzen lassen sich um eine frei wählbare Anzahl Tage verschieben – zwischen „morgen nochmal schauen“ und dem vollen Intervall fehlte bisher alles.',
+    'Der Rhythmus bleibt dabei unangetastet: Wird danach gegossen, zählt der tatsächliche Abstand.',
+    'Auch in der Gieß-Runde: „Noch nicht – später erinnern“ statt nur Überspringen.',
+    'Die zuletzt gewählte Zahl wird beim nächsten Mal vorgeschlagen.'
+  ]},
   { v: '2.7.0', datum: '30.08.2026', punkte: [
     'Jede Pflanze bekommt Merkmale ihres Platzes: Heizung, Klimaanlage, Mittagssonne, Zugluft, kalter Boden, feuchter Raum, wenig Licht.',
     'Wetter vom eigenen Server: läuft die Heizung, ist es zu heiß, droht Frost, ist es zu trüb.',
@@ -1205,6 +1231,7 @@ function giessen(id, datum) {
   const logId = uid();
   letzteAktion = { eintraege: [{ feld: 'letzt', plantId: id, vorher: p.letzt, logId }] };
   p.letzt = wann;
+  delete p.aufschubBis;          // erledigt ist erledigt
   DB.logs.push({ id: logId, plantId: id, typ: 'wasser', ts: zeitstempel(wann) });
   save(); renderAll();
   if (navigator.vibrate) navigator.vibrate(12);
@@ -1975,6 +2002,7 @@ function rundeZeichnen() {
 
     <button class="btn" data-runde="gegossen">💧 Gegossen, weiter</button>
     <button class="btn sec" data-runde="ueberspringen">Überspringen</button>
+    <button class="btn sec" data-runde="spaeter">Noch nicht – später erinnern</button>
     ${naechste ? `<p class="runde-naechste">Danach: ${esc(naechste.name)}${
       naechste.raum ? ' · ' + esc(naechste.raum) : ''}</p>` : ''}
     <button class="btn sec" data-runde="abbruch">Runde beenden</button>`;
@@ -2004,6 +2032,7 @@ function rundeSpeichern() {
     const logId = uid();
     eintraege.push({ feld: 'letzt', plantId: id, vorher: p.letzt, logId });
     p.letzt = wann;
+    delete p.aufschubBis;
     DB.logs.push({ id: logId, plantId: id, typ: 'wasser', ts: zeitstempel(wann) });
   }
   const anzahl = eintraege.length;
@@ -2019,6 +2048,13 @@ function rundeSpeichern() {
 function rundeSchritt(was) {
   if (!runde) return;
   if (was === 'abbruch' || was === 'fertig') { rundeSpeichern(); return; }
+  if (was === 'spaeter') {
+    // Die Runde bleibt offen im Hintergrund stehen; nach dem Verschieben
+    // geht es an derselben Stelle weiter.
+    rundeAufschub = runde.pflanzen[runde.index].id;
+    aufschubFragen(rundeAufschub);
+    return;
+  }
   if (was === 'gegossen') {
     runde.erledigt.add(runde.pflanzen[runde.index].id);
     if (navigator.vibrate) navigator.vibrate(10);
@@ -2026,6 +2062,9 @@ function rundeSchritt(was) {
   runde.index++;
   rundeZeichnen();
 }
+
+/* Merkt sich, dass der Aufschub aus einer laufenden Runde heraus kam. */
+let rundeAufschub = null;
 
 /* ---------- Problem-Hilfe ----------
    Symptom auswählen, mögliche Ursachen und Maßnahmen lesen. Wird die Hilfe aus
@@ -2396,6 +2435,107 @@ function lageWorte(u, lage) {
     .map(k => LAGE_WORTE[k] || k).join(', ');
 }
 
+/* ---------- Aufschieben ----------
+   Die Pflanze ist fällig, aber die Erde ist noch feucht. Gießen wäre falsch,
+   und "ignorieren" hilft auch nicht: Morgen steht sie wieder da, überfällig.
+
+   Bis hierher gab es nur zwei Möglichkeiten – gießen (und damit das volle
+   Intervall neu starten) oder überfällig stehen lassen. Zwischen "morgen
+   nochmal schauen" und "in zehn Tagen wieder" fehlte alles.
+
+   Ein Aufschub setzt deshalb nur die Fälligkeit weiter, ohne den Rhythmus
+   anzufassen. `letzt` bleibt, wie es war: Wird danach gegossen, zählt der
+   tatsächliche Abstand, nicht der aufgeschobene. */
+const AUFSCHUB_VORSCHLAEGE = [1, 2, 3, 4, 5, 7, 10, 14];
+
+function aufschubTageBis(p) {
+  if (!p || !p.aufschubBis) return null;
+  const tage = tageDiff(heute0(), fromISO(p.aufschubBis));
+  return tage > 0 ? tage : null;
+}
+
+/** Fragt, um wie viele Tage verschoben werden soll. */
+function aufschubFragen(pid) {
+  const p = DB.plants.find(x => x.id === pid);
+  if (!p) return;
+  const zuletzt = Number(DB.settings.aufschubTage) || 2;
+  const offen = aufschubTageBis(p);
+  const w = wasserWorte(p);
+
+  $('#aufschub-inhalt').innerHTML = `
+    <div class="grabber"></div>
+    <h2>Später erinnern</h2>
+    <p class="sheet-hinweis">${esc(p.name)} bleibt im Rhythmus – nur die Erinnerung
+      rutscht nach hinten. ${esc(w.titel)} kannst du danach ganz normal abhaken.</p>
+    ${offen ? `<div class="karte karte-ruhig" style="color:var(--text-2)">
+      Zurzeit verschoben auf ${fromISO(p.aufschubBis).toLocaleDateString('de-DE',
+        { weekday: 'long', day: 'numeric', month: 'long' })}.</div>` : ''}
+
+    <div class="chip-wahl" style="margin-bottom:16px">
+      ${AUFSCHUB_VORSCHLAEGE.map(t => `
+        <button type="button" class="chip ${t === zuletzt ? 'on' : ''}"
+                data-aufschub="${t}" data-pid="${p.id}">${
+          t === 1 ? 'Morgen' : t + ' Tage'}</button>`).join('')}
+    </div>
+
+    <div class="field col" style="margin-bottom:12px">
+      <label>Oder eine eigene Zahl</label>
+      <input type="number" id="aufschub-frei" min="1" max="180" inputmode="numeric"
+             placeholder="Tage" value="${offen || ''}">
+    </div>
+    <button class="btn" id="btn-aufschub-frei" data-pid="${p.id}">Verschieben</button>
+    ${offen ? `<button class="btn sec" data-aufschub="0" data-pid="${p.id}">
+      Aufschub aufheben</button>` : ''}
+    <button class="btn sec" data-close>Abbrechen</button>`;
+
+  $('#btn-aufschub-frei').onclick = () => {
+    const tage = Math.round(Number($('#aufschub-frei').value) || 0);
+    if (tage < 1 || tage > 180) { toast('Zwischen 1 und 180 Tagen'); return; }
+    aufschieben(p.id, tage);
+  };
+  openSheet('#sheet-aufschub');
+}
+
+/** Verschiebt die Fälligkeit. 0 hebt einen bestehenden Aufschub auf. */
+function aufschieben(pid, tage) {
+  const p = DB.plants.find(x => x.id === pid);
+  if (!p) return;
+  const anzahl = Math.round(Number(tage) || 0);
+
+  letzteAktion = { eintraege: [{ feld: 'aufschubBis', plantId: pid, vorher: p.aufschubBis }] };
+
+  if (anzahl < 1) {
+    delete p.aufschubBis;
+    save(); renderAll(); closeSheets();
+    if ($('#sheet-detail').classList.contains('open')) openDetail(pid);
+    toast('Aufschub aufgehoben', 'Rückgängig', rueckgaengig);
+    rundeWeiter(pid);
+    return;
+  }
+
+  const ziel = new Date();
+  ziel.setDate(ziel.getDate() + anzahl);
+  p.aufschubBis = toISO(ziel);
+  DB.settings.aufschubTage = anzahl;      // beim nächsten Mal vorgeschlagen
+  save();
+  renderAll();
+  closeSheets();
+  if ($('#sheet-detail').classList.contains('open')) openDetail(pid);
+  if (navigator.vibrate) navigator.vibrate(10);
+  toast(`⏭ ${p.name}: wieder ${anzahl === 1 ? 'morgen' : 'in ' + anzahl + ' Tagen'}`,
+        'Rückgängig', rueckgaengig);
+  rundeWeiter(pid);
+}
+
+/** Kam der Aufschub aus einer Gieß-Runde, geht es dort weiter. */
+function rundeWeiter(pid) {
+  if (!runde || rundeAufschub !== pid) return;
+  rundeAufschub = null;
+  runde.index++;
+  rundeZeichnen();
+  openSheet('#sheet-runde');
+}
+
 /* ---------- Umgebung und Wetter ----------
    Zwei Pflanzen derselben Art brauchen völlig Unterschiedliches, je nachdem,
    wo sie stehen. Über der Heizung trocknet die Luft aus und Spinnmilben
@@ -2582,11 +2722,11 @@ function ortOeffnen() {
   const ort = DB.settings.ort;
   $('#ort-inhalt').innerHTML = `
     <div class="grabber"></div>
-    <h2 class="sheet-titel">Ort fürs Wetter</h2>
-    <p class="sheet-text">Zimmerpflanzen stehen drinnen – trotzdem entscheidet das Wetter
+    <h2>Ort fürs Wetter</h2>
+    <p class="sheet-hinweis">Zimmerpflanzen stehen drinnen – trotzdem entscheidet das Wetter
       draußen, ob die Heizung läuft, wie schnell die Töpfe austrocknen und wie viel Licht
       ankommt. Der Ort wird nur dafür verwendet.</p>
-    <p class="sheet-text">Die Wetterdaten holt der Grünzeug-Server bei Open-Meteo. Dein
+    <p class="sheet-hinweis">Die Wetterdaten holt der Grünzeug-Server bei Open-Meteo. Dein
       Gerät baut dafür keine Verbindung nach außen auf.</p>
 
     ${ort ? `<div class="karte">
@@ -3507,6 +3647,7 @@ function openDetail(id) {
               Math.abs(o.tage) === 1 ? 'Tag' : 'Tage'} zu spät</span>` : ''}
           </button>`).join('')}
         ${offen.length > 1 ? `<button class="btn" data-alles-hier="${p.id}">Alles erledigen</button>` : ''}
+        <button class="btn sec" data-aufschub-frage="${p.id}">Noch nicht – später erinnern</button>
         <div class="wann-zeile">
           <span class="wann-text">Erledigt am</span>
           <input type="date" id="erledigt-datum" max="${toISO(new Date())}"
@@ -3515,7 +3656,13 @@ function openDetail(id) {
       </div>` : behandlungOffen(p).length ? '' : `
       <div class="karte karte-ruhig">
         <div class="tun-text" style="text-align:center;color:var(--text-2)">
-          Nichts zu tun. Nächstes Gießen ${statusText(p).toLowerCase()}.</div>
+          ${aufschubTageBis(p) !== null
+            ? 'Verschoben auf den ' + fromISO(p.aufschubBis).toLocaleDateString('de-DE',
+                { day: 'numeric', month: 'long' }) + '.'
+            : 'Nichts zu tun. Nächstes Gießen ' + statusText(p).toLowerCase() + '.'}</div>
+        ${aufschubTageBis(p) !== null
+          ? `<button class="btn sec" data-aufschub="0" data-pid="${p.id}">Aufschub aufheben</button>`
+          : ''}
       </div>`}
 
     <div class="section-title">Pflege</div>
@@ -3577,6 +3724,7 @@ function allesHier(pid) {
     const logId = uid();
     eintraege.push({ feld: 'letzt', plantId: pid, vorher: p.letzt, logId });
     p.letzt = heute;
+    delete p.aufschubBis;
     DB.logs.push({ id: logId, plantId: pid, typ: 'wasser', ts: zeitstempel(heute) });
   }
   for (const a of AUFGABEN) {
@@ -4094,7 +4242,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -4121,6 +4269,12 @@ function bind() {
       return;
     }
     if (t.dataset.ort) { e.stopPropagation(); ortWaehlen(t.dataset.ort); return; }
+    if (t.dataset.aufschubFrage) { e.stopPropagation(); aufschubFragen(t.dataset.aufschubFrage); return; }
+    if (t.dataset.aufschub !== undefined) {
+      e.stopPropagation();
+      aufschieben(t.dataset.pid, t.dataset.aufschub);
+      return;
+    }
     if (t.dataset.plan) { e.stopPropagation(); planZeigen(t.dataset.plan, t.dataset.idx); return; }
     if (t.dataset.behStart) {
       e.stopPropagation();
