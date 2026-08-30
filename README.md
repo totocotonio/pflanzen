@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** ✅ Live (v2.8.0)
+**Status:** ✅ Live (v3.0.0)
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -51,6 +51,8 @@ Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in 
 ✅ **Alle auf einmal** – ein Knopf hakt alle fälligen Pflanzen ab, Rückgängig nimmt den ganzen Schwung zurück
 ✅ **Gieß-Runde** – führt nach Standort geordnet durch die Wohnung, eine Pflanze nach der anderen
 ✅ **Problem-Hilfe** – zehn typische Symptome mit Ursachen und Maßnahmen, abgeglichen mit den Werten der Pflanze
+✅ **Eigene Aufgaben** – frei anlegbar je Pflanze, mit Symbol, Intervall und Push-Erinnerung; zehn Vorlagen
+✅ **Kommentare** – datierte Notizen im Verlauf, und jeder Eintrag lässt sich kommentieren
 ✅ **Später erinnern** – Fälligkeit um frei wählbare Tage verschieben, ohne den Rhythmus anzufassen
 ✅ **Umgebung** – Heizung, Klimaanlage, Mittagssonne, Zugluft, kalter Boden, feuchter Raum, wenig Licht je Pflanze
 ✅ **Wetter** – Ort einmal setzen, dann fließen Heizperiode, Hitze, Frost und trübe Tage in Rhythmus und Hinweise ein (Open-Meteo über den eigenen Server)
@@ -102,7 +104,7 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
 | Design | warme Grün- und Erdtöne, hell und dunkel, System-Schriften, `env(safe-area-inset-*)` |
 | Speicher | `localStorage`, Schlüssel `pg_data` |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v2.8.0` |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v3.0.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
 | Push | Web Push API + VAPID, pywebpush, systemd-Timer alle 15 Minuten |
 | Hosting | LXC Container auf Proxmox |
@@ -270,6 +272,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v3.0.0** | Eigene Pflegeaufgaben, Kommentare im Verlauf, aufgeräumte Detailansicht |
 | **v2.8.0** | Fälligkeit um frei wählbare Tage verschieben |
 | **v2.7.0** | Umgebung je Pflanze (Heizung, Klima, Sonne …) und Wetterlage |
 | **v2.6.0** | Behandlungspläne: Ursache auswählen, Schritte über Wochen mitverfolgen |

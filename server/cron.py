@@ -172,6 +172,23 @@ def offene_punkte(daten):
             if faellig <= heute:
                 aufgaben.append((p.get("name") or "Pflanze", a["verb"]))
 
+        # Selbst angelegte Aufgaben verhalten sich genauso, stehen aber in
+        # einer Liste an der Pflanze statt in festen Feldern.
+        for e in p.get("eigene") or []:
+            try:
+                intervall = int(e.get("int") or 0)
+            except (TypeError, ValueError):
+                continue
+            stand = als_datum(e.get("letzt"))
+            if not intervall or not stand:
+                continue
+            faellig = (plus_monate(stand, intervall) if e.get("einheit") == "monate"
+                       else stand + timedelta(days=intervall))
+            if faellig <= heute:
+                # Kleingeschrieben, weil der Satz lautet "Monstera abduschen"
+                verb = (e.get("name") or "Aufgabe").strip()
+                aufgaben.append((p.get("name") or "Pflanze", verb[0].lower() + verb[1:]))
+
     return giessen, wechseln, nachfuellen, aufgaben, behandlung
 
 

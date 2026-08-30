@@ -412,6 +412,28 @@ a{color:var(--blue);text-decoration:none}
 .runde-naechste{text-align:center;color:var(--text-3);font-size:13px;margin:16px 0 0}
 
 /* Problem-Hilfe */
+/* Aufklappbare Abschnitte in der Detailansicht */
+.abschnitt{display:flex;align-items:center;justify-content:space-between;width:100%;
+  padding:14px 16px;margin-bottom:10px;border-radius:16px;background:var(--surface);
+  box-shadow:var(--schatten);font-size:15.5px;font-weight:600;text-align:left}
+.abschnitt:active{background:var(--surface-2)}
+.abschnitt-pfeil{color:var(--text-3);font-size:19px;transition:transform .2s;flex:0 0 auto}
+.abschnitt.offen{margin-bottom:6px}
+.abschnitt.offen .abschnitt-pfeil{transform:rotate(90deg)}
+.abschnitt-inhalt{margin-bottom:14px}
+.abschnitt-inhalt .section-title:first-child{margin-top:0}
+
+/* Verlaufseinträge sind antippbar, um sie zu kommentieren */
+.log-item{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  width:100%;text-align:left}
+.log-text{flex:1;font-size:15px;line-height:1.4}
+.log-kommentar{display:block;color:var(--text-2);font-size:13.5px;margin-top:2px}
+.log-datum{color:var(--text-3);font-size:13px;flex:0 0 auto;white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+
+/* Eigene Aufgaben im Formular */
+.mini-weg{color:var(--red);font-size:15px;padding:0 0 0 10px;line-height:1}
+
 /* Umgebung: Mehrfachauswahl als Chips */
 .chip-wahl{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
 .chip-wahl .chip{background:var(--surface-2);color:var(--text-2);border:1px solid transparent;

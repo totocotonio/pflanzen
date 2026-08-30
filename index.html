@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=2.8.0">
+<link rel="stylesheet" href="style.css?v=3.0.0">
 </head>
 <body>
 
@@ -315,6 +315,10 @@
       <div class="field"><label>Zuletzt gedüngt</label><input type="date" id="f-duenger-letzt"></div>
     </div>
 
+    <div class="section-title mit-aktion"><span>Eigene Aufgaben</span>
+      <span class="aktion" id="btn-eigen-neu">＋ Hinzufügen</span></div>
+    <div class="group" id="eigene-liste"></div>
+
     <div class="section-title">Umtopfen und Schneiden (optional)</div>
     <div class="group">
       <div class="field"><label>Umtopfen alle … Monate</label>
@@ -476,6 +480,16 @@
   <div class="panel" id="detail-body"></div>
 </div>
 
+<div class="sheet" id="sheet-eigen">
+  <div class="backdrop" data-close></div>
+  <div class="panel" id="eigen-inhalt"></div>
+</div>
+
+<div class="sheet" id="sheet-notiz">
+  <div class="backdrop" data-close></div>
+  <div class="panel" id="notiz-inhalt"></div>
+</div>
+
 <div class="sheet" id="sheet-aufschub">
   <div class="backdrop" data-close></div>
   <div class="panel" id="aufschub-inhalt"></div>
@@ -494,6 +508,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=2.8.0"></script>
+<script src="app.js?v=3.0.0"></script>
 </body>
 </html>

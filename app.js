@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '2.8.0';
+const VERSION = '3.0.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -495,6 +495,12 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.0.0', datum: '30.08.2026', punkte: [
+    'Eigene Pflegeaufgaben je Pflanze – Zurückschneiden, Schädlingskontrolle, Abduschen, was auch immer. Mit eigenem Symbol, Intervall in Tagen oder Monaten und Push-Erinnerung.',
+    'Zehn Vorlagen für den schnellen Start.',
+    'Notizen mit Datum im Verlauf, und zu jedem Eintrag lässt sich ein Kommentar schreiben.',
+    'Die Detailansicht ist aufgeräumt: Pflege, Fotos, Verlauf und die selteneren Knöpfe klappen auf und zu.'
+  ]},
   { v: '2.8.0', datum: '30.08.2026', punkte: [
     'Fällige Pflanzen lassen sich um eine frei wählbare Anzahl Tage verschieben – zwischen „morgen nochmal schauen“ und dem vollen Intervall fehlte bisher alles.',
     'Der Rhythmus bleibt dabei unangetastet: Wird danach gegossen, zählt der tatsächliche Abstand.',
@@ -1288,7 +1294,14 @@ function rueckgaengig() {
   const ids = new Set(eintraege.map(e => e.logId));
   for (const e of eintraege) {
     const p = DB.plants.find(x => x.id === e.plantId);
-    if (p) p[e.feld] = e.vorher;
+    if (!p) continue;
+    if (e.eigenId) {
+      // Eigene Aufgaben liegen in einer Liste, nicht in einem Feld
+      const ea = eigeneVon(p).find(x => x.id === e.eigenId);
+      if (ea) ea.letzt = e.vorher;
+    } else {
+      p[e.feld] = e.vorher;
+    }
   }
   DB.logs = DB.logs.filter(l => !ids.has(l.id));
   const ersteId = eintraege[0] && eintraege[0].plantId;
@@ -1316,25 +1329,13 @@ const AUFGABEN = [
 ];
 
 /** Tage bis zur nächsten Fälligkeit einer Aufgabe, null wenn abgeschaltet. */
-function aufgabeTageBis(p, a) {
-  const intervall = Number(p[a.feldInt]) || 0;
-  const letzt = p[a.feldLetzt];
-  if (!intervall || !letzt) return null;
-  const d = fromISO(letzt);
-  const ziel = a.einheit === 'monate'
-    ? new Date(d.getFullYear(), d.getMonth() + intervall, d.getDate())
-    : new Date(d.getTime() + intervall * 86400000);
-  ziel.setHours(0, 0, 0, 0);
-  return tageDiff(heute0(), ziel);
-}
 
 /** Alle heute fälligen Aufgaben über alle Pflanzen. */
 function faelligeAufgaben() {
   const treffer = [];
   for (const p of aktive()) {
-    for (const a of AUFGABEN) {
-      const t = aufgabeTageBis(p, a);
-      if (t !== null && t <= 0) treffer.push({ pflanze: p, aufgabe: a, tage: t });
+    for (const { a, tage } of offeneAufgaben(p)) {
+      treffer.push({ pflanze: p, aufgabe: a, tage });
     }
   }
   return treffer;
@@ -1343,12 +1344,12 @@ function faelligeAufgaben() {
 /** Aufgabe als erledigt eintragen. */
 function aufgabeErledigt(id, schluessel, datum) {
   const p = DB.plants.find(x => x.id === id);
-  const a = AUFGABEN.find(x => x.schluessel === schluessel);
+  const a = p && aufgabenVon(p).find(x => x.schluessel === schluessel);
   if (!p || !a) return;
   const wann = datum || erledigtAm || toISO(new Date());
   const logId = uid();
-  letzteAktion = { eintraege: [{ feld: a.feldLetzt, plantId: id, vorher: p[a.feldLetzt], logId }] };
-  p[a.feldLetzt] = wann;
+  letzteAktion = { eintraege: [aufgabeEintrag(p, a, logId)] };
+  aufgabeSetzen(p, a, wann);
   DB.logs.push({ id: logId, plantId: id, typ: schluessel, ts: zeitstempel(wann) });
   save();
   renderAll();
@@ -1774,9 +1775,7 @@ function fotoGalerieHTML(p) {
     </button>`).join('');
   const platz = liste.length < FOTOS_MAX
     ? `<button class="galerie-neu" data-foto-neu="${p.id}">＋<span>Foto</span></button>` : '';
-  return `<div class="section-title mit-aktion"><span>Fotoverlauf</span>` +
-         `<span style="text-transform:none;letter-spacing:0;font-weight:400">${liste.length}/${FOTOS_MAX}</span></div>` +
-         `<div class="galerie">${bilder}${platz}</div>`;
+  return `<div class="galerie">${bilder}${platz}</div>`;
 }
 
 async function fotoHinzufuegen(pid, datei) {
@@ -1944,7 +1943,7 @@ function zeigeStatistik() {
   for (const l of DB.logs) proTyp[l.typ] = (proTyp[l.typ] || 0) + 1;
   const zeilen = Object.entries(proTyp)
     .sort((a, b) => b[1] - a[1])
-    .map(([typ, n]) => `<div class="field"><label>${logText(typ)}</label><span class="hint">${n}</span></div>`)
+    .map(([typ, n]) => `<div class="field"><label>${logText(typ, '')}</label><span class="hint">${n}</span></div>`)
     .join('');
   if (zeilen) html += `<div class="section-title">Verlauf gesamt</div><div class="group">${zeilen}</div>`;
 
@@ -2433,6 +2432,338 @@ const LAGE_WORTE = {
 function lageWorte(u, lage) {
   return (u.wenn || []).filter(k => lage.has(k))
     .map(k => LAGE_WORTE[k] || k).join(', ');
+}
+
+/* ---------- Eigene Pflegeaufgaben ----------
+   Düngen, Umtopfen, Schneiden und Spülen sind fest eingebaut, weil fast jede
+   Pflanze sie braucht. Alles andere ist zu verschieden: Die Monstera braucht
+   einen Stützstab, die Orchidee will abgeduscht werden, die Zitrone kontrolliert
+   man im Winter wöchentlich auf Schildläuse.
+
+   Eigene Aufgaben hängen deshalb an der Pflanze und verhalten sich sonst
+   genauso wie die festen – Intervall in Tagen oder Monaten, Fälligkeit,
+   Abhaken, Nachtragen, Push. */
+const AUFGABEN_VORLAGEN = [
+  { name: 'Zurückschneiden', emoji: '✂️', int: 3, einheit: 'monate' },
+  { name: 'Auf Schädlinge kontrollieren', emoji: '🔍', int: 14, einheit: 'tage' },
+  { name: 'Blätter abstauben', emoji: '🧽', int: 30, einheit: 'tage' },
+  { name: 'Abduschen', emoji: '🚿', int: 60, einheit: 'tage' },
+  { name: 'Verblühtes ausputzen', emoji: '🌸', int: 14, einheit: 'tage' },
+  { name: 'Topf drehen', emoji: '🔄', int: 14, einheit: 'tage' },
+  { name: 'Untersetzer leeren', emoji: '🫗', int: 7, einheit: 'tage' },
+  { name: 'Erde lockern', emoji: '🥄', int: 2, einheit: 'monate' },
+  { name: 'Stütze prüfen', emoji: '🪵', int: 3, einheit: 'monate' },
+  { name: 'Luftwurzeln befeuchten', emoji: '💦', int: 7, einheit: 'tage' }
+];
+
+const AUFGABEN_EMOJIS = ['📌', '✂️', '🔍', '🧽', '🚿', '🌸', '🔄', '🫗', '🥄', '🪵',
+                         '💦', '🧴', '🪟', '🌡', '📏', '🐌', '🧪', '🕯', '🪴', '🧹'];
+
+function eigeneVon(p) {
+  return Array.isArray(p && p.eigene) ? p.eigene : [];
+}
+
+/** Alle Pflegeaufgaben einer Pflanze – feste und eigene – in einer Form.
+
+    Ohne das müsste jede Stelle, die Aufgaben anzeigt oder abhakt, zweimal
+    dasselbe tun. Der Schlüssel `eigen:<id>` unterscheidet die beiden Welten. */
+function aufgabenVon(p) {
+  const raus = [];
+  for (const a of AUFGABEN) {
+    const iv = Number(p[a.feldInt]) || 0;
+    if (!iv) continue;
+    raus.push({
+      schluessel: a.schluessel, name: a.name, partizip: a.partizip, emoji: a.emoji,
+      einheit: a.einheit, intervall: iv, letzt: p[a.feldLetzt] || '',
+      feld: a.feldLetzt, eigenId: null
+    });
+  }
+  for (const e of eigeneVon(p)) {
+    const iv = Number(e.int) || 0;
+    if (!iv) continue;
+    raus.push({
+      schluessel: 'eigen:' + e.id, name: e.name || 'Eigene Aufgabe',
+      partizip: 'erledigt', emoji: e.emoji || '📌',
+      einheit: e.einheit === 'monate' ? 'monate' : 'tage',
+      intervall: iv, letzt: e.letzt || '', feld: null, eigenId: e.id
+    });
+  }
+  return raus;
+}
+
+/** Tage bis zur Fälligkeit. null, wenn die Aufgabe nie erledigt wurde. */
+function tageBisAufgabe(a) {
+  if (!a.intervall || !a.letzt) return null;
+  const d = fromISO(a.letzt);
+  const ziel = a.einheit === 'monate'
+    ? new Date(d.getFullYear(), d.getMonth() + a.intervall, d.getDate())
+    : new Date(d.getTime() + a.intervall * 86400000);
+  ziel.setHours(0, 0, 0, 0);
+  return tageDiff(heute0(), ziel);
+}
+
+function offeneAufgaben(p) {
+  return aufgabenVon(p).map(a => ({ a, tage: tageBisAufgabe(a) }))
+    .filter(x => x.tage !== null && x.tage <= 0);
+}
+
+/** Setzt „zuletzt erledigt“, egal ob feste oder eigene Aufgabe. */
+function aufgabeSetzen(p, a, wert) {
+  if (a.eigenId) {
+    const e = eigeneVon(p).find(x => x.id === a.eigenId);
+    if (e) e.letzt = wert;
+  } else {
+    p[a.feld] = wert;
+  }
+}
+
+function aufgabeVorher(p, a) {
+  if (!a.eigenId) return p[a.feld];
+  const e = eigeneVon(p).find(x => x.id === a.eigenId);
+  return e ? e.letzt : '';
+}
+
+/** Rückgängig-Eintrag, der beide Welten abdeckt. */
+function aufgabeEintrag(p, a, logId) {
+  return { feld: a.feld, eigenId: a.eigenId, plantId: p.id,
+           vorher: aufgabeVorher(p, a), logId };
+}
+
+/** Name einer eigenen Aufgabe zu ihrem Schlüssel, für Verlauf und Statistik. */
+function eigenName(schluessel) {
+  const id = String(schluessel).slice(6);
+  for (const p of DB.plants) {
+    const e = eigeneVon(p).find(x => x.id === id);
+    if (e) return e.name;
+  }
+  return 'Eigene Aufgabe';
+}
+
+/* ---------- Verwaltung im Formular ---------- */
+let editEigene = [];
+
+function zeichneEigene() {
+  const box = $('#eigene-liste');
+  box.innerHTML = editEigene.length
+    ? editEigene.map((e, i) => `
+        <div class="field">
+          <label>${e.emoji || '📌'} ${esc(e.name)}</label>
+          <span class="hint">alle ${e.int} ${e.einheit === 'monate' ? 'Monate' : 'Tage'}
+            <button type="button" class="mini-weg" data-eigen-weg="${i}">✕</button></span>
+        </div>`).join('')
+    : `<div class="field"><span class="hint">noch keine</span></div>`;
+}
+
+let eigenEmoji = '📌';
+
+function eigeneNeuOeffnen() {
+  eigenEmoji = '📌';
+  $('#eigen-inhalt').innerHTML = `
+    <div class="grabber"></div>
+    <h2>Eigene Aufgabe</h2>
+    <p class="sheet-hinweis">Alles, was regelmäßig wiederkommt und nicht schon
+      eingebaut ist – Zurückschneiden, Schädlingskontrolle, Abduschen.</p>
+
+    <div class="section-title">Vorlagen</div>
+    <div class="chip-wahl" style="margin-bottom:18px">
+      ${AUFGABEN_VORLAGEN.map((v, i) => `
+        <button type="button" class="chip" data-eigen-vorlage="${i}">${v.emoji} ${esc(v.name)}</button>`).join('')}
+    </div>
+
+    <div class="section-title">Oder selbst festlegen</div>
+    <div class="group">
+      <div class="field"><label>Name</label>
+        <input id="eigen-name" placeholder="z.B. Blattglanz" maxlength="40" autocomplete="off"></div>
+      <div class="field"><label>Alle …</label>
+        <input type="number" id="eigen-int" min="1" max="120" value="14" inputmode="numeric"></div>
+      <div class="field"><label>Einheit</label>
+        <select id="eigen-einheit">
+          <option value="tage">Tage</option>
+          <option value="monate">Monate</option>
+        </select></div>
+      <div class="field"><label>Zuletzt erledigt</label>
+        <input type="date" id="eigen-letzt" value="${toISO(new Date())}"></div>
+    </div>
+
+    <div class="section-title">Symbol</div>
+    <div class="card"><div class="emoji-pick" id="eigen-emoji-pick"></div></div>
+
+    <button class="btn" id="btn-eigen-speichern">Aufgabe hinzufügen</button>
+    <button class="btn sec" data-close>Abbrechen</button>`;
+
+  zeichneEigenEmoji();
+  $('#btn-eigen-speichern').onclick = eigeneUebernehmen;
+  openSheet('#sheet-eigen');
+}
+
+function zeichneEigenEmoji() {
+  $('#eigen-emoji-pick').innerHTML = AUFGABEN_EMOJIS.map(e =>
+    `<button type="button" data-eigen-emoji="${e}" class="${e === eigenEmoji ? 'on' : ''}">${e}</button>`).join('');
+}
+
+function eigeneVorlage(i) {
+  const v = AUFGABEN_VORLAGEN[Number(i)];
+  if (!v) return;
+  $('#eigen-name').value = v.name;
+  $('#eigen-int').value = v.int;
+  $('#eigen-einheit').value = v.einheit;
+  eigenEmoji = v.emoji;
+  zeichneEigenEmoji();
+}
+
+function eigeneUebernehmen() {
+  const name = ($('#eigen-name').value || '').trim();
+  const int = Math.round(Number($('#eigen-int').value) || 0);
+  if (!name) { toast('Die Aufgabe braucht einen Namen'); return; }
+  if (int < 1) { toast('Das Intervall fehlt'); return; }
+  if (editEigene.length >= 10) { toast('Mehr als zehn eigene Aufgaben werden unübersichtlich'); return; }
+
+  editEigene.push({
+    id: uid(), name, emoji: eigenEmoji, int,
+    einheit: $('#eigen-einheit').value === 'monate' ? 'monate' : 'tage',
+    letzt: $('#eigen-letzt').value || toISO(new Date())
+  });
+  zeichneEigene();
+  closeSheets();
+  toast(name + ' hinzugefügt');
+}
+
+/* ---------- Notizen im Verlauf ----------
+   Das Feld „Notizen“ an der Pflanze ist ein Steckbrief: Dinge, die dauerhaft
+   gelten. Was man dagegen unterwegs festhalten will, hat ein Datum – „neues
+   Blatt“, „Erde gewechselt“, „linke Seite kahl geworden“. Das gehört in den
+   Verlauf, nicht in ein Feld, das man ständig überschreibt.
+
+   Deshalb kann jeder Verlaufseintrag einen Kommentar tragen, und ein Kommentar
+   allein ist auch ein Eintrag. */
+let notizZiel = null;   // { plantId, logId } – logId null = neuer Eintrag
+
+function notizOeffnen(pid, logId) {
+  const p = DB.plants.find(x => x.id === pid);
+  if (!p) return;
+  const log = logId ? DB.logs.find(l => l.id === logId) : null;
+  notizZiel = { plantId: pid, logId: logId || null };
+
+  $('#notiz-inhalt').innerHTML = `
+    <div class="grabber"></div>
+    <h2>${log ? 'Kommentar' : 'Notiz'}</h2>
+    <p class="sheet-hinweis">${log
+      ? esc(logText(log.typ, log.text)) + ' am ' +
+        new Date(log.ts).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })
+      : 'Wird mit dem heutigen Datum in den Verlauf von ' + esc(p.name) + ' geschrieben.'}</p>
+
+    <div class="field col" style="margin-bottom:14px">
+      <textarea id="notiz-text" rows="4" maxlength="400"
+        placeholder="${log ? 'Was ist dazu zu sagen?' : 'Was ist aufgefallen?'}">${
+        esc(log ? (log.text || '') : '')}</textarea>
+    </div>
+    <button class="btn" id="btn-notiz-speichern">Speichern</button>
+    ${log && log.typ === 'notiz'
+      ? `<button class="btn danger" id="btn-notiz-weg">Eintrag löschen</button>` : ''}
+    ${log && log.typ !== 'notiz' && log.text
+      ? `<button class="btn sec" id="btn-notiz-leeren">Kommentar entfernen</button>` : ''}
+    <button class="btn sec" data-close>Abbrechen</button>`;
+
+  $('#btn-notiz-speichern').onclick = notizSpeichern;
+  const weg = $('#btn-notiz-weg');
+  if (weg) weg.onclick = () => notizLoeschen(logId);
+  const leeren = $('#btn-notiz-leeren');
+  if (leeren) leeren.onclick = () => { $('#notiz-text').value = ''; notizSpeichern(); };
+
+  openSheet('#sheet-notiz');
+  setTimeout(() => $('#notiz-text').focus(), 300);
+}
+
+function notizSpeichern() {
+  if (!notizZiel) return;
+  const text = ($('#notiz-text').value || '').trim().slice(0, 400);
+  const { plantId, logId } = notizZiel;
+
+  if (logId) {
+    const log = DB.logs.find(l => l.id === logId);
+    if (!log) return;
+    if (log.typ === 'notiz' && !text) { notizLoeschen(logId); return; }
+    if (text) log.text = text; else delete log.text;
+  } else {
+    if (!text) { closeSheets(); return; }
+    DB.logs.push({ id: uid(), plantId, typ: 'notiz', text,
+                   ts: zeitstempel(erledigtAm || null) });
+  }
+  save();
+  renderAll();
+  closeSheets();
+  if ($('#sheet-detail').classList.contains('open')) openDetail(plantId);
+  toast(logId ? 'Kommentar gespeichert' : 'Notiz gespeichert');
+}
+
+function notizLoeschen(logId) {
+  const log = DB.logs.find(l => l.id === logId);
+  if (!log) return;
+  const pid = log.plantId;
+  DB.logs = DB.logs.filter(l => l.id !== logId);
+  save();
+  renderAll();
+  closeSheets();
+  if ($('#sheet-detail').classList.contains('open')) openDetail(pid);
+  toast('Eintrag gelöscht');
+}
+
+/* ---------- Verlauf ---------- */
+let verlaufLang = false;   // „Alle zeigen“ ist pro geöffneter Pflanze gemeint
+
+function verlaufHTML(p) {
+  const alle = DB.logs.filter(l => l.plantId === p.id).sort((a, b) => b.ts - a.ts);
+  if (!alle.length) {
+    return abschnittHTML('verlauf', 'Verlauf', `
+      <div class="karte karte-ruhig" style="color:var(--text-2);text-align:center">
+        Noch nichts eingetragen.</div>
+      <button class="btn sec" data-notiz="${p.id}">Notiz hinzufügen</button>`);
+  }
+
+  const zeigen = verlaufLang ? alle : alle.slice(0, 8);
+  const zeilen = zeigen.map(l => `
+    <button class="log-item" data-log="${l.id}" data-pid="${p.id}">
+      <span class="log-text">${esc(logText(l.typ, l.text))}${
+        l.text && l.typ !== 'notiz' ? `<span class="log-kommentar">${esc(l.text)}</span>` : ''}</span>
+      <span class="log-datum">${new Date(l.ts).toLocaleDateString('de-DE',
+        { day: 'numeric', month: 'short', year: '2-digit' })}</span>
+    </button>`).join('');
+
+  return abschnittHTML('verlauf', `Verlauf (${alle.length})`,
+    `<div class="group">${zeilen}</div>` +
+    (alle.length > 8 && !verlaufLang
+      ? `<button class="btn sec" data-verlauf-alle>Alle ${alle.length} zeigen</button>` : '') +
+    `<button class="btn sec" data-notiz="${p.id}">Notiz hinzufügen</button>`);
+}
+
+/* ---------- Aufklappbare Abschnitte ----------
+   Die Detailansicht ist mit Behandlungen, Umgebung, Fotos und Verlauf lang
+   geworden. Zugeklappt bleibt oben, was täglich zählt; alles andere ist einen
+   Tipp entfernt. Welche Abschnitte offen sind, merkt sich die App. */
+function abschnitteLaden() {
+  try {
+    const roh = localStorage.getItem('pg_abschnitte');
+    if (roh) detailOffen = new Set(JSON.parse(roh));
+  } catch (e) { /* Standard bleibt */ }
+}
+
+let detailOffen = new Set(['pflege']);
+
+function abschnittUmschalten(name) {
+  if (detailOffen.has(name)) detailOffen.delete(name);
+  else detailOffen.add(name);
+  try {
+    localStorage.setItem('pg_abschnitte', JSON.stringify(Array.from(detailOffen)));
+  } catch (e) { /* egal */ }
+}
+
+function abschnittHTML(name, titel, inhalt) {
+  const offen = detailOffen.has(name);
+  return `
+    <button class="abschnitt ${offen ? 'offen' : ''}" data-abschnitt="${name}">
+      <span>${titel}</span><span class="abschnitt-pfeil">›</span>
+    </button>
+    ${offen ? `<div class="abschnitt-inhalt">${inhalt}</div>` : ''}`;
 }
 
 /* ---------- Aufschieben ----------
@@ -3464,7 +3795,9 @@ function openEdit(id) {
   editEmoji = p ? (p.emoji || '🪴') : '🪴';
   editFoto = p ? (p.foto || null) : null;
   editUmgebung = p ? umgebungVon(p).slice() : [];
+  editEigene = p ? eigeneVon(p).map(e => Object.assign({}, e)) : [];
   zeichneUmgebung();
+  zeichneEigene();
   $('#btn-delete').style.display = p ? 'block' : 'none';
   $('#btn-foto-del').style.display = editFoto ? 'block' : 'none';
   renderEmojiPick();
@@ -3507,6 +3840,7 @@ function speichern() {
     imWasserSeit: $('#f-haltung').value === 'wasser'
       ? ($('#f-wasser-seit').value || toISO(new Date())) : '',
     umgebung: editUmgebung.slice(),
+    eigene: editEigene.map(e => Object.assign({}, e)),
     spuelenTage: $('#f-haltung').value === 'hydro'
       ? Math.max(0, Number($('#f-spuelen-int').value) || 0) : 0,
     spuelenLetzt: $('#f-haltung').value === 'hydro'
@@ -3573,34 +3907,35 @@ function statusKachel(titel, tage, anteil, symbol, letztDatum) {
   </div>`;
 }
 
+let offeneDetailId = null;
+
 function openDetail(id) {
   const p = DB.plants.find(x => x.id === id);
   if (!p) return;
-  if (!$('#sheet-detail').classList.contains('open')) erledigtAm = null;
+  if (!$('#sheet-detail').classList.contains('open')) { erledigtAm = null; verlaufLang = false; }
+  if (offeneDetailId !== id) { verlaufLang = false; offeneDetailId = id; }
 
   const iv = effIntervall(p);
   const t = tageBis(p);
   const anteil = 1 - (t / iv);
-  const logs = DB.logs.filter(l => l.plantId === id).sort((a, b) => b.ts - a.ts).slice(0, 8);
   const datum = wert => wert ? fromISO(wert).toLocaleDateString('de-DE',
     { day: 'numeric', month: 'short' }) : null;
 
   // Offene Aufgaben: Gießen bzw. Wasserwechsel plus alles, was sonst ansteht
-  const w0 = wasserWorte(p);
+  const w = wasserWorte(p);
   const offen = [];
-  if (t <= 0) offen.push({ art: 'wasser', titel: w0.titel, tage: t,
+  if (t <= 0) offen.push({ art: 'wasser', titel: w.titel, tage: t,
                            zusatz: istAbleger(p) ? '' : wasserZusatz(p) });
-  for (const a of AUFGABEN) {
-    const at = aufgabeTageBis(p, a);
-    if (at !== null && at <= 0) offen.push({ art: a.schluessel, titel: a.name, tage: at, zusatz: '' });
+  for (const { a, tage } of offeneAufgaben(p)) {
+    offen.push({ art: a.schluessel, titel: a.name, tage, zusatz: '' });
   }
 
-  const w = wasserWorte(p);
   const kacheln = [statusKachel(w.titel, t, anteil, w.emoji, datum(p.letzt))]
-    .concat(AUFGABEN.filter(a => Number(p[a.feldInt]) > 0).map(a => {
-      const at = aufgabeTageBis(p, a);
-      const gesamt = a.einheit === 'monate' ? Number(p[a.feldInt]) * 30 : Number(p[a.feldInt]);
-      return statusKachel(a.name, at, 1 - (at / Math.max(1, gesamt)), a.emoji, datum(p[a.feldLetzt]));
+    .concat(aufgabenVon(p).map(a => {
+      const at = tageBisAufgabe(a);
+      if (at === null) return '';
+      const gesamt = a.einheit === 'monate' ? a.intervall * 30 : a.intervall;
+      return statusKachel(a.name, at, 1 - (at / Math.max(1, gesamt)), a.emoji, datum(a.letzt));
     })).join('');
 
   $('#detail-body').innerHTML = `
@@ -3665,35 +4000,36 @@ function openDetail(id) {
           : ''}
       </div>`}
 
-    <div class="section-title">Pflege</div>
-    <div class="group">
-      <div class="field"><label>${istAbleger(p) ? 'Wasserwechsel'
-        : istHydro(p) ? 'Nachfüllen' : 'Gießintervall'}</label><span class="hint">alle ${p.intervall} Tage${
-        winterAktiv() && effIntervall(p) !== Number(p.intervall) ? ' · Winter: ' + effIntervall(p) : ''}</span></div>
-      ${p.winterFaktor ? `<div class="field"><label>Winterruhe</label><span class="hint">×${
-        String(p.winterFaktor).replace('.', ',')}</span></div>` : ''}
-      ${p.menge ? `<div class="field"><label>Wassermenge</label><span class="hint">${esc(p.menge)}</span></div>` : ''}
-      ${p.licht ? `<div class="field"><label>Licht</label><span class="hint">${esc(p.licht)}</span></div>` : ''}
-    </div>
+    ${abschnittHTML('pflege', 'Pflege', `
+      <div class="group">
+        <div class="field"><label>${istAbleger(p) ? 'Wasserwechsel'
+          : istHydro(p) ? 'Nachfüllen' : 'Gießintervall'}</label><span class="hint">alle ${p.intervall} Tage${
+          winterAktiv() && effIntervall(p) !== Number(p.intervall) ? ' · Winter: ' + effIntervall(p) : ''}${
+          wetterFaktor(p) !== 1 ? ' · Hitze: ' + effIntervall(p) : ''}</span></div>
+        ${p.winterFaktor ? `<div class="field"><label>Winterruhe</label><span class="hint">×${
+          String(p.winterFaktor).replace('.', ',')}</span></div>` : ''}
+        ${p.menge ? `<div class="field"><label>Wassermenge</label><span class="hint">${esc(p.menge)}</span></div>` : ''}
+        ${p.licht ? `<div class="field"><label>Licht</label><span class="hint">${esc(p.licht)}</span></div>` : ''}
+        ${aufgabenVon(p).map(a => `<div class="field"><label>${a.emoji} ${esc(a.name)}</label>
+          <span class="hint">alle ${a.intervall} ${a.einheit === 'monate' ? 'Monate' : 'Tage'}</span></div>`).join('')}
+      </div>
+      ${p.notiz ? `<div class="karte" style="white-space:pre-wrap;color:var(--text-2)">${esc(p.notiz)}</div>` : ''}`)}
 
-    ${p.notiz ? `<div class="section-title">Notizen</div>
-      <div class="karte" style="white-space:pre-wrap;color:var(--text-2)">${esc(p.notiz)}</div>` : ''}
+    ${abschnittHTML('fotos', `Fotoverlauf (${fotosVon(p).length})`, fotoGalerieHTML(p))}
 
-    ${fotoGalerieHTML(p)}
+    ${verlaufHTML(p)}
 
-    ${logs.length ? `<div class="section-title">Verlauf</div><div class="group">` + logs.map(l => `
-      <div class="log-item"><span>${logText(l.typ)}${l.text ? ': ' + esc(l.text) : ''}</span>
-      <span>${new Date(l.ts).toLocaleDateString('de-DE')}</span></div>`).join('') + `</div>` : ''}
+    ${abschnittHTML('mehr', 'Mehr zu dieser Pflanze', `
+      ${istAbleger(p) ? `<button class="btn sec" data-eintopfen="${p.id}">🪴 Ist bewurzelt, kommt in Erde</button>` : ''}
+      <button class="btn sec" data-hilfe="${p.id}">${
+        behandlungVon(p) ? 'Weiteres Problem?' : 'Problem mit dieser Pflanze?'}</button>
+      <button class="btn sec" data-qr="${p.id}">QR-Code für den Topf</button>
+      ${p.archiviert
+        ? `<button class="btn sec" data-entarchiv="${p.id}">Zurück in die Liste</button>`
+        : `<button class="btn sec" data-archiv="${p.id}">Archivieren</button>`}
+      <button class="btn danger" data-del="${p.id}">Pflanze löschen</button>`)}
 
-    ${istAbleger(p) ? `<button class="btn sec" data-eintopfen="${p.id}">🪴 Ist bewurzelt, kommt in Erde</button>` : ''}
-    <button class="btn sec" data-hilfe="${p.id}">${
-      behandlungVon(p) ? 'Weiteres Problem?' : 'Problem mit dieser Pflanze?'}</button>
-    <button class="btn sec" data-qr="${p.id}">QR-Code für den Topf</button>
     <button class="btn sec" data-edit="${p.id}">Bearbeiten</button>
-    ${p.archiviert
-      ? `<button class="btn sec" data-entarchiv="${p.id}">Zurück in die Liste</button>`
-      : `<button class="btn sec" data-archiv="${p.id}">Archivieren</button>`}
-    <button class="btn danger" data-del="${p.id}">Pflanze löschen</button>
     <button class="btn sec" data-close>Schließen</button>
   `;
   const feld = $('#erledigt-datum');
@@ -3727,12 +4063,10 @@ function allesHier(pid) {
     delete p.aufschubBis;
     DB.logs.push({ id: logId, plantId: pid, typ: 'wasser', ts: zeitstempel(heute) });
   }
-  for (const a of AUFGABEN) {
-    const at = aufgabeTageBis(p, a);
-    if (at === null || at > 0) continue;
+  for (const { a } of offeneAufgaben(p)) {
     const logId = uid();
-    eintraege.push({ feld: a.feldLetzt, plantId: pid, vorher: p[a.feldLetzt], logId });
-    p[a.feldLetzt] = heute;
+    eintraege.push(aufgabeEintrag(p, a, logId));
+    aufgabeSetzen(p, a, heute);
     DB.logs.push({ id: logId, plantId: pid, typ: a.schluessel, ts: zeitstempel(heute) });
   }
   if (!eintraege.length) return;
@@ -3746,7 +4080,9 @@ function allesHier(pid) {
 }
 
 /** Beschriftung eines Verlaufseintrags. */
-function logText(typ) {
+function logText(typ, text) {
+  if (typ === 'notiz') return '📝 ' + (text || 'Notiz');
+  if (String(typ).startsWith('eigen:')) return '📌 ' + eigenName(typ);
   if (typ === 'behandlung-start') return '🩹 Behandlung begonnen';
   if (typ === 'behandlung-ende') return '🩹 Behandlung beendet';
   if (typ === 'wasser') return '💧 Gegossen';
@@ -4222,6 +4558,7 @@ function bind() {
   /* Nicht hochgeladene Änderungen nachholen, sobald es wieder geht */
   window.addEventListener('online', () => { if (SYNC.dirty) schiebeHoch(); });
 
+  $('#btn-eigen-neu').onclick = eigeneNeuOeffnen;
   $('#zeile-ort').onclick = ortOeffnen;
   $('#set-wetter').onchange = e => {
     DB.settings.wetterAn = e.target.value === '1';
@@ -4242,7 +4579,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -4269,6 +4606,32 @@ function bind() {
       return;
     }
     if (t.dataset.ort) { e.stopPropagation(); ortWaehlen(t.dataset.ort); return; }
+    if (t.dataset.abschnitt) {
+      e.stopPropagation();
+      abschnittUmschalten(t.dataset.abschnitt);
+      if (offeneDetailId) openDetail(offeneDetailId);
+      return;
+    }
+    if (t.dataset.verlaufAlle !== undefined) {
+      e.stopPropagation(); verlaufLang = true;
+      if (offeneDetailId) openDetail(offeneDetailId);
+      return;
+    }
+    if (t.dataset.log) { e.stopPropagation(); notizOeffnen(t.dataset.pid, t.dataset.log); return; }
+    if (t.dataset.notiz) { e.stopPropagation(); notizOeffnen(t.dataset.notiz, null); return; }
+    if (t.dataset.eigenWeg !== undefined) {
+      e.stopPropagation();
+      editEigene.splice(Number(t.dataset.eigenWeg), 1);
+      zeichneEigene();
+      return;
+    }
+    if (t.dataset.eigenVorlage !== undefined) { e.stopPropagation(); eigeneVorlage(t.dataset.eigenVorlage); return; }
+    if (t.dataset.eigenEmoji) {
+      e.stopPropagation();
+      eigenEmoji = t.dataset.eigenEmoji;
+      zeichneEigenEmoji();
+      return;
+    }
     if (t.dataset.aufschubFrage) { e.stopPropagation(); aufschubFragen(t.dataset.aufschubFrage); return; }
     if (t.dataset.aufschub !== undefined) {
       e.stopPropagation();
@@ -4370,6 +4733,7 @@ window.matchMedia('(prefers-color-scheme: dark)')
   .addEventListener('change', () => { if ((DB.settings.theme || 'auto') === 'auto') applyTheme(); });
 
 wetterLaden();
+abschnitteLaden();
 window.addEventListener('load', () => { updatePruefungStarten(); wetterHolen(); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) wetterHolen(); });
 neuerungenZeigen();

@@ -1,5 +1,48 @@
 # Changelog
 
+## v3.0.0 - 2026-08-30
+
+### Eigene Pflegeaufgaben
+
+Düngen, Umtopfen, Schneiden und Spülen sind fest eingebaut, weil fast jede
+Pflanze sie braucht. Alles andere ist zu verschieden: Die Monstera braucht
+einen Stützstab, die Orchidee will abgeduscht werden, die Zitrone kontrolliert
+man im Winter wöchentlich auf Schildläuse.
+
+- Jede Pflanze kann jetzt **eigene Aufgaben** bekommen: Name, Symbol aus 20
+  Emoji, Intervall in Tagen oder Monaten, zuletzt erledigt. Bis zu zehn Stück.
+- **Zehn Vorlagen** für den schnellen Start: Zurückschneiden, Auf Schädlinge
+  kontrollieren, Blätter abstauben, Abduschen, Verblühtes ausputzen, Topf
+  drehen, Untersetzer leeren, Erde lockern, Stütze prüfen, Luftwurzeln
+  befeuchten.
+- Sie verhalten sich wie die eingebauten: eigene Statuskachel, „Heute zu tun",
+  „Weitere Pflege" in der Tagesansicht, „Alles erledigen", Nachtragen,
+  Rückgängig, **und Push-Erinnerung** („Monstera abduschen").
+- Damit das nicht doppelt gepflegt werden muss, liefert `aufgabenVon(p)` feste
+  und eigene Aufgaben in einer Form; alle Stellen arbeiten darauf.
+
+### Kommentare im Verlauf
+
+Das Feld „Notizen" an der Pflanze ist ein Steckbrief – Dinge, die dauerhaft
+gelten. Was man unterwegs festhalten will, hat dagegen ein Datum.
+
+- **Notizen mit Datum** landen im Verlauf: „neues Blatt", „Erde gewechselt",
+  „linke Seite kahl geworden".
+- **Jeder Verlaufseintrag lässt sich antippen und kommentieren** – auch ein
+  Gießvorgang („mit Regenwasser") oder eine beendete Behandlung.
+- Der Verlauf zeigt acht Einträge, „Alle zeigen" klappt den Rest auf. Einträge
+  lassen sich löschen.
+
+### Übersichtlichere Detailansicht
+
+Mit Behandlungen, Umgebung, Fotos und Verlauf war die Ansicht lang geworden.
+
+- **Pflege, Fotoverlauf, Verlauf und „Mehr zu dieser Pflanze" klappen auf und
+  zu.** Oben bleibt, was täglich zählt: Bild, Status, was heute zu tun ist.
+- Welche Abschnitte offen sind, merkt sich die App geräteweise.
+- Der Abschnitt „Pflege" listet jetzt auch alle Intervalle auf einen Blick,
+  inklusive der eigenen Aufgaben und der aktuellen Hitze-Verkürzung.
+
 ## v2.8.0 - 2026-08-30
 
 ### Fälligkeit um beliebig viele Tage verschieben
