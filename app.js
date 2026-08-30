@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '2.3.1';
+const VERSION = '2.4.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -426,6 +426,10 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '2.4.0', datum: '30.08.2026', punkte: [
+    'Zwölf Kakteen ergänzt, getrennt nach Wüsten- und Regenwaldarten – die brauchen sehr unterschiedlich viel Wasser.',
+    'Die Artenliste kennt jetzt die passende Winterruhe und trägt sie beim Übernehmen mit ein.'
+  ]},
   { v: '2.3.1', datum: '30.08.2026', punkte: [
     '„war gestern" gibt es jetzt auch nach „Alle gießen“ und nach einer Gieß-Runde.'
   ]},
@@ -1388,7 +1392,9 @@ async function urlaubTeilen(von, bis, waehrend) {
    alias  = weitere gebräuchliche Namen, damit auch "Benjamini" oder
             "Schwiegermutterzunge" gefunden werden
    iv     = Gießintervall in Tagen     d   = Düngen in Tagen (0 = aus)
-   um     = Umtopfen in Monaten (0 = aus) */
+   um     = Umtopfen in Monaten (0 = aus)
+   w      = Winterruhe: Faktor aufs Gießintervall von November bis Februar
+            (fehlt = allgemeine Einstellung, 1 = keine, 3 = fast trocken) */
 const ARTEN = [
   // --- Klassiker mit großen Blättern ---
   { n: 'Monstera', art: 'Monstera deliciosa', alias: 'Fensterblatt, Köstliches Fensterblatt', iv: 7, licht: 'Hell, ohne direkte Sonne', menge: '300 ml', d: 30, um: 24, hinweis: 'Luftwurzeln nicht abschneiden. Blätter gelegentlich abwischen.' },
@@ -1415,11 +1421,11 @@ const ARTEN = [
   { n: 'Kletterfeige', art: 'Ficus pumila', alias: '', iv: 5, licht: 'Halbschatten', menge: '150 ml', d: 30, um: 18, hinweis: 'Erde gleichmäßig feucht halten.' },
 
   // --- Genügsame ---
-  { n: 'Bogenhanf', art: 'Sansevieria', alias: 'Schwiegermutterzunge, Sansevieria', iv: 21, licht: 'Halbschatten', menge: '150 ml', d: 60, um: 36, hinweis: 'Staunässe ist der häufigste Fehler.' },
-  { n: 'Glücksfeder', art: 'Zamioculcas zamiifolia', alias: 'Zamioculcas, ZZ-Pflanze, Glücksfeder', iv: 21, licht: 'Halbschatten', menge: '200 ml', d: 60, um: 36, hinweis: 'Sehr genügsam, lieber zu wenig gießen.' },
+  { n: 'Bogenhanf', art: 'Sansevieria', alias: 'Schwiegermutterzunge, Sansevieria', iv: 21, licht: 'Halbschatten', menge: '150 ml', d: 60, um: 36, w: 2, hinweis: 'Staunässe ist der häufigste Fehler.' },
+  { n: 'Glücksfeder', art: 'Zamioculcas zamiifolia', alias: 'Zamioculcas, ZZ-Pflanze, Glücksfeder', iv: 21, licht: 'Halbschatten', menge: '200 ml', d: 60, um: 36, w: 2, hinweis: 'Sehr genügsam, lieber zu wenig gießen.' },
   { n: 'Drachenbaum', art: 'Dracaena', alias: 'Dracaena', iv: 10, licht: 'Hell, ohne direkte Sonne', menge: '250 ml', d: 45, um: 30, hinweis: 'Reagiert empfindlich auf Fluorid im Leitungswasser.' },
   { n: 'Yucca', art: 'Yucca elephantipes', alias: 'Yuccapalme, Palmlilie', iv: 14, licht: 'Vollsonne', menge: '250 ml', d: 60, um: 36, hinweis: 'Der Stamm darf nicht weich werden.' },
-  { n: 'Elefantenfuß', art: 'Beaucarnea recurvata', alias: 'Flaschenbaum', iv: 21, licht: 'Vollsonne', menge: '200 ml', d: 60, um: 36, hinweis: 'Speichert Wasser im verdickten Stamm.' },
+  { n: 'Elefantenfuß', art: 'Beaucarnea recurvata', alias: 'Flaschenbaum', iv: 21, licht: 'Vollsonne', menge: '200 ml', d: 60, um: 36, w: 2.5, hinweis: 'Speichert Wasser im verdickten Stamm.' },
   { n: 'Grünlilie', art: 'Chlorophytum comosum', alias: 'Chlorophytum', iv: 5, licht: 'Hell, ohne direkte Sonne', menge: '200 ml', d: 21, um: 12, hinweis: 'Ableger lassen sich einfach abtrennen.' },
   { n: 'Zebrakraut', art: 'Tradescantia', alias: 'Dreimasterblume', iv: 5, licht: 'Hell, ohne direkte Sonne', menge: '150 ml', d: 21, um: 12, hinweis: 'Regelmäßig zurückschneiden, sonst verkahlt sie.' },
   { n: 'Bubikopf', art: 'Soleirolia soleirolii', alias: '', iv: 3, licht: 'Halbschatten', menge: '100 ml', d: 21, um: 12, hinweis: 'Darf nie austrocknen.' },
@@ -1440,13 +1446,24 @@ const ARTEN = [
   { n: 'Fleißiges Lieschen', art: 'Impatiens', alias: 'Impatiens', iv: 2, licht: 'Halbschatten', menge: '200 ml', d: 14, um: 0, hinweis: 'Braucht durchgehend feuchte Erde.' },
 
   // --- Sukkulenten und Kakteen ---
-  { n: 'Aloe Vera', art: 'Aloe barbadensis', alias: 'Aloe', iv: 18, licht: 'Vollsonne', menge: '100 ml', d: 60, um: 24, hinweis: 'Im Winter fast gar nicht gießen.' },
-  { n: 'Kaktus', art: '', alias: 'Säulenkaktus, Kugelkaktus, Kakteen', iv: 30, licht: 'Vollsonne', menge: '50 ml', d: 60, um: 36, hinweis: 'Von Oktober bis März trocken halten.' },
-  { n: 'Weihnachtskaktus', art: 'Schlumbergera', alias: 'Schlumbergera, Osterkaktus', iv: 10, licht: 'Hell, ohne direkte Sonne', menge: '100 ml', d: 30, um: 24, hinweis: 'Während der Knospenbildung nicht drehen.' },
-  { n: 'Geldbaum', art: 'Crassula ovata', alias: 'Pfennigbaum, Jadebaum, Crassula', iv: 18, licht: 'Vollsonne', menge: '150 ml', d: 60, um: 36, hinweis: 'Dicke Blätter speichern Wasser.' },
-  { n: 'Echeveria', art: 'Echeveria', alias: 'Sukkulente', iv: 18, licht: 'Vollsonne', menge: '80 ml', d: 60, um: 24, hinweis: 'Nicht über die Rosette gießen.' },
-  { n: 'Haworthia', art: 'Haworthia', alias: '', iv: 18, licht: 'Hell, ohne direkte Sonne', menge: '80 ml', d: 60, um: 36, hinweis: 'Braucht deutlich weniger Sonne als andere Sukkulenten.' },
-  { n: 'Christusdorn', art: 'Euphorbia milii', alias: '', iv: 14, licht: 'Vollsonne', menge: '100 ml', d: 45, um: 36, hinweis: 'Milchsaft ist giftig.' },
+  { n: 'Aloe Vera', art: 'Aloe barbadensis', alias: 'Aloe', iv: 18, licht: 'Vollsonne', menge: '100 ml', d: 60, um: 24, w: 3, hinweis: 'Im Winter fast gar nicht gießen.' },
+  { n: 'Kaktus', art: '', alias: 'Kugelkaktus, Kakteen', iv: 21, licht: 'Vollsonne', menge: '80 ml', d: 60, um: 36, w: 3, hinweis: 'Von Oktober bis März fast trocken halten – die Winterruhe ist Bedingung für Blüten.' },
+  { n: 'Goldkugelkaktus', art: 'Echinocactus grusonii', alias: 'Schwiegermutterstuhl, Echinocactus', iv: 21, licht: 'Vollsonne', menge: '100 ml', d: 60, um: 36, w: 3, hinweis: 'Im Winter kühl bei 8 bis 12 Grad und trocken, sonst vergeilt er.' },
+  { n: 'Warzenkaktus', art: 'Mammillaria', alias: 'Mammillaria', iv: 18, licht: 'Vollsonne', menge: '60 ml', d: 60, um: 36, w: 3, hinweis: 'Blüht im Frühjahr zuverlässig, wenn er im Winter trocken und kühl stand.' },
+  { n: 'Feigenkaktus', art: 'Opuntia', alias: 'Opuntie, Ohrenkaktus', iv: 21, licht: 'Vollsonne', menge: '100 ml', d: 60, um: 36, w: 3, hinweis: 'Feine Widerhaken-Stacheln: nur mit Handschuhen anfassen.' },
+  { n: 'Säulenkaktus', art: 'Cereus', alias: 'Cereus, Apfelkaktus', iv: 18, licht: 'Vollsonne', menge: '150 ml', d: 60, um: 36, w: 3, hinweis: 'Wird groß und schwer – schwerer Topf verhindert Umkippen.' },
+  { n: 'Gymnocalycium', art: 'Gymnocalycium', alias: 'Rubinball, Pfropfkaktus', iv: 16, licht: 'Hell, ohne direkte Sonne', menge: '50 ml', d: 45, um: 30, w: 2.5, hinweis: 'Die roten und gelben Kugeln sind gepfropft und vertragen keine pralle Sonne.' },
+  { n: 'Rebutia', art: 'Rebutia', alias: 'Zwergkaktus', iv: 14, licht: 'Vollsonne', menge: '50 ml', d: 45, um: 30, w: 3, hinweis: 'Kleinbleibend und blühwillig, braucht dafür eine kühle Winterruhe.' },
+  { n: 'Bischofsmütze', art: 'Astrophytum', alias: 'Astrophytum', iv: 21, licht: 'Vollsonne', menge: '60 ml', d: 60, um: 36, w: 3, hinweis: 'Sehr empfindlich gegen Staunässe, mineralische Erde verwenden.' },
+  { n: 'Alterskaktus', art: 'Espostoa lanata', alias: 'Espostoa, Greisenhaupt', iv: 21, licht: 'Vollsonne', menge: '100 ml', d: 60, um: 36, w: 3, hinweis: 'Die weiße Behaarung nicht nass machen, sie vergilbt sonst.' },
+  { n: 'Rhipsalis', art: 'Rhipsalis', alias: 'Rutenkaktus, Korallenkaktus, Binsenkaktus', iv: 7, licht: 'Halbschatten', menge: '150 ml', d: 30, um: 24, w: 1.5, hinweis: 'Regenwaldkaktus: braucht deutlich mehr Wasser als ein Wüstenkaktus und keine pralle Sonne.' },
+  { n: 'Blattkaktus', art: 'Epiphyllum', alias: 'Epiphyllum, Königin der Nacht', iv: 8, licht: 'Hell, ohne direkte Sonne', menge: '200 ml', d: 21, um: 24, w: 2, hinweis: 'Regenwaldkaktus: gleichmäßig feucht halten, im Winter etwas kühler stellen.' },
+  { n: 'Wolfsmilchkaktus', art: 'Euphorbia trigona', alias: 'Dreikantige Wolfsmilch', iv: 14, licht: 'Hell, ohne direkte Sonne', menge: '100 ml', d: 45, um: 36, w: 2.5, hinweis: 'Kein echter Kaktus. Der Milchsaft reizt Haut und Augen.' },
+  { n: 'Weihnachtskaktus', art: 'Schlumbergera', alias: 'Schlumbergera, Osterkaktus, Hatiora', iv: 10, licht: 'Hell, ohne direkte Sonne', menge: '100 ml', d: 30, um: 24, w: 1.5, hinweis: 'Regenwaldkaktus, kein Wüstenbewohner: gleichmäßig feucht halten. Während der Knospenbildung nicht drehen.' },
+  { n: 'Geldbaum', art: 'Crassula ovata', alias: 'Pfennigbaum, Jadebaum, Crassula', iv: 18, licht: 'Vollsonne', menge: '150 ml', d: 60, um: 36, w: 2.5, hinweis: 'Dicke Blätter speichern Wasser.' },
+  { n: 'Echeveria', art: 'Echeveria', alias: 'Sukkulente', iv: 18, licht: 'Vollsonne', menge: '80 ml', d: 60, um: 24, w: 3, hinweis: 'Nicht über die Rosette gießen.' },
+  { n: 'Haworthia', art: 'Haworthia', alias: '', iv: 18, licht: 'Hell, ohne direkte Sonne', menge: '80 ml', d: 60, um: 36, w: 2.5, hinweis: 'Braucht deutlich weniger Sonne als andere Sukkulenten.' },
+  { n: 'Christusdorn', art: 'Euphorbia milii', alias: '', iv: 14, licht: 'Vollsonne', menge: '100 ml', d: 45, um: 36, w: 2, hinweis: 'Milchsaft ist giftig.' },
 
   // --- Palmen und Grünes ---
   { n: 'Bergpalme', art: 'Chamaedorea elegans', alias: 'Zimmerpalme, Chamaedorea, Palme', iv: 7, licht: 'Halbschatten', menge: '300 ml', d: 30, um: 36, hinweis: 'Braune Spitzen deuten auf trockene Luft.' },
@@ -1542,7 +1559,8 @@ function artVorschlagPruefen() {
   if (!treffer) { box.hidden = true; box.dataset.art = ''; return; }
   box.dataset.art = treffer.n;
   box.innerHTML = `<span>Richtwerte für <b>${esc(treffer.n)}</b>: alle ${treffer.iv} Tage` +
-    `${treffer.menge ? ', ' + esc(treffer.menge) : ''}</span>` +
+    `${treffer.menge ? ', ' + esc(treffer.menge) : ''}` +
+    `${treffer.w >= 2.5 ? ', im Winter deutlich weniger' : ''}</span>` +
     `<button type="button" class="aktion" id="btn-art-uebernehmen">Übernehmen</button>`;
   box.hidden = false;
   $('#btn-art-uebernehmen').onclick = () => artUebernehmen(treffer);
@@ -1592,6 +1610,7 @@ function artUebernehmen(a) {
   fuelle('#f-licht', a.licht);
   fuelle('#f-duenger-int', a.d);
   fuelle('#f-umtopfen-int', a.um);
+  if (a.w) fuelle('#f-winter', String(a.w));
   // Das Gießintervall steht auf 7 vorbelegt – hier ist der Richtwert die
   // bessere Auskunft, solange der Nutzer nichts anderes eingetragen hat.
   const iv = $('#f-intervall');

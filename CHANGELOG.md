@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.4.0 - 2026-08-30
+
+- Zwölf Kakteen ergänzt, bewusst nach zwei Gruppen getrennt:
+  - **Wüstenkakteen** – Goldkugelkaktus, Warzenkaktus, Feigenkaktus,
+    Säulenkaktus, Gymnocalycium, Rebutia, Bischofsmütze, Alterskaktus:
+    alle 14 bis 21 Tage, Vollsonne, wenig Wasser.
+  - **Regenwaldkakteen** – Rhipsalis, Blattkaktus, Weihnachtskaktus: alle 7 bis
+    10 Tage, halbschattig, deutlich mehr Wasser. Sie mit Wüstenkakteen gleich
+    zu behandeln ist der häufigste Fehler bei diesen Arten.
+  - Dazu der Wolfsmilchkaktus, der botanisch keiner ist – mit dem Hinweis auf
+    den reizenden Milchsaft.
+- Die Artenliste kennt jetzt die passende Winterruhe und trägt sie beim
+  Übernehmen mit ein: Ein Goldkugelkaktus steht damit im Winter automatisch auf
+  63 statt 21 Tagen, ein Weihnachtskaktus nur auf 15 statt 10.
+- Der Vorschlagstext weist darauf hin, wenn eine Art im Winter deutlich weniger
+  braucht.
+
 ## v2.3.1 - 2026-08-30
 
 - „war gestern" fehlte noch bei den Sammelaktionen: nach „Alle gießen" und nach

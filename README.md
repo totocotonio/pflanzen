@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** ✅ Live (v2.3.1)
+**Status:** ✅ Live (v2.4.0)
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -39,7 +39,7 @@ Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in 
 ✅ **Mehrere Pflanzen im Topf** – der Topf bleibt die Einheit, die App prüft ob die Arten zusammenpassen
 ✅ **Ableger im Wasser** – Erinnerung ans Wasserwechseln statt ans Gießen, mit Übergang zum Eintopfen
 ✅ **Foto oder Emoji** – Kamera-/Galerie-Foto wird auf 400 px verkleinert und als JPEG in den localStorage gelegt; alternativ 24 Emoji zur Auswahl
-✅ **Pflegevorschläge** – 80 Arten und Sorten mit Richtwerten für Intervall, Licht, Menge und Pflegehinweis; erkennt Zweitnamen („Benjamini"), Mehrzahl („Efeutüten") und Umlaut-Schreibweisen
+✅ **Pflegevorschläge** – 91 Arten und Sorten mit Richtwerten für Intervall, Licht, Menge und Pflegehinweis; erkennt Zweitnamen („Benjamini"), Mehrzahl („Efeutüten") und Umlaut-Schreibweisen
 ✅ **Fotoverlauf** – bis zu sechs Bilder je Pflanze mit Datum, Großansicht per Antippen
 ✅ **Statistik** – Gießvorgänge je Woche, Wasserverbrauch, Pünktlichkeit je Pflanze
 ✅ **Suche** – über Name, Art, Standort, Notiz, Licht und Menge; mehrere Wörter in beliebiger Reihenfolge
@@ -96,7 +96,7 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
 | Design | warme Grün- und Erdtöne, hell und dunkel, System-Schriften, `env(safe-area-inset-*)` |
 | Speicher | `localStorage`, Schlüssel `pg_data` |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v2.3.1` |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v2.4.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
 | Push | Web Push API + VAPID, pywebpush, systemd-Timer alle 15 Minuten |
 | Hosting | LXC Container auf Proxmox |
@@ -264,6 +264,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v2.4.0** | Zwölf Kakteen, Winterruhe in der Artenliste (91 Arten) |
 | **v2.3.0** | Erledigtes für zurückliegende Tage nachtragbar |
 | **v2.2.0** | Ableger im Wasser mit Wasserwechsel-Erinnerung |
 | **v2.1.0** | Mehrere Pflanzen in einem Topf, Wassermenge aus dem Topfdurchmesser |
