@@ -411,6 +411,31 @@ a{color:var(--blue);text-decoration:none}
 .runde-naechste{text-align:center;color:var(--text-3);font-size:13px;margin:16px 0 0}
 
 /* Problem-Hilfe */
+/* Behandlungsplan */
+.aktion-knopf{display:block;width:100%;margin-top:12px;padding:9px 12px;border-radius:12px;
+  background:color-mix(in srgb, var(--accent) 14%, transparent);color:var(--accent);
+  font-size:14.5px;font-weight:600;text-align:center}
+.aktion-knopf:active{background:color-mix(in srgb, var(--accent) 24%, transparent)}
+.plan-block{background:var(--surface);border-radius:var(--r-lg);padding:14px 16px;
+  margin-bottom:10px;box-shadow:var(--schatten)}
+.plan-wann{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--accent);margin-bottom:8px}
+.plan-schritt{font-size:15px;line-height:1.45;color:var(--text-2);
+  padding-left:16px;position:relative;margin-bottom:7px}
+.plan-schritt:last-child{margin-bottom:0}
+.plan-schritt::before{content:'';position:absolute;left:0;top:8px;width:6px;height:6px;
+  border-radius:50%;background:var(--surface-3)}
+
+/* Laufende Behandlung in der Pflanze */
+.karte.behandlung{border:1px solid color-mix(in srgb, var(--accent) 35%, transparent)}
+.beh-fortschritt{display:flex;align-items:center;gap:10px;margin:8px 0 4px}
+.beh-balken{flex:1;height:6px;border-radius:3px;background:var(--surface-3);overflow:hidden}
+.beh-balken i{display:block;height:100%;background:var(--accent);border-radius:3px;
+  transition:width .3s}
+.beh-fortschritt span{font-size:12.5px;color:var(--text-2);font-variant-numeric:tabular-nums}
+.beh-seit{font-size:12.5px;color:var(--text-3);margin-bottom:4px}
+.beh-warten{font-size:14px;color:var(--text-2);line-height:1.45;padding:10px 0 2px}
+
 .problem{display:flex;align-items:center;gap:14px;width:100%;background:var(--surface);
   border-radius:var(--r);padding:14px 16px;margin-bottom:8px;text-align:left;
   box-shadow:var(--schatten)}

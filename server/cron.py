@@ -84,15 +84,43 @@ def eff_intervall(pflanze, einstellungen):
     return max(1, round(intervall * faktor))
 
 
+def behandlungs_schritte(pflanze, heute):
+    """Wie viele Schritte einer laufenden Behandlung heute offen sind.
+
+    Der Plan selbst steht nur im Frontend – hier zählt allein, wie viele
+    Schritte fällig und noch nicht abgehakt sind. Dafür reicht die Liste der
+    Tagesabstände, die beim Start mitgeschrieben wird.
+    """
+    b = pflanze.get("behandlung") or {}
+    start = als_datum(b.get("start"))
+    tage = b.get("tage")
+    if not start or not isinstance(tage, list):
+        return 0
+    erledigt = set(b.get("erledigt") or [])
+    offen = 0
+    for i, versatz in enumerate(tage):
+        try:
+            faellig = start + timedelta(days=int(versatz))
+        except (TypeError, ValueError):
+            continue
+        if i not in erledigt and faellig <= heute:
+            offen += 1
+    return offen
+
+
 def offene_punkte(daten):
-    """Was heute ansteht: (Gießen, Wasserwechsel, Nachfüllen, Aufgaben)."""
+    """Was heute ansteht: (Gießen, Wasserwechsel, Nachfüllen, Aufgaben, Behandlung)."""
     einstellungen = daten.get("settings") or {}
     heute = date.today()
-    giessen, wechseln, nachfuellen, aufgaben = [], [], [], []
+    giessen, wechseln, nachfuellen, aufgaben, behandlung = [], [], [], [], []
 
     for p in daten.get("plants") or []:
         if p.get("archiviert"):
             continue                      # archivierte zählen nirgends mit
+
+        if behandlungs_schritte(p, heute):
+            b = p.get("behandlung") or {}
+            behandlung.append((p.get("name") or "Pflanze", b.get("was") or "Behandlung"))
 
         letzt = als_datum(p.get("letzt"))
         if letzt and letzt + timedelta(days=eff_intervall(p, einstellungen)) <= heute:
@@ -117,7 +145,7 @@ def offene_punkte(daten):
             if faellig <= heute:
                 aufgaben.append((p.get("name") or "Pflanze", a["verb"]))
 
-    return giessen, wechseln, nachfuellen, aufgaben
+    return giessen, wechseln, nachfuellen, aufgaben, behandlung
 
 
 def aufzaehlung(namen, einzahl, mehrzahl, gekuerzt):
@@ -130,9 +158,20 @@ def aufzaehlung(namen, einzahl, mehrzahl, gekuerzt):
     return gekuerzt.format(namen[0], namen[1], anzahl - 2)
 
 
-def nachricht(giessen, wechseln, nachfuellen, aufgaben):
+def nachricht(giessen, wechseln, nachfuellen, aufgaben, behandlung):
     """Titel und Text. Gießen steht vorne, weil es das Dringendere ist."""
     teile = []
+
+    # Eine laufende Behandlung geht vor: Wer den Termin verpasst, fängt bei
+    # Schädlingen praktisch von vorne an.
+    if behandlung:
+        if len(behandlung) == 1:
+            name, was = behandlung[0]
+            teile.append(f"{name}: nächster Schritt gegen {was}.")
+        else:
+            namen = ", ".join(n for n, _ in behandlung[:3])
+            rest = "" if len(behandlung) <= 3 else f" und {len(behandlung) - 3} weitere"
+            teile.append(f"Behandlung fällig bei {namen}{rest}.")
 
     if giessen:
         teile.append(aufzaehlung(giessen,
@@ -168,7 +207,8 @@ def nachricht(giessen, wechseln, nachfuellen, aufgaben):
         satz = ", ".join(stuecke) + "."
         teile.append(("Außerdem: " + satz) if teile else satz[0].upper() + satz[1:])
 
-    titel = ("Zeit zum Gießen" if giessen
+    titel = ("Behandlung fällig" if behandlung
+             else "Zeit zum Gießen" if giessen
              else "Frisches Wasser" if wechseln
              else "Wasserstand prüfen" if nachfuellen
              else "Pflanzenpflege")
@@ -208,14 +248,14 @@ def main_lauf():
             uebersprungen += 1
             continue
 
-        giessen, wechseln, nachfuellen, aufgaben = offene_punkte(json.loads(datensatz.inhalt))
-        if not giessen and not wechseln and not nachfuellen and not aufgaben:
+        punkte = offene_punkte(json.loads(datensatz.inhalt))
+        if not any(punkte):
             # Nichts zu tun – Tag abhaken, damit nicht alle 15 Minuten gerechnet wird
             abo.zuletzt = heute_iso
             uebersprungen += 1
             continue
 
-        titel, text = nachricht(giessen, wechseln, nachfuellen, aufgaben)
+        titel, text = nachricht(*punkte)
         if TROCKEN:
             benutzer = s.get(main.User, abo.user_id)
             print(f"  [trocken] an {benutzer.name if benutzer else abo.user_id}: {titel} – {text}")

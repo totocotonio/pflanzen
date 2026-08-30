@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** ✅ Live (v2.5.1)
+**Status:** ✅ Live (v2.6.0)
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -51,6 +51,7 @@ Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in 
 ✅ **Alle auf einmal** – ein Knopf hakt alle fälligen Pflanzen ab, Rückgängig nimmt den ganzen Schwung zurück
 ✅ **Gieß-Runde** – führt nach Standort geordnet durch die Wohnung, eine Pflanze nach der anderen
 ✅ **Problem-Hilfe** – zehn typische Symptome mit Ursachen und Maßnahmen, abgeglichen mit den Werten der Pflanze
+✅ **Behandlungspläne** – steht die Ursache fest, läuft der passende Plan als Aufgabe mit: Schritte mit Abstand in Tagen, Fortschritt, Push. 26 Pläne, weil bei Schädlingen die Wiederholung entscheidet
 ✅ **Urlaubsmodus** – Zeitraum eingeben: was vorher zu gießen ist, was währenddessen fällig wird, als Liste zum Weitergeben
 ✅ **Verlauf** – die letzten acht Gieß- und Düngevorgänge je Pflanze
 ✅ **Beispielpflanzen** – acht typische Zimmerpflanzen auf Knopfdruck, angeboten auf dem leeren Startbildschirm
@@ -98,7 +99,7 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
 | Design | warme Grün- und Erdtöne, hell und dunkel, System-Schriften, `env(safe-area-inset-*)` |
 | Speicher | `localStorage`, Schlüssel `pg_data` |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v2.5.1` |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v2.6.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
 | Push | Web Push API + VAPID, pywebpush, systemd-Timer alle 15 Minuten |
 | Hosting | LXC Container auf Proxmox |
@@ -266,6 +267,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v2.6.0** | Behandlungspläne: Ursache auswählen, Schritte über Wochen mitverfolgen |
 | **v2.5.1** | Vorschlagslisten für Name und Art alphabetisch |
 | **v2.5.0** | Semi-Hydrokultur, Update-Hinweis, schärfere Fotos |
 | **v2.4.0** | Zwölf Kakteen, Winterruhe in der Artenliste (91 Arten) |

@@ -1,5 +1,35 @@
 # Changelog
 
+## v2.6.0 - 2026-08-30
+
+### Behandlungspläne
+
+- Bisher endete die Problem-Hilfe beim Ratschlag: Symptom wählen, mögliche
+  Ursachen lesen – und dann? Wer die Ursache erkannt hatte, konnte das nirgends
+  festhalten.
+- Jede Ursache hat jetzt einen Knopf **„Das ist es → Behandlungsplan"**. Der
+  Plan besteht aus Schritten mit Abstand in Tagen, gruppiert nach „Sofort",
+  „Nach 3 Tagen", „Nach 2 Wochen".
+- **Behandlung starten** hängt den Plan an die Pflanze. Von da an meldet er sich
+  wie jede andere Aufgabe: in der Tagesansicht unter „Behandlung", in der
+  Pflanze als eigene Karte mit Fortschritt, und per Push.
+- Ist der letzte Schritt abgehakt, endet die Behandlung von selbst. Vorzeitig
+  beenden geht auch, mit Rückfrage bei offenen Schritten.
+- Warum das der Kern der Sache ist: **Bei Schädlingen entscheidet die
+  Wiederholung.** Eine einmalige Behandlung erwischt nie alle Eier, drei Wochen
+  später ist der Befall zurück. Deshalb hat der Spinnmilben-Plan drei
+  Durchgänge im Abstand von fünf Tagen und die Trauermücken bekommen ihre
+  zweite Nematoden-Gabe nach zwei Wochen.
+- 26 Pläne zu den zehn Symptomen, von der Wurzelfäule (austopfen, schneiden,
+  umsetzen, drei Wochen beobachten) bis zur fehlenden Ruhephase (zehn Wochen
+  kühl und trocken).
+- Nur „Natürliche Alterung" hat keinen Plan – ein altes Blatt entfernt man
+  einmal und ist fertig.
+- Der Push-Versand kennt die Pläne nicht. Damit er trotzdem rechnen kann,
+  schreibt die App die Tagesabstände beim Start mit in den Datensatz.
+- Eine laufende Behandlung geht in der Push-Nachricht vor dem Gießen: Wer den
+  Termin verpasst, fängt praktisch von vorne an.
+
 ## v2.5.1 - 2026-08-30
 
 - Die Vorschlagslisten für **Name** und **Art** standen in der Reihenfolge, in

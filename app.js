@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '2.5.1';
+const VERSION = '2.6.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -474,6 +474,12 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '2.6.0', datum: '30.08.2026', punkte: [
+    'Steht die Ursache fest, lässt sie sich jetzt auswählen: „Das ist es“ öffnet den passenden Behandlungsplan.',
+    'Der Plan hat Schritte mit Abstand in Tagen und läuft als eigene Aufgabe mit – in der Tagesansicht, in der Pflanze und per Push.',
+    'Gerade bei Schädlingen entscheidet die Wiederholung: eine einzelne Behandlung erwischt nie alle Eier.',
+    '26 Pläne zu den zehn Symptomen, vom Tauchbad bis zur dreifachen Spinnmilben-Behandlung.'
+  ]},
   { v: '2.5.1', datum: '30.08.2026', punkte: [
     'Die Vorschläge für Name und Art stehen jetzt alphabetisch, vorher in der Reihenfolge, in der sie eingepflegt wurden.'
   ]},
@@ -945,7 +951,8 @@ function renderHeute() {
     return;
   }
 
-  if (!faellig.length && !bald.length) {
+  if (!faellig.length && !bald.length && !faelligeAufgaben().length
+      && !faelligeBehandlungen().length) {
     const naechst = liste.slice().sort((a, b) => tageBis(a) - tageBis(b))[0];
     box.innerHTML = `<div class="empty"><div class="big">✅</div>
       <p><b>Alles gegossen</b></p>
@@ -967,6 +974,22 @@ function renderHeute() {
     html += `<div class="section-title">Demnächst</div>`;
     html += bald.sort((a, b) => tageBis(a) - tageBis(b)).map(plantRow).join('');
   }
+  const behandlungen = faelligeBehandlungen();
+  if (behandlungen.length) {
+    html += `<div class="section-title">Behandlung</div>`;
+    html += behandlungen.map(({ pflanze, offen }) => `
+      <div class="plant" data-open="${pflanze.id}">
+        ${avatarHTML(pflanze)}
+        <div class="info">
+          <div class="nm">${esc(pflanze.name)}</div>
+          <div class="meta">${esc(behandlungVon(pflanze).ursache.was)} · ${
+            offen.length === 1 ? 'ein Schritt' : offen.length + ' Schritte'} offen</div>
+        </div>
+        <button class="water-btn due" data-beh-schritt="${offen[0].i}" data-pid="${pflanze.id}"
+          title="${esc(offen[0].text)}">${behandlungVon(pflanze).problem.emoji}</button>
+      </div>`).join('');
+  }
+
   const pflege = faelligeAufgaben();
   if (pflege.length) {
     html += `<div class="section-title">Weitere Pflege</div>`;
@@ -1992,83 +2015,264 @@ function rundeSchritt(was) {
 /* ---------- Problem-Hilfe ----------
    Symptom auswählen, mögliche Ursachen und Maßnahmen lesen. Wird die Hilfe aus
    einer Pflanze heraus geöffnet, prüft `pruefungen` deren tatsächliche Werte
-   und stellt passende Hinweise nach oben. */
+   und stellt passende Hinweise nach oben.
+
+   Steht die Ursache fest, gibt es zu den meisten einen Behandlungsplan: eine
+   Folge von Schritten mit Abstand in Tagen. Das ist bei Schädlingen der
+   entscheidende Punkt – eine einmalige Behandlung erwischt nie alle Eier, und
+   genau daran scheitern die meisten Versuche. `tag` zählt ab dem Start.
+
+   Ursachen ohne `plan` brauchen keinen: Ein altes Blatt entfernt man einmal
+   und ist fertig. */
 const PROBLEME = [
   {
     id: 'gelbe-blaetter', emoji: '🟡', titel: 'Gelbe Blätter',
     ursachen: [
-      { was: 'Zu viel Wasser', tun: 'Häufigste Ursache. Erde antrocknen lassen, Untersetzer leeren, Intervall verlängern. Riecht die Erde faulig, umtopfen und faule Wurzeln abschneiden.' },
-      { was: 'Zu wenig Wasser', tun: 'Ist die Erde staubtrocken und der Ballen von der Topfwand abgelöst: durchdringend wässern oder eine halbe Stunde tauchen.' },
-      { was: 'Nährstoffmangel', tun: 'Gleichmäßig hellgelbe Blätter bei grünen Adern deuten auf Eisenmangel. In der Wachstumszeit alle zwei bis vier Wochen düngen.' },
+      { was: 'Zu viel Wasser', tun: 'Häufigste Ursache. Erde antrocknen lassen, Untersetzer leeren, Intervall verlängern. Riecht die Erde faulig, umtopfen und faule Wurzeln abschneiden.',
+        plan: [
+          { tag: 0, text: 'Untersetzer leeren. Erde zwei Zentimeter tief mit dem Finger prüfen – nass, feucht oder trocken?' },
+          { tag: 0, text: 'Nicht gießen. Blätter, die schon weich und gelb sind, werden nicht mehr grün: abschneiden.' },
+          { tag: 3, text: 'Erde erneut prüfen. Riecht sie faulig oder ist sie immer noch nass, austopfen und die Wurzeln ansehen.' },
+          { tag: 7, text: 'Erst gießen, wenn die oberen zwei Zentimeter trocken sind.' },
+          { tag: 14, text: 'Bilanz: Keine neuen gelben Blätter? Dann das Gießintervall dauerhaft um etwa ein Drittel verlängern.' }
+        ] },
+      { was: 'Zu wenig Wasser', tun: 'Ist die Erde staubtrocken und der Ballen von der Topfwand abgelöst: durchdringend wässern oder eine halbe Stunde tauchen.',
+        plan: [
+          { tag: 0, text: 'Topf 20 bis 30 Minuten in lauwarmes Wasser stellen, bis keine Blasen mehr aufsteigen.' },
+          { tag: 0, text: 'Gut abtropfen lassen, danach den Untersetzer leeren.' },
+          { tag: 2, text: 'Erholt sie sich? Vertrocknete Blätter jetzt abschneiden.' },
+          { tag: 7, text: 'Normal weitergießen – und das Gießintervall verkürzen, damit es nicht wieder so weit kommt.' }
+        ] },
+      { was: 'Nährstoffmangel', tun: 'Gleichmäßig hellgelbe Blätter bei grünen Adern deuten auf Eisenmangel. In der Wachstumszeit alle zwei bis vier Wochen düngen.',
+        plan: [
+          { tag: 0, text: 'Flüssigdünger in halber Dosis auf feuchte Erde geben – nie auf trockene, das verbrennt die Wurzeln.' },
+          { tag: 14, text: 'Zweite Gabe, jetzt in voller Dosis.' },
+          { tag: 28, text: 'Dritte Gabe. Die neu austreibenden Blätter sollten kräftiger grün sein als die alten.' },
+          { tag: 42, text: 'Bilanz: Keine Besserung? Dann liegt es nicht am Dünger – Wurzeln und Lichtverhältnisse prüfen.' }
+        ] },
       { was: 'Natürliche Alterung', tun: 'Einzelne untere Blätter gelb und dann braun: normal, einfach entfernen.' }
     ]
   },
   {
     id: 'braune-spitzen', emoji: '🟤', titel: 'Braune Blattspitzen',
     ursachen: [
-      { was: 'Trockene Luft', tun: 'Typisch im Winter über der Heizung. Luftfeuchte erhöhen, Pflanze umstellen, Blätter besprühen (nicht bei samtigen Blättern).' },
-      { was: 'Kalk im Wasser', tun: 'Abgestandenes, weiches Wasser nehmen oder Regenwasser sammeln. Betrifft besonders Grünlilie, Drachenbaum und Calathea.' },
-      { was: 'Zu viel Dünger', tun: 'Salzränder auf der Erde? Ein bis zwei Monate nicht düngen, den Ballen mit klarem Wasser durchspülen.' }
+      { was: 'Trockene Luft', tun: 'Typisch im Winter über der Heizung. Luftfeuchte erhöhen, Pflanze umstellen, Blätter besprühen (nicht bei samtigen Blättern).',
+        plan: [
+          { tag: 0, text: 'Braune Spitzen mit einer sauberen Schere abschneiden, einen schmalen braunen Rand stehen lassen.' },
+          { tag: 0, text: 'Von der Heizung wegstellen oder eine Schale mit Wasser und Blähton danebenstellen.' },
+          { tag: 7, text: 'Neue braune Spitzen? Dann Luftfeuchte weiter erhöhen – mehrere Pflanzen zusammenstellen hilft am meisten.' },
+          { tag: 21, text: 'Bilanz: Bleiben die frisch ausgetriebenen Blätter sauber, passt der Standort jetzt.' }
+        ] },
+      { was: 'Kalk im Wasser', tun: 'Abgestandenes, weiches Wasser nehmen oder Regenwasser sammeln. Betrifft besonders Grünlilie, Drachenbaum und Calathea.',
+        plan: [
+          { tag: 0, text: 'Ab jetzt abgestandenes, weiches Wasser oder Regenwasser verwenden.' },
+          { tag: 0, text: 'Den Ballen einmal mit reichlich weichem Wasser durchspülen, Untersetzer danach leeren.' },
+          { tag: 30, text: 'Oberste Erdschicht mit dem Kalkrand abtragen und durch frische Erde ersetzen.' },
+          { tag: 60, text: 'Bilanz: Die seither gewachsenen Blätter sollten keine braunen Spitzen haben.' }
+        ] },
+      { was: 'Zu viel Dünger', tun: 'Salzränder auf der Erde? Ein bis zwei Monate nicht düngen, den Ballen mit klarem Wasser durchspülen.',
+        plan: [
+          { tag: 0, text: 'Salzkruste von der Erdoberfläche abtragen.' },
+          { tag: 0, text: 'Erde durchspülen: die dreifache Topfmenge lauwarmes Wasser langsam durchlaufen lassen, Untersetzer mehrfach leeren.' },
+          { tag: 30, text: 'Weiter nicht düngen, nur gießen.' },
+          { tag: 60, text: 'Wieder anfangen zu düngen – dauerhaft in halber Dosis.' }
+        ] }
     ]
   },
   {
     id: 'haengende-blaetter', emoji: '🥀', titel: 'Blätter hängen',
     ursachen: [
-      { was: 'Durst', tun: 'Erde trocken? Dann gründlich gießen, die meisten Pflanzen erholen sich in wenigen Stunden.' },
-      { was: 'Wurzelfäule', tun: 'Hängende Blätter bei nasser Erde sind ein Alarmzeichen: Die Wurzeln nehmen kein Wasser mehr auf. Austopfen, faule braune Wurzeln entfernen, in frische Erde setzen und erst mal sparsam gießen.' },
-      { was: 'Zugluft oder Kälte', tun: 'Standort neben offenem Fenster oder Tür prüfen, besonders im Winter.' }
+      { was: 'Durst', tun: 'Erde trocken? Dann gründlich gießen, die meisten Pflanzen erholen sich in wenigen Stunden.',
+        plan: [
+          { tag: 0, text: 'Durchdringend gießen, bis unten Wasser austritt. Nach 20 Minuten den Untersetzer leeren.' },
+          { tag: 1, text: 'Steht sie wieder aufrecht? Dann war es nur Durst.' },
+          { tag: 7, text: 'Gießintervall dauerhaft verkürzen.' }
+        ] },
+      { was: 'Wurzelfäule', tun: 'Hängende Blätter bei nasser Erde sind ein Alarmzeichen: Die Wurzeln nehmen kein Wasser mehr auf. Austopfen, faule braune Wurzeln entfernen, in frische Erde setzen und erst mal sparsam gießen.',
+        plan: [
+          { tag: 0, text: 'Austopfen und die Wurzeln unter lauwarmem Wasser abspülen.' },
+          { tag: 0, text: 'Alle braunen, matschigen oder faulig riechenden Wurzeln bis ins Gesunde abschneiden. Gesunde Wurzeln sind hell und fest.' },
+          { tag: 0, text: 'In frische, lockere Erde setzen. Topf nur so groß wie nötig – und mit Abzugsloch.' },
+          { tag: 0, text: 'Sparsam angießen. Etwa ein Drittel der Blätter abschneiden, damit die verbliebenen Wurzeln nachkommen.' },
+          { tag: 3, text: 'Schattiger stellen: Ohne Wurzeln kann die Pflanze kaum Wasser nachliefern.' },
+          { tag: 7, text: 'Erste kleine Wassergabe – nur wenn die Erde oben trocken ist.' },
+          { tag: 21, text: 'Neuer Austrieb? Dann ist es überstanden. Erst jetzt wieder düngen.' }
+        ] },
+      { was: 'Zugluft oder Kälte', tun: 'Standort neben offenem Fenster oder Tür prüfen, besonders im Winter.',
+        plan: [
+          { tag: 0, text: 'Standort prüfen: Fenster, Türen, Klimaanlage, Lüftungsauslass. Pflanze umstellen.' },
+          { tag: 0, text: 'Topf von kalten Fliesen oder dem Fensterbrett auf eine Unterlage stellen.' },
+          { tag: 3, text: 'Erholt sie sich? Geschädigte Blätter entfernen.' },
+          { tag: 14, text: 'Bilanz ziehen. Kein Fortschritt? Dann lag es nicht am Standort.' }
+        ] }
     ]
   },
   {
     id: 'trauermuecken', emoji: '🦟', titel: 'Kleine schwarze Mücken',
     ursachen: [
-      { was: 'Trauermücken in der Erde', tun: 'Ihre Larven leben in dauerfeuchter Erde. Oberschicht abtrocknen lassen, von unten gießen, Gelbtafeln gegen die Fliegenden aufstellen. Bei starkem Befall Nematoden gießen oder die Erde tauschen.' },
-      { was: 'Zu feuchte Haltung', tun: 'Gießintervall verlängern – die Mücken verschwinden mit der Feuchtigkeit.' }
+      { was: 'Trauermücken in der Erde', tun: 'Ihre Larven leben in dauerfeuchter Erde. Oberschicht abtrocknen lassen, von unten gießen, Gelbtafeln gegen die Fliegenden aufstellen. Bei starkem Befall Nematoden gießen oder die Erde tauschen.',
+        plan: [
+          { tag: 0, text: 'Gelbtafeln aufstellen. Sie fangen die fliegenden Tiere und zeigen, wie stark der Befall ist.' },
+          { tag: 0, text: 'Ab jetzt von unten über den Untersetzer gießen, damit die Oberfläche abtrocknet.' },
+          { tag: 0, text: 'Erde mit einer Schicht Sand oder feinem Blähton abdecken – das hindert die Weibchen an der Eiablage.' },
+          { tag: 3, text: 'SF-Nematoden ins Gießwasser geben. Sie fressen die Larven und sind für Menschen und Haustiere harmlos.' },
+          { tag: 14, text: 'Zweite Nematoden-Gabe. Der Entwicklungszyklus dauert rund drei Wochen – ohne den zweiten Durchgang beginnt alles von vorn.' },
+          { tag: 28, text: 'Gelbtafeln kontrollieren. Kaum noch Tiere? Dann ist es überstanden.' }
+        ] },
+      { was: 'Zu feuchte Haltung', tun: 'Gießintervall verlängern – die Mücken verschwinden mit der Feuchtigkeit.',
+        plan: [
+          { tag: 0, text: 'Gießintervall verlängern, Untersetzer nach jedem Gießen leeren.' },
+          { tag: 0, text: 'Die obersten zwei Zentimeter zwischen den Gaben trocken werden lassen.' },
+          { tag: 21, text: 'Kontrolle: Ohne dauerfeuchte Oberfläche verschwinden die Mücken von selbst.' }
+        ] }
     ]
   },
   {
     id: 'schimmel', emoji: '⚪', titel: 'Weißer Belag auf der Erde',
     ursachen: [
-      { was: 'Schimmel', tun: 'Meist harmlos. Belag abtragen, Erde lockern, weniger gießen und für Luftbewegung sorgen.' },
-      { was: 'Kalkablagerungen', tun: 'Krustig und hart statt flauschig: Kalk aus dem Gießwasser. Oberschicht erneuern, weicheres Wasser nehmen.' }
+      { was: 'Schimmel', tun: 'Meist harmlos. Belag abtragen, Erde lockern, weniger gießen und für Luftbewegung sorgen.',
+        plan: [
+          { tag: 0, text: 'Belag mit einem Löffel abtragen und wegwerfen – nicht untermischen.' },
+          { tag: 0, text: 'Erde vorsichtig lockern, damit Luft hineinkommt.' },
+          { tag: 0, text: 'Weniger gießen, Untersetzer leeren, den Raum öfter lüften.' },
+          { tag: 7, text: 'Kommt der Belag wieder, die obersten drei Zentimeter Erde austauschen.' },
+          { tag: 21, text: 'Bilanz: Bleibt es sauber, lag es an der Feuchtigkeit.' }
+        ] },
+      { was: 'Kalkablagerungen', tun: 'Krustig und hart statt flauschig: Kalk aus dem Gießwasser. Oberschicht erneuern, weicheres Wasser nehmen.',
+        plan: [
+          { tag: 0, text: 'Kruste abtragen und die oberste Erdschicht erneuern.' },
+          { tag: 0, text: 'Auf abgestandenes weiches Wasser oder Regenwasser umstellen.' },
+          { tag: 60, text: 'Kontrolle: Mit weichem Wasser bildet sich keine neue Kruste.' }
+        ] }
     ]
   },
   {
     id: 'klebrig', emoji: '🐛', titel: 'Klebrige Blätter, kleine Tiere',
     ursachen: [
-      { was: 'Blattläuse', tun: 'Grüne oder schwarze Tierchen an Trieben. Abduschen, danach mit Schmierseifenlösung einsprühen, nach einer Woche wiederholen.' },
-      { was: 'Schildläuse', tun: 'Braune Höcker auf Blattunterseiten und Stielen. Einzeln abkratzen, dann mit Öl-Seifen-Mittel behandeln.' },
-      { was: 'Wollläuse', tun: 'Weiße Wattebäusche in Blattachseln. Mit einem in Spiritus getauchten Wattestäbchen betupfen.' }
+      { was: 'Blattläuse', tun: 'Grüne oder schwarze Tierchen an Trieben. Abduschen, danach mit Schmierseifenlösung einsprühen, nach einer Woche wiederholen.',
+        plan: [
+          { tag: 0, text: 'Pflanze von den anderen trennen – Blattläuse wandern.' },
+          { tag: 0, text: 'Ins Bad stellen und lauwarm abbrausen, Blattunterseiten nicht vergessen.' },
+          { tag: 0, text: 'Mit Schmierseifenlösung einsprühen (1 EL auf 1 Liter Wasser), tropfnass bis in die Blattachseln.' },
+          { tag: 3, text: 'Kontrolle. Noch Tiere zu sehen? Dann erneut einsprühen.' },
+          { tag: 7, text: 'Zweite Behandlung – sie erwischt die inzwischen geschlüpften.' },
+          { tag: 14, text: 'Dritte Kontrolle. Klebrige Rückstände mit einem feuchten Tuch abwischen, sonst siedelt sich Rußtau an.' },
+          { tag: 21, text: 'Sauber? Dann darf sie zurück zu den anderen Pflanzen.' }
+        ] },
+      { was: 'Schildläuse', tun: 'Braune Höcker auf Blattunterseiten und Stielen. Einzeln abkratzen, dann mit Öl-Seifen-Mittel behandeln.',
+        plan: [
+          { tag: 0, text: 'Pflanze von den anderen trennen.' },
+          { tag: 0, text: 'Alle Höcker einzeln mit Fingernagel oder weicher Bürste abkratzen – auch an Stielen und in Blattachseln.' },
+          { tag: 0, text: 'Mit einem Öl-Seifen-Mittel einsprühen. Der Ölfilm erstickt die Tiere, gegen ihren Schild hilft kaum etwas anderes.' },
+          { tag: 7, text: 'Zweite Behandlung.' },
+          { tag: 14, text: 'Dritte Behandlung. Unter drei Durchgängen wird man Schildläuse selten los.' },
+          { tag: 28, text: 'Gründliche Kontrolle: Blattunterseiten, Triebspitzen, Blattachseln.' },
+          { tag: 42, text: 'Nochmal kontrollieren. Erst dann zurück zu den anderen Pflanzen.' }
+        ] },
+      { was: 'Wollläuse', tun: 'Weiße Wattebäusche in Blattachseln. Mit einem in Spiritus getauchten Wattestäbchen betupfen.',
+        plan: [
+          { tag: 0, text: 'Pflanze von den anderen trennen.' },
+          { tag: 0, text: 'Jedes Wattenest einzeln mit einem in Spiritus getauchten Wattestäbchen betupfen.' },
+          { tag: 0, text: 'Blattachseln und Triebspitzen systematisch absuchen – dort sitzen sie am liebsten.' },
+          { tag: 7, text: 'Wiederholen. Aus übersehenen Eiern schlüpft ständig Nachschub.' },
+          { tag: 14, text: 'Dritter Durchgang.' },
+          { tag: 28, text: 'Kontrolle. Auch den Wurzelbereich ansehen: Es gibt Wurzelläuse, die genauso aussehen.' }
+        ] }
     ]
   },
   {
     id: 'spinnmilben', emoji: '🕸', titel: 'Feine Gespinste, gesprenkelte Blätter',
     ursachen: [
-      { was: 'Spinnmilben', tun: 'Kommen bei trockener Heizungsluft. Pflanze kräftig abbrausen, Luftfeuchte erhöhen, notfalls mit Rapsöl-Präparat behandeln. Befallene Pflanzen von anderen trennen.' }
+      { was: 'Spinnmilben', tun: 'Kommen bei trockener Heizungsluft. Pflanze kräftig abbrausen, Luftfeuchte erhöhen, notfalls mit Rapsöl-Präparat behandeln. Befallene Pflanzen von anderen trennen.',
+        plan: [
+          { tag: 0, text: 'Pflanze von den anderen trennen. Spinnmilben wandern über sich berührende Blätter.' },
+          { tag: 0, text: 'Kräftig abbrausen, besonders die Blattunterseiten.' },
+          { tag: 0, text: 'Mit Rapsöl-Präparat einsprühen, tropfnass bis in die Blattachseln.' },
+          { tag: 0, text: 'Luftfeuchte erhöhen – bei trockener Heizungsluft vermehren sie sich am schnellsten.' },
+          { tag: 5, text: 'Zweite Behandlung.' },
+          { tag: 10, text: 'Dritte Behandlung. Der Zyklus dauert je nach Wärme fünf bis zwölf Tage, deshalb die kurzen Abstände.' },
+          { tag: 21, text: 'Kontrolle: Pflanze mit Wasser besprühen, dann werden feine Gespinste sichtbar.' }
+        ] }
     ]
   },
   {
     id: 'kein-wachstum', emoji: '🌱', titel: 'Wächst nicht, wird lang und dünn',
     ursachen: [
-      { was: 'Zu wenig Licht', tun: 'Lange dünne Triebe mit weiten Abständen zwischen den Blättern: heller stellen. Im Winter reicht vielen Zimmerpflanzen das Licht am Fenster kaum.' },
-      { was: 'Topf zu klein', tun: 'Wurzeln wachsen unten aus dem Topf oder drehen sich im Kreis: in einen zwei bis vier Zentimeter größeren Topf umsetzen.' },
-      { was: 'Nährstoffe fehlen', tun: 'Steht sie länger als ein Jahr in derselben Erde ohne Dünger, ist alles aufgebraucht.' }
+      { was: 'Zu wenig Licht', tun: 'Lange dünne Triebe mit weiten Abständen zwischen den Blättern: heller stellen. Im Winter reicht vielen Zimmerpflanzen das Licht am Fenster kaum.',
+        plan: [
+          { tag: 0, text: 'Näher ans Fenster. Nach Süden mit etwas Abstand, nach Norden so nah wie möglich.' },
+          { tag: 0, text: 'Lange vergeilte Triebe zurückschneiden, damit sie buschig neu austreibt.' },
+          { tag: 14, text: 'Pflanze eine Vierteldrehung geben, damit sie gleichmäßig wächst.' },
+          { tag: 42, text: 'Bilanz: Neue Blätter sollten enger beieinander sitzen als die alten.' }
+        ] },
+      { was: 'Topf zu klein', tun: 'Wurzeln wachsen unten aus dem Topf oder drehen sich im Kreis: in einen zwei bis vier Zentimeter größeren Topf umsetzen.',
+        plan: [
+          { tag: 0, text: 'Austopfen und die Wurzeln ansehen: dichter Filz oder Kreisel am Topfboden?' },
+          { tag: 0, text: 'In einen zwei bis vier Zentimeter größeren Topf mit frischer Erde setzen. Größere Sprünge führen zu Staunässe.' },
+          { tag: 0, text: 'Angießen, danach zwei bis drei Wochen nicht düngen – frische Erde hat genug Nährstoffe.' },
+          { tag: 21, text: 'Wieder normal düngen.' },
+          { tag: 60, text: 'Bilanz: Neuer Austrieb ist das Zeichen, dass es der Topf war.' }
+        ] },
+      { was: 'Nährstoffe fehlen', tun: 'Steht sie länger als ein Jahr in derselben Erde ohne Dünger, ist alles aufgebraucht.',
+        plan: [
+          { tag: 0, text: 'Flüssigdünger in halber Dosis auf feuchte Erde geben.' },
+          { tag: 14, text: 'Zweite Gabe in voller Dosis.' },
+          { tag: 28, text: 'Dritte Gabe.' },
+          { tag: 56, text: 'Bilanz: Kein neuer Austrieb? Dann war es nicht der Dünger, sondern eher Licht oder Wurzeln.' }
+        ] }
     ]
   },
   {
     id: 'blattfall', emoji: '🍂', titel: 'Plötzlicher Blattfall',
     ursachen: [
-      { was: 'Standortwechsel', tun: 'Besonders Ficus reagiert empfindlich. Zurückstellen oder Geduld: Nach der Umgewöhnung treibt er neu aus.' },
-      { was: 'Kalte Füße', tun: 'Topf auf kaltem Steinboden oder Fensterbrett. Untersetzer aus Kork oder Filz darunter legen.' },
-      { was: 'Trockenstress', tun: 'Einmal komplett ausgetrocknet? Dann wirft die Pflanze Blätter ab, um zu überleben.' }
+      { was: 'Standortwechsel', tun: 'Besonders Ficus reagiert empfindlich. Zurückstellen oder Geduld: Nach der Umgewöhnung treibt er neu aus.',
+        plan: [
+          { tag: 0, text: 'Stehen lassen, wo sie steht. Jeder weitere Wechsel kostet zusätzlich Blätter.' },
+          { tag: 0, text: 'Gleichmäßig, aber weniger gießen – ohne Blätter verbraucht sie deutlich weniger.' },
+          { tag: 0, text: 'Nicht düngen. Eine geschwächte Pflanze kann damit nichts anfangen.' },
+          { tag: 21, text: 'An den Trieben nach neuen Knospen suchen.' },
+          { tag: 42, text: 'Treibt sie aus? Dann wieder normal gießen und düngen.' }
+        ] },
+      { was: 'Kalte Füße', tun: 'Topf auf kaltem Steinboden oder Fensterbrett. Untersetzer aus Kork oder Filz darunter legen.',
+        plan: [
+          { tag: 0, text: 'Topf auf eine Unterlage aus Kork, Filz oder Styropor stellen.' },
+          { tag: 0, text: 'Weniger gießen: In kalter Erde nehmen die Wurzeln kaum Wasser auf.' },
+          { tag: 14, text: 'Kontrolle, ob der Blattfall aufhört.' }
+        ] },
+      { was: 'Trockenstress', tun: 'Einmal komplett ausgetrocknet? Dann wirft die Pflanze Blätter ab, um zu überleben.',
+        plan: [
+          { tag: 0, text: 'Ballen tauchen, bis keine Blasen mehr aufsteigen, danach gut abtropfen lassen.' },
+          { tag: 0, text: 'Kahle Triebe noch nicht abschneiden. Erst mit dem Fingernagel an der Rinde prüfen, was darunter noch grün ist.' },
+          { tag: 7, text: 'Erneut gießen, jetzt in kürzerem Abstand als vorher.' },
+          { tag: 28, text: 'Bilanz: Was bis hierher nicht ausgetrieben hat, ist tot und kann weg.' }
+        ] }
     ]
   },
   {
     id: 'keine-blueten', emoji: '🌸', titel: 'Blüht nicht',
     ursachen: [
-      { was: 'Zu wenig Licht', tun: 'Blühpflanzen brauchen deutlich mehr Licht als Grünpflanzen.' },
-      { was: 'Falscher Dünger', tun: 'Stickstoffbetonter Dünger fördert Blätter statt Blüten. Blühpflanzendünger mit mehr Phosphor nehmen.' },
-      { was: 'Ruhephase fehlt', tun: 'Viele Arten – Weihnachtskaktus, Orchidee, Amaryllis – brauchen im Winter einige Wochen kühler und trockener, um Blüten anzusetzen.' }
+      { was: 'Zu wenig Licht', tun: 'Blühpflanzen brauchen deutlich mehr Licht als Grünpflanzen.',
+        plan: [
+          { tag: 0, text: 'An den hellsten Platz stellen, den die Wohnung hergibt.' },
+          { tag: 0, text: 'Verblühtes und Samenstände entfernen – die kosten Kraft, die für neue Knospen fehlt.' },
+          { tag: 30, text: 'Auf Knospenansätze kontrollieren.' },
+          { tag: 60, text: 'Bilanz ziehen.' }
+        ] },
+      { was: 'Falscher Dünger', tun: 'Stickstoffbetonter Dünger fördert Blätter statt Blüten. Blühpflanzendünger mit mehr Phosphor nehmen.',
+        plan: [
+          { tag: 0, text: 'Auf Blühpflanzendünger umstellen: mehr Phosphor, weniger Stickstoff.' },
+          { tag: 14, text: 'Zweite Gabe.' },
+          { tag: 28, text: 'Dritte Gabe.' },
+          { tag: 56, text: 'Bilanz: Knospen zeigen sich meist nach sechs bis acht Wochen.' }
+        ] },
+      { was: 'Ruhephase fehlt', tun: 'Viele Arten – Weihnachtskaktus, Orchidee, Amaryllis – brauchen im Winter einige Wochen kühler und trockener, um Blüten anzusetzen.',
+        plan: [
+          { tag: 0, text: 'Kühler stellen. 10 bis 15 Grad sind das Ziel – Schlafzimmer, Flur oder Treppenhaus.' },
+          { tag: 0, text: 'Deutlich weniger gießen: nur so viel, dass sie nicht vertrocknet.' },
+          { tag: 0, text: 'Düngen einstellen.' },
+          { tag: 42, text: 'Halbzeit. Weiter kühl und trocken halten, auch wenn nichts passiert.' },
+          { tag: 70, text: 'Ruhephase beenden: wärmer stellen, wieder normal gießen und düngen. Jetzt sollten Knospen kommen.' }
+        ] }
     ]
   }
 ];
@@ -2106,9 +2310,15 @@ function pflanzenPruefung(p) {
   return hinweise;
 }
 
+/* Aus welcher Pflanze heraus die Hilfe geöffnet wurde. Entscheidet später,
+   ob eine Behandlung direkt gestartet werden kann oder erst gefragt wird,
+   für welche Pflanze sie gilt. */
+let hilfePflanze = null;
+
 /** Öffnet die Hilfe, optional im Bezug auf eine bestimmte Pflanze. */
 function hilfeOeffnen(pid) {
   const p = pid ? DB.plants.find(x => x.id === pid) : null;
+  hilfePflanze = p ? p.id : null;
   const pruefung = pflanzenPruefung(p);
 
   $('#hilfe-titel').textContent = p ? 'Hilfe zu ' + p.name : 'Was ist los mit der Pflanze?';
@@ -2133,12 +2343,222 @@ function problemZeigen(id) {
   $('#hilfe-titel').textContent = pr.emoji + ' ' + pr.titel;
   $('#hilfe-inhalt').innerHTML =
     `<div class="section-title">Mögliche Ursachen</div>` +
-    pr.ursachen.map(u => `
+    pr.ursachen.map((u, i) => `
       <div class="card">
         <b style="display:block;margin-bottom:5px">${esc(u.was)}</b>
         <span style="color:var(--text-2);font-size:15px;line-height:1.45">${esc(u.tun)}</span>
+        ${u.plan ? `<button class="aktion-knopf" data-plan="${pr.id}" data-idx="${i}">
+          Das ist es → Behandlungsplan (${u.plan.length} Schritte)</button>` : ''}
       </div>`).join('') +
     `<button class="btn sec" data-problem-zurueck>Zurück zur Übersicht</button>`;
+}
+
+/* ---------- Behandlungen ----------
+   Steht die Ursache fest, hilft ein Ratschlag allein wenig: Bei Schädlingen
+   entscheidet die Wiederholung. Eine einmalige Behandlung erwischt nie alle
+   Eier, drei Wochen später ist der Befall zurück – daran scheitern die
+   meisten Versuche.
+
+   Eine laufende Behandlung hängt deshalb als `behandlung` an der Pflanze und
+   meldet sich wie jede andere Aufgabe: in der Tagesansicht, in der
+   Detailansicht und per Push. Mehr als eine gleichzeitig gibt es nicht, das
+   wäre nicht mehr zu überblicken. */
+
+/** Die laufende Behandlung mit ihren Stammdaten, oder null. */
+function behandlungVon(p) {
+  const b = p && p.behandlung;
+  if (!b || !b.start) return null;
+  const problem = PROBLEME.find(x => x.id === b.problem);
+  const ursache = problem && problem.ursachen[b.ursache];
+  if (!ursache || !ursache.plan) return null;
+  return { b, problem, ursache, plan: ursache.plan };
+}
+
+/** Alle Schritte mit Fälligkeitsdatum und Zustand. */
+function behandlungSchritte(p) {
+  const bh = behandlungVon(p);
+  if (!bh) return [];
+  const erledigt = new Set(bh.b.erledigt || []);
+  return bh.plan.map((s, i) => {
+    const faellig = fromISO(bh.b.start);
+    faellig.setDate(faellig.getDate() + s.tag);
+    return {
+      i, text: s.text, tag: s.tag,
+      faellig: toISO(faellig),
+      tage: tageDiff(heute0(), faellig),
+      erledigt: erledigt.has(i)
+    };
+  });
+}
+
+/** Was heute ansteht – auch alles Liegengebliebene. */
+function behandlungOffen(p) {
+  return behandlungSchritte(p).filter(s => !s.erledigt && s.tage <= 0);
+}
+
+/** Fällige Behandlungsschritte über alle Pflanzen. */
+function faelligeBehandlungen() {
+  const raus = [];
+  for (const p of aktive()) {
+    const offen = behandlungOffen(p);
+    if (offen.length) raus.push({ pflanze: p, offen });
+  }
+  return raus;
+}
+
+/** „Sofort“, „Nach 3 Tagen“, „Nach 2 Wochen“ – der Abstand zum Start. */
+function tagText(tag) {
+  if (tag === 0) return 'Sofort';
+  if (tag === 1) return 'Am nächsten Tag';
+  if (tag % 7 === 0) {
+    const w = tag / 7;
+    return 'Nach ' + (w === 1 ? 'einer Woche' : w + ' Wochen');
+  }
+  return 'Nach ' + tag + ' Tagen';
+}
+
+/** Zeigt den Plan zu einer Ursache, mit Weg zum Start. */
+function planZeigen(problemId, index) {
+  const problem = PROBLEME.find(x => x.id === problemId);
+  const ursache = problem && problem.ursachen[Number(index)];
+  if (!ursache || !ursache.plan) return;
+
+  // Schritte mit gleichem Abstand unter eine Überschrift
+  const gruppen = [];
+  for (const s of ursache.plan) {
+    const letzte = gruppen[gruppen.length - 1];
+    if (letzte && letzte.tag === s.tag) letzte.texte.push(s.text);
+    else gruppen.push({ tag: s.tag, texte: [s.text] });
+  }
+
+  const dauer = ursache.plan[ursache.plan.length - 1].tag;
+  const p = hilfePflanze ? DB.plants.find(x => x.id === hilfePflanze) : null;
+  const laeuft = p && behandlungVon(p);
+
+  $('#hilfe-titel').textContent = ursache.was;
+  $('#hilfe-inhalt').innerHTML =
+    `<div class="karte karte-ruhig" style="color:var(--text-2);line-height:1.5">${esc(ursache.tun)}</div>` +
+    `<div class="section-title mit-aktion"><span>Behandlungsplan</span>` +
+    `<span style="text-transform:none;letter-spacing:0;font-weight:400">${
+      ursache.plan.length} Schritte · ${dauer === 0 ? 'ein Tag' : dauer + ' Tage'}</span></div>` +
+    gruppen.map(g => `
+      <div class="plan-block">
+        <div class="plan-wann">${tagText(g.tag)}</div>
+        ${g.texte.map(t => `<div class="plan-schritt">${esc(t)}</div>`).join('')}
+      </div>`).join('') +
+    (laeuft
+      ? `<div class="karte karte-ruhig" style="color:var(--text-2)">Für ${esc(p.name)} läuft bereits
+           eine Behandlung. Sie muss erst beendet werden.</div>`
+      : p
+        ? `<button class="btn" data-beh-start="${problemId}" data-idx="${index}" data-pid="${p.id}">
+             Behandlung für ${esc(p.name)} starten</button>`
+        : `<div class="section-title">Für welche Pflanze?</div>` +
+          (aktive().length
+            ? aktive().map(x => `
+                <button class="problem" data-beh-start="${problemId}" data-idx="${index}" data-pid="${x.id}">
+                  <span class="problem-emoji">${x.emoji || '🪴'}</span>
+                  <span class="problem-titel">${esc(x.name)}${
+                    behandlungVon(x) ? ' · läuft schon' : ''}</span>
+                  <span class="problem-pfeil">›</span>
+                </button>`).join('')
+            : `<div class="karte karte-ruhig" style="color:var(--text-2)">Noch keine Pflanzen angelegt.</div>`)) +
+    `<button class="btn sec" data-problem-zurueck="${problemId}">Zurück</button>`;
+}
+
+/** Legt die Behandlung an und macht sie zur laufenden Aufgabe. */
+function behandlungStarten(pid, problemId, index) {
+  const p = DB.plants.find(x => x.id === pid);
+  const problem = PROBLEME.find(x => x.id === problemId);
+  const ursache = problem && problem.ursachen[Number(index)];
+  if (!p || !ursache || !ursache.plan) return;
+  if (behandlungVon(p)) { toast('Für ' + p.name + ' läuft schon eine Behandlung'); return; }
+
+  // `tage` und `was` sind für den Server: Der Push-Versand kennt die Pläne
+  // nicht und braucht die Abstände, um Fälligkeit zu rechnen.
+  p.behandlung = {
+    problem: problemId, ursache: Number(index),
+    start: toISO(new Date()), erledigt: [],
+    tage: ursache.plan.map(x => x.tag),
+    was: ursache.was
+  };
+  DB.logs.push({ id: uid(), plantId: pid, typ: 'behandlung-start',
+                 text: ursache.was, ts: Date.now() });
+  save();
+  renderAll();
+  closeSheets();
+  setTimeout(() => openDetail(pid), 180);
+  toast('Behandlung gestartet: ' + ursache.was);
+}
+
+function behandlungSchrittErledigt(pid, i) {
+  const p = DB.plants.find(x => x.id === pid);
+  const bh = behandlungVon(p);
+  if (!bh) return;
+  const nummer = Number(i);
+  const erledigt = new Set(bh.b.erledigt || []);
+  if (erledigt.has(nummer)) return;
+  erledigt.add(nummer);
+  bh.b.erledigt = Array.from(erledigt).sort((a, b) => a - b);
+
+  const fertig = bh.b.erledigt.length >= bh.plan.length;
+  if (fertig) {
+    DB.logs.push({ id: uid(), plantId: pid, typ: 'behandlung-ende',
+                   text: bh.ursache.was, ts: Date.now() });
+    delete p.behandlung;
+  }
+  save();
+  renderAll();
+  if ($('#sheet-detail').classList.contains('open')) openDetail(pid);
+  if (navigator.vibrate) navigator.vibrate(12);
+  toast(fertig ? '✅ Behandlung abgeschlossen: ' + bh.ursache.was
+               : 'Schritt erledigt · noch ' + (bh.plan.length - bh.b.erledigt.length));
+}
+
+function behandlungBeenden(pid) {
+  const p = DB.plants.find(x => x.id === pid);
+  const bh = behandlungVon(p);
+  if (!bh) return;
+  const offen = bh.plan.length - (bh.b.erledigt || []).length;
+  if (offen > 0 && !confirm('Behandlung „' + bh.ursache.was + '“ beenden?\n\n' +
+      offen + ' von ' + bh.plan.length + ' Schritten sind noch offen.')) return;
+  DB.logs.push({ id: uid(), plantId: pid, typ: 'behandlung-ende',
+                 text: bh.ursache.was, ts: Date.now() });
+  delete p.behandlung;
+  save();
+  renderAll();
+  if ($('#sheet-detail').classList.contains('open')) openDetail(pid);
+  toast('Behandlung beendet');
+}
+
+/** Die Karte in der Detailansicht. */
+function behandlungKarteHTML(p) {
+  const bh = behandlungVon(p);
+  if (!bh) return '';
+  const schritte = behandlungSchritte(p);
+  const getan = schritte.filter(s => s.erledigt).length;
+  const offen = schritte.filter(s => !s.erledigt && s.tage <= 0);
+  const naechst = schritte.find(s => !s.erledigt && s.tage > 0);
+  const seit = tageDiff(fromISO(bh.b.start), heute0());
+
+  return `
+    <div class="karte behandlung">
+      <div class="karte-kopf">${bh.problem.emoji} In Behandlung · ${esc(bh.ursache.was)}</div>
+      <div class="beh-fortschritt">
+        <div class="beh-balken"><i style="width:${Math.round(getan / schritte.length * 100)}%"></i></div>
+        <span>${getan} von ${schritte.length}</span>
+      </div>
+      <div class="beh-seit">Seit ${seit === 0 ? 'heute' : seit === 1 ? 'gestern' : seit + ' Tagen'}</div>
+      ${offen.map(s => `
+        <button class="tun" data-beh-schritt="${s.i}" data-pid="${p.id}">
+          <span class="tun-kreis"></span>
+          <span class="tun-text">${esc(s.text)}</span>
+          ${s.tage < 0 ? `<span class="tun-spaet">${Math.abs(s.tage)} ${
+            Math.abs(s.tage) === 1 ? 'Tag' : 'Tage'} zu spät</span>` : ''}
+        </button>`).join('')}
+      ${!offen.length && naechst ? `<div class="beh-warten">Nächster Schritt ${
+        naechst.tage === 1 ? 'morgen' : 'in ' + naechst.tage + ' Tagen'}: ${esc(naechst.text)}</div>` : ''}
+      <button class="btn sec" data-beh-ende="${p.id}">Behandlung beenden</button>
+    </div>`;
 }
 
 /* ---------- Haltungsarten ----------
@@ -2755,6 +3175,8 @@ function openDetail(id) {
 
     <div class="status-reihe">${kacheln}</div>
 
+    ${behandlungKarteHTML(p)}
+
     ${offen.length ? `
       <div class="karte">
         <div class="karte-kopf">Heute zu tun</div>
@@ -2771,7 +3193,7 @@ function openDetail(id) {
           <input type="date" id="erledigt-datum" max="${toISO(new Date())}"
                  value="${erledigtAm || toISO(new Date())}">
         </div>
-      </div>` : `
+      </div>` : behandlungOffen(p).length ? '' : `
       <div class="karte karte-ruhig">
         <div class="tun-text" style="text-align:center;color:var(--text-2)">
           Nichts zu tun. Nächstes Gießen ${statusText(p).toLowerCase()}.</div>
@@ -2794,11 +3216,12 @@ function openDetail(id) {
     ${fotoGalerieHTML(p)}
 
     ${logs.length ? `<div class="section-title">Verlauf</div><div class="group">` + logs.map(l => `
-      <div class="log-item"><span>${logText(l.typ)}</span>
+      <div class="log-item"><span>${logText(l.typ)}${l.text ? ': ' + esc(l.text) : ''}</span>
       <span>${new Date(l.ts).toLocaleDateString('de-DE')}</span></div>`).join('') + `</div>` : ''}
 
     ${istAbleger(p) ? `<button class="btn sec" data-eintopfen="${p.id}">🪴 Ist bewurzelt, kommt in Erde</button>` : ''}
-    <button class="btn sec" data-hilfe="${p.id}">Problem mit dieser Pflanze?</button>
+    <button class="btn sec" data-hilfe="${p.id}">${
+      behandlungVon(p) ? 'Weiteres Problem?' : 'Problem mit dieser Pflanze?'}</button>
     <button class="btn sec" data-qr="${p.id}">QR-Code für den Topf</button>
     <button class="btn sec" data-edit="${p.id}">Bearbeiten</button>
     ${p.archiviert
@@ -2857,6 +3280,8 @@ function allesHier(pid) {
 
 /** Beschriftung eines Verlaufseintrags. */
 function logText(typ) {
+  if (typ === 'behandlung-start') return '🩹 Behandlung begonnen';
+  if (typ === 'behandlung-ende') return '🩹 Behandlung beendet';
   if (typ === 'wasser') return '💧 Gegossen';
   if (typ === 'eingetopft') return '🪴 In Erde gepflanzt';
   const a = AUFGABEN.find(x => x.schluessel === typ);
@@ -3344,7 +3769,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -3362,8 +3787,26 @@ function bind() {
     if (t.dataset.rundeStart !== undefined) { e.stopPropagation(); rundeStarten(); return; }
     if (t.dataset.runde) { e.stopPropagation(); rundeSchritt(t.dataset.runde); return; }
     if (t.dataset.hilfe) { e.stopPropagation(); closeSheets(); setTimeout(() => hilfeOeffnen(t.dataset.hilfe), 180); return; }
+    if (t.dataset.plan) { e.stopPropagation(); planZeigen(t.dataset.plan, t.dataset.idx); return; }
+    if (t.dataset.behStart) {
+      e.stopPropagation();
+      behandlungStarten(t.dataset.pid, t.dataset.behStart, t.dataset.idx);
+      return;
+    }
+    if (t.dataset.behSchritt) {
+      e.stopPropagation();
+      behandlungSchrittErledigt(t.dataset.pid, t.dataset.behSchritt);
+      return;
+    }
+    if (t.dataset.behEnde) { e.stopPropagation(); behandlungBeenden(t.dataset.behEnde); return; }
     if (t.dataset.problem) { e.stopPropagation(); problemZeigen(t.dataset.problem); return; }
-    if (t.dataset.problemZurueck !== undefined) { e.stopPropagation(); hilfeOeffnen(null); return; }
+    if (t.dataset.problemZurueck !== undefined) {
+      e.stopPropagation();
+      // Aus dem Plan geht es zurück zu den Ursachen, von dort zur Übersicht
+      if (t.dataset.problemZurueck) problemZeigen(t.dataset.problemZurueck);
+      else hilfeOeffnen(hilfePflanze);
+      return;
+    }
     if (t.dataset.fotoWeg) { e.stopPropagation(); fotoLoeschen(t.dataset.fpid, t.dataset.fotoWeg); return; }
     if (t.dataset.foto) { e.stopPropagation(); fotoAnsehen(t.dataset.fpid, t.dataset.foto); return; }
     if (t.dataset.fotoNeu) {
