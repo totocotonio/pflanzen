@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.8.0';
+const VERSION = '3.8.1';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -714,6 +714,11 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.8.1', datum: '30.08.2026', punkte: [
+    'Behoben: Die App aktualisierte sich beim Öffnen nicht. Lag eine neue Fassung schon bereit, gab es nur ein Banner – wer das übersah, blieb dauerhaft auf der alten.',
+    'Beim Öffnen wird eine wartende Fassung jetzt ohne Nachfrage übernommen. Nur mitten in der Sitzung wird noch gefragt.',
+    'Auch der Server cachte die Startseite, wenn sie ohne „/index.html“ aufgerufen wurde.'
+  ]},
   { v: '3.8.0', datum: '30.08.2026', punkte: [
     'Lichtmessung am Standort, auf drei Wegen: Schattenprobe, Schätzung aus der Fensterlage, und Kameramessung wo das Gerät die Belichtungswerte herausgibt.',
     'Das Ergebnis wird mit dem Bedarf der Art verglichen: passt, knapp oder zu dunkel.',
@@ -6226,12 +6231,35 @@ function neuerungenZeigen() {
   }, 900);
 }
 
+/* Verhindert, dass ein hängender Wechsel die App in eine Neulade-Schleife
+   schickt. Einmal je Sitzung genügt. */
+let schonNeugeladen = false;
+
+/** Übernimmt eine wartende Fassung sofort, ohne zu fragen. */
+function sofortUebernehmen(wartend) {
+  if (schonNeugeladen || !wartend) return;
+  schonNeugeladen = true;
+  navigator.serviceWorker.addEventListener('controllerchange',
+    () => location.reload(), { once: true });
+  wartend.postMessage('jetzt-aktualisieren');
+}
+
 /** Prüft beim Start und danach stündlich, ob eine neue Fassung bereitliegt. */
 function updatePruefungStarten() {
   if (!('serviceWorker' in navigator)) return;
 
   navigator.serviceWorker.register('sw.js').then(reg => {
-    if (reg.waiting && navigator.serviceWorker.controller) updateBannerZeigen(reg);
+    /* Lag beim Start schon eine Fassung bereit, wird sie ohne Nachfrage
+       übernommen. Die App wurde gerade geöffnet – hier stört ein Wechsel
+       niemanden, und genau das erwartet man beim Öffnen.
+
+       Vorher gab es hier nur ein Banner. Wer das übersah, blieb auf der alten
+       Fassung hängen: Ein einmal wartender Service Worker meldet sich von
+       selbst nie wieder, `updatefound` feuert nur für eine *neue* Fassung. */
+    if (reg.waiting && navigator.serviceWorker.controller) {
+      sofortUebernehmen(reg.waiting);
+      return;
+    }
 
     reg.addEventListener('updatefound', () => {
       const neu = reg.installing;
@@ -6239,14 +6267,21 @@ function updatePruefungStarten() {
       neu.addEventListener('statechange', () => {
         // controller fehlt beim allerersten Besuch – dann ist es kein Update
         if (neu.state === 'installed' && navigator.serviceWorker.controller) {
+          // Mitten in der Sitzung wird gefragt, nicht einfach neu geladen
           updateBannerZeigen(reg);
         }
       });
     });
 
-    setInterval(() => reg.update().catch(() => {}), 60 * 60 * 1000);
+    /** Nach jeder Prüfung nachsehen, ob etwas bereitliegt. `updatefound`
+        allein reicht nicht: Es feuert nur beim Finden, nicht beim Warten. */
+    const pruefen = () => reg.update()
+      .then(() => { if (reg.waiting) updateBannerZeigen(reg); })
+      .catch(() => {});
+
+    setInterval(pruefen, 60 * 60 * 1000);
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) reg.update().catch(() => {});
+      if (!document.hidden) pruefen();
     });
   }).catch(e => console.warn('SW:', e));
 }

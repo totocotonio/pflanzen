@@ -1,5 +1,32 @@
 # Changelog
 
+## v3.8.1 - 2026-08-30
+
+### Behoben: Das Handy aktualisierte sich beim Öffnen nicht
+
+Zwei Ursachen, beide echt:
+
+- **Ein wartender Service Worker meldet sich nie wieder.** Seit v2.5.0 wartet
+  eine neue Fassung auf Zustimmung im Banner, statt sich sofort zu übernehmen.
+  Das Banner erschien aber nur, wenn die neue Fassung *während* der laufenden
+  Sitzung gefunden wurde. Lag sie beim Start schon bereit und man übersah das
+  Banner, blieb das Gerät dauerhaft auf der alten Fassung – `updatefound`
+  feuert nur beim Finden, nicht beim Warten, und wurde nie wieder ausgelöst.
+- **Beim Öffnen wird jetzt ohne Nachfrage übernommen.** Die App wurde gerade
+  gestartet, dort stört ein Wechsel niemanden. Gefragt wird nur noch, wenn die
+  neue Fassung mitten in der Sitzung eintrifft – da wäre ein Neuladen lästig.
+- Nach jeder Prüfung (stündlich und beim Zurückholen in den Vordergrund) sieht
+  die App außerdem nach, ob etwas bereitliegt, statt sich allein auf
+  `updatefound` zu verlassen.
+
+### Und der Server cachte die Startseite
+
+- Die nginx-Konfiguration setzte `Cache-Control: no-cache` nur für
+  `/index.html`. Wer die App über `https://pflanzen.michaely.de/` öffnet – also
+  ohne Dateinamen – landete in der allgemeinen Location, wo kein Header gesetzt
+  war. Der Browser durfte die Seite dann heuristisch zwischenspeichern.
+- Jetzt gilt `no-cache` auch dort. Auf dem Server bereits angewendet.
+
 ## v3.8.0 - 2026-08-30
 
 ### Lichtmessung
