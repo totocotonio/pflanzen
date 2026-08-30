@@ -97,7 +97,12 @@ def spalten_ergaenzen() -> None:
     from sqlalchemy import inspect, text
 
     noetig = {
-        "push_abo": {"nicht_vor": "VARCHAR(20) NOT NULL DEFAULT ''"},
+        "push_abo": {
+            "nicht_vor": "VARCHAR(20) NOT NULL DEFAULT ''",
+            # Die Frostwarnung laeuft neben der taeglichen Erinnerung und
+            # braucht ihre eigene Merkspalte, sonst faellt eine von beiden aus.
+            "frost_zuletzt": "VARCHAR(20) NOT NULL DEFAULT ''",
+        },
     }
     pruefer = inspect(engine)
     with engine.connect() as conn:

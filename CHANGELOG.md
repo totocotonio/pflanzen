@@ -1,5 +1,32 @@
 # Changelog
 
+## v3.7.0 - 2026-08-30
+
+### Pflanzen im Freien mit Frostwarnung
+
+Eine verpasste Frostnacht kostet die Pflanze. Nicht „schadet ihr" – kostet sie.
+Bei einer Zitrone auf dem Balkon reicht eine einzige Nacht mit vier Grad.
+
+- Jede Pflanze lässt sich als **„im Sommer draußen"** oder **„ganzjährig
+  draußen"** kennzeichnen, dazu eine von vier **Kältestufen**: sehr empfindlich
+  (12 °C, Monstera und Alocasia), empfindlich (8 °C, Zitrus), robust (3 °C,
+  Olive und Oleander), frosthart (−5 °C).
+- Die Werte sind bewusst vorsichtig: Im Topf auf dem Balkon wird es regelmäßig
+  ein bis zwei Grad kälter als im Wetterbericht in zwei Metern Höhe.
+- Sinkt das Nachtminimum laut Vorhersage unter die Grenze, erscheint eine
+  Warnkarte oben auf der Startseite – mit Namen und einem Knopf „Alle
+  reingeholt". Sind die dran, rückt die Warnung auf die nächste betroffene
+  Nacht weiter.
+- **Per Push, aber nachmittags.** Die Warnung geht ab 16 Uhr raus, nicht mit der
+  Gießerinnerung um neun – morgens ist sie nutzlos, man will sie, wenn noch
+  Zeit bleibt, die Töpfe reinzutragen. Dafür ein eigener Kanal mit eigener
+  Merkspalte, sonst würde eine der beiden Nachrichten ausfallen.
+- Im Frühjahr kommt der Hinweis, wenn die Nächte dauerhaft mild genug sind
+  („sie könnte raus"), im Herbst der umgekehrte.
+- Der Wetterdienst liefert dafür jetzt die einzelnen Nachtminima der nächsten
+  drei Tage. „Heute Nacht 4 Grad" ist etwas anderes als „irgendwann wird es
+  kalt".
+
 ## v3.6.0 - 2026-08-30
 
 ### Sicherungen aus der App anstoßen

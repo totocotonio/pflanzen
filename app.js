@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.6.0';
+const VERSION = '3.7.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -714,6 +714,12 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.7.0', datum: '30.08.2026', punkte: [
+    'Pflanzen lassen sich als „im Sommer draußen“ oder „ganzjährig draußen“ kennzeichnen, mit vier Kältestufen von sehr empfindlich bis frosthart.',
+    'Sinkt die Nachttemperatur laut Vorhersage unter die Grenze, warnt die App – auf der Startseite und per Push, nachmittags statt morgens.',
+    'Eine verpasste Frostnacht kostet die Pflanze. Die Wetterdaten lagen ohnehin auf dem Server.',
+    'Im Frühjahr und Herbst kommt der Hinweis, wann sie raus kann und wann sie rein sollte.'
+  ]},
   { v: '3.6.0', datum: '30.08.2026', punkte: [
     'Die Server-Sicherungen lassen sich jetzt aus der App ansehen und von Hand anstoßen – vorher ging das nur per SSH.',
     'Unter Mehr → Daten steht, welche Sicherungen es gibt, von wann und wie groß.'
@@ -1225,6 +1231,8 @@ function renderHeute() {
   $('#st-bald-text').textContent = fenster === 1 ? 'morgen' : 'in ' + fenster + ' Tagen';
 
   $$('.stat').forEach(k => k.classList.toggle('on', k.dataset.filter === heuteFilter));
+
+  $('#frost-warnung').innerHTML = frostKarteHTML();
 
   const sorgenkinder = liste.filter(p => zustandVon(p) !== 'gut' || behandlungVon(p));
   const sbox = $('#sorgen-hinweis');
@@ -3962,6 +3970,178 @@ function rundeWeiter(pid) {
   openSheet('#sheet-runde');
 }
 
+/* ---------- Pflanzen im Freien ----------
+   Eine verpasste Frostnacht kostet die Pflanze. Nicht „schadet ihr“ – kostet
+   sie. Bei einer Zitrone auf dem Balkon reicht eine einzige Nacht mit vier
+   Grad und Wind, bei einer Monstera weniger als das.
+
+   Die Wetterdaten liegen ohnehin auf dem Server. Sie zu haben und nicht zu
+   warnen wäre die Verschwendung. */
+const FREILAND = {
+  nein: 'Bleibt drinnen',
+  sommer: 'Im Sommer draußen',
+  ganzjahr: 'Ganzjährig draußen'
+};
+
+/* Was eine Pflanze noch verträgt. Die Werte sind Nachtminima, gemessen im
+   Wetterbericht – im Topf auf dem Balkon wird es regelmäßig ein bis zwei Grad
+   kälter als in zwei Meter Höhe, deshalb sind sie eher vorsichtig gewählt. */
+const KAELTE_STUFEN = [
+  { wert: 12, name: 'Sehr empfindlich', bei: 'Monstera, Alocasia, Ficus, Orchideen' },
+  { wert: 8, name: 'Empfindlich', bei: 'Zitrus, Bougainvillea, Hibiskus' },
+  { wert: 3, name: 'Robust', bei: 'Olive, Oleander, Agave, viele Sukkulenten' },
+  { wert: -5, name: 'Frosthart', bei: 'Buchs, Lavendel, winterharte Stauden' }
+];
+
+function stehtDraussen(p) {
+  return !!(p && p.draussen) && freilandVon(p) !== 'nein';
+}
+
+function freilandVon(p) {
+  const f = p && p.freiland;
+  return FREILAND[f] ? f : 'nein';
+}
+
+function kaelteGrenze(p) {
+  const w = Number(p && p.minTemp);
+  return isFinite(w) ? w : 8;
+}
+
+/** Die nächste Nacht, in der es einer Pflanze draußen zu kalt wird. */
+function kalteNacht(p) {
+  if (!wetterAktiv() || !Array.isArray(WETTER.naechte)) return null;
+  const grenze = kaelteGrenze(p);
+  return WETTER.naechte.find(n => n.tmin <= grenze) || null;
+}
+
+/** Alle Pflanzen, die reingeholt werden sollten – gruppiert nach Nacht. */
+function frostGefahr() {
+  if (!wetterAktiv() || !Array.isArray(WETTER.naechte) || !WETTER.naechte.length) return null;
+  const betroffen = aktive().filter(p => stehtDraussen(p) && kalteNacht(p));
+  if (!betroffen.length) return null;
+
+  // Die früheste betroffene Nacht bestimmt die Dringlichkeit
+  const naechste = betroffen
+    .map(p => ({ p, nacht: kalteNacht(p) }))
+    .sort((a, b) => a.nacht.datum.localeCompare(b.nacht.datum));
+  const datum = naechste[0].nacht.datum;
+  const jetzt = naechste.filter(x => x.nacht.datum === datum);
+  return { datum, tmin: jetzt[0].nacht.tmin, pflanzen: jetzt.map(x => x.p),
+           spaeter: naechste.length - jetzt.length };
+}
+
+function nachtText(datum) {
+  const heute = toISO(new Date());
+  const morgen = toISO(new Date(Date.now() + 86400000));
+  if (datum === heute) return 'Heute Nacht';
+  if (datum === morgen) return 'Morgen Nacht';
+  return 'In der Nacht auf ' + fromISO(datum).toLocaleDateString('de-DE',
+    { weekday: 'long', day: 'numeric', month: 'short' });
+}
+
+/** Die Warnkarte auf der Startseite. */
+function frostKarteHTML() {
+  const g = frostGefahr();
+  if (!g) return '';
+  const namen = g.pflanzen.map(p => esc(p.name)).join(', ');
+  return `
+    <div class="karte frostwarnung">
+      <div class="karte-kopf">🥶 ${nachtText(g.datum)} nur ${
+        String(g.tmin).replace('.', ',')} °C</div>
+      <div class="beh-warten">${g.pflanzen.length === 1
+        ? namen + ' steht draußen und verträgt das nicht.'
+        : g.pflanzen.length + ' Pflanzen stehen draußen und vertragen das nicht: ' + namen + '.'}
+        ${g.spaeter ? `<br>Weitere ${g.spaeter} werden es in den Nächten danach.` : ''}</div>
+      <button class="btn" data-reinholen>${g.pflanzen.length === 1
+        ? 'Reingeholt' : 'Alle reingeholt'}</button>
+    </div>`;
+}
+
+/** Merkt für alle gefährdeten Pflanzen, dass sie drinnen stehen. */
+function alleReinholen() {
+  const g = frostGefahr();
+  if (!g) return;
+  for (const p of g.pflanzen) p.draussen = false;
+  DB.logs.push(...g.pflanzen.map(p => ({
+    id: uid(), plantId: p.id, typ: 'reingeholt', ts: Date.now()
+  })));
+  save();
+  renderAll();
+  toast(g.pflanzen.length === 1 ? g.pflanzen[0].name + ' steht jetzt drinnen'
+                                : g.pflanzen.length + ' Pflanzen sind drinnen');
+}
+
+function draussenUmschalten(id) {
+  const p = DB.plants.find(x => x.id === id);
+  if (!p) return;
+  p.draussen = !p.draussen;
+  DB.logs.push({ id: uid(), plantId: id,
+                 typ: p.draussen ? 'rausgestellt' : 'reingeholt', ts: Date.now() });
+  save();
+  renderAll();
+  if ($('#sheet-detail').classList.contains('open')) openDetail(id);
+
+  const nacht = p.draussen ? kalteNacht(p) : null;
+  toast(p.draussen ? '🌤 ' + p.name + ' steht jetzt draußen' : '🏠 ' + p.name + ' ist drinnen',
+        nacht ? 'Achtung: ' + nachtText(nacht.datum).toLowerCase() + ' ' +
+                String(nacht.tmin).replace('.', ',') + ' °C' : null,
+        nacht ? () => {} : null);
+}
+
+/** Chips in der Detailansicht. */
+function freilandChipsHTML(p) {
+  if (freilandVon(p) === 'nein') return '';
+  const nacht = stehtDraussen(p) ? kalteNacht(p) : null;
+  return `<div class="topf-arten">
+    <span class="topf-art">${stehtDraussen(p) ? '🌤 steht draußen' : '🏠 steht drinnen'}</span>
+    <span class="topf-art">${esc(FREILAND[freilandVon(p)])}</span>
+    <span class="topf-art">bis ${String(kaelteGrenze(p)).replace('.', ',')} °C</span>
+    ${nacht ? `<span class="topf-art warnung">${nachtText(nacht.datum)}: ${
+      String(nacht.tmin).replace('.', ',')} °C</span>` : ''}
+  </div>`;
+}
+
+/** Vorschlag, wenn die Saison so weit ist. */
+function freilandVorschlag(p) {
+  if (freilandVon(p) !== 'sommer' || !wetterAktiv()) return null;
+  const naechte = Array.isArray(WETTER.naechte) ? WETTER.naechte : [];
+  if (!naechte.length) return null;
+  const kaelteste = Math.min(...naechte.map(n => n.tmin));
+  const monat = new Date().getMonth() + 1;   // 1 = Januar
+
+  if (!p.draussen && monat >= 5 && monat <= 8 && kaelteste > kaelteGrenze(p) + 3) {
+    return 'Die Nächte bleiben über ' + Math.round(kaelteste) + ' Grad – sie könnte raus.';
+  }
+  if (p.draussen && monat >= 9 && kaelteste <= kaelteGrenze(p) + 2) {
+    return 'Die Nächte werden kühl. Zeit, ans Winterquartier zu denken.';
+  }
+  return null;
+}
+
+/* ---------- Formular ---------- */
+function freilandAnzeigen() {
+  const f = $('#f-freiland').value;
+  const draussenMoeglich = f !== 'nein';
+  $('#feld-mintemp').hidden = !draussenMoeglich;
+  $('#feld-draussen').hidden = !draussenMoeglich;
+
+  const hinweis = $('#freiland-hinweis');
+  if (draussenMoeglich) {
+    const stufe = KAELTE_STUFEN.find(s => s.wert === Number($('#f-mintemp').value))
+      || KAELTE_STUFEN[1];
+    hinweis.innerHTML = `<p><b>${esc(stufe.name)}</b> – typisch für ${esc(stufe.bei)}.</p>` +
+      `<p>Sinkt die Nachttemperatur laut Vorhersage auf ${
+        String(stufe.wert).replace('.', ',')} Grad oder darunter, warnt die App – ` +
+      `vorausgesetzt, ein Ort fürs Wetter ist gesetzt und die Pflanze ist als ` +
+      `„steht draußen“ vermerkt.</p>` +
+      `<p>Die Werte sind bewusst vorsichtig: Im Topf auf dem Balkon wird es ` +
+      `regelmäßig ein bis zwei Grad kälter als im Wetterbericht.</p>`;
+    hinweis.hidden = false;
+  } else {
+    hinweis.hidden = true;
+  }
+}
+
 /* ---------- Umgebung und Wetter ----------
    Zwei Pflanzen derselben Art brauchen völlig Unterschiedliches, je nachdem,
    wo sie stehen. Über der Heizung trocknet die Luft aus und Spinnmilben
@@ -4896,6 +5076,9 @@ function openEdit(id) {
   $('#f-notiz').value = p ? (p.notiz || '') : '';
   editEmoji = p ? (p.emoji || '🪴') : '🪴';
   editFoto = p ? (p.foto || null) : null;
+  $('#f-freiland').value = p ? freilandVon(p) : 'nein';
+  $('#f-mintemp').value = String(p ? kaelteGrenze(p) : 8);
+  $('#f-draussen').checked = !!(p && p.draussen);
   $('#f-phase').value = p ? phaseVon(p) : 'erwachsen';
   $('#f-methode').value = p ? (p.methode || (istAbleger(p) ? 'wasser' : 'erde')) : 'wasser';
   $('#f-phase-seit').value = p ? (p.phaseSeit || p.imWasserSeit || '') : toISO(new Date());
@@ -4904,6 +5087,7 @@ function openEdit(id) {
   zeichneUmgebung();
   zeichneEigene();
   phaseAnzeigen();
+  freilandAnzeigen();
   $('#btn-delete').style.display = p ? 'block' : 'none';
   $('#btn-foto-del').style.display = editFoto ? 'block' : 'none';
   renderEmojiPick();
@@ -4945,6 +5129,12 @@ function speichern() {
     haltung: $('#f-haltung').value,
     imWasserSeit: $('#f-haltung').value === 'wasser'
       ? ($('#f-wasser-seit').value || toISO(new Date())) : '',
+    freiland: $('#f-freiland').value,
+    minTemp: $('#f-freiland').value === 'nein' ? null : Number($('#f-mintemp').value),
+    draussen: $('#f-freiland').value !== 'nein' && $('#f-draussen').checked,
+    freiland: $('#f-freiland').value,
+    minTemp: $('#f-freiland').value === 'nein' ? null : Number($('#f-mintemp').value),
+    draussen: $('#f-freiland').value !== 'nein' && $('#f-draussen').checked,
     phase: $('#f-phase').value,
     methode: $('#f-phase').value === 'steckling' ? $('#f-methode').value : '',
     phaseSeit: $('#f-phase').value === 'erwachsen' ? ''
@@ -5075,6 +5265,8 @@ function openDetail(id) {
       <span class="topf-art">🪨 Semi-Hydro</span>
       <span class="topf-art">Dünger bei jeder Gabe</span>
     </div>` : ''}
+    ${freilandChipsHTML(p)}
+    ${freilandChipsHTML(p)}
     ${phaseChipsHTML(p)}
     ${raumChipHTML(p) ? `<div class="topf-arten">${raumChipHTML(p)}</div>` : ''}
     ${umgebungChipsHTML(p)}
@@ -5085,6 +5277,17 @@ function openDetail(id) {
 
     <div class="status-reihe">${kacheln}</div>
 
+    ${freilandVon(p) !== 'nein' ? `
+      <div class="karte">
+        <div class="karte-kopf">${stehtDraussen(p) ? '🌤 Steht draußen' : '🏠 Steht drinnen'}</div>
+        ${(() => { const n = stehtDraussen(p) ? kalteNacht(p) : null;
+          return n ? `<div class="beh-warten" style="color:var(--red)">${nachtText(n.datum)} nur ${
+            String(n.tmin).replace('.', ',')} °C – sie verträgt ${
+            String(kaelteGrenze(p)).replace('.', ',')} °C.</div>` : ''; })()}
+        ${freilandVorschlag(p) ? `<div class="beh-warten">${esc(freilandVorschlag(p))}</div>` : ''}
+        <button class="btn sec" data-draussen="${p.id}">${
+          stehtDraussen(p) ? '🏠 Ist reingeholt' : '🌤 Steht jetzt draußen'}</button>
+      </div>` : ''}
     ${zustandKarteHTML(p)}
     ${phaseKarteHTML(p)}
     ${behandlungKarteHTML(p)}
@@ -5208,6 +5411,8 @@ function allesHier(pid) {
 function logText(typ, text) {
   if (typ === 'notiz') return '📝 ' + (text || 'Notiz');
   if (String(typ).startsWith('eigen:')) return '📌 ' + eigenName(typ);
+  if (typ === 'rausgestellt') return '🌤 Nach draußen gestellt';
+  if (typ === 'reingeholt') return '🏠 Reingeholt';
   if (typ === 'zustand') return '🩺 Zustand: ' + (text || 'geändert');
   if (typ === 'bewurzelt') return '🌿 Bewurzelt, jetzt Jungpflanze';
   if (typ === 'ausgewachsen') return '🪴 Ausgewachsen';
@@ -5870,6 +6075,8 @@ function bind() {
   /* Nicht hochgeladene Änderungen nachholen, sobald es wieder geht */
   window.addEventListener('online', () => { if (SYNC.dirty) schiebeHoch(); });
 
+  $('#f-freiland').onchange = freilandAnzeigen;
+  $('#f-mintemp').onchange = freilandAnzeigen;
   $('#f-phase').onchange = phaseAnzeigen;
   $('#f-methode').onchange = phaseAnzeigen;
   $('#btn-eigen-neu').onclick = eigeneNeuOeffnen;
@@ -5896,7 +6103,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen],[data-draussen],[data-reinholen]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -5923,6 +6130,8 @@ function bind() {
       return;
     }
     if (t.dataset.ort) { e.stopPropagation(); ortWaehlen(t.dataset.ort); return; }
+    if (t.dataset.draussen) { e.stopPropagation(); draussenUmschalten(t.dataset.draussen); return; }
+    if (t.dataset.reinholen !== undefined) { e.stopPropagation(); alleReinholen(); return; }
     if (t.dataset.sorgen !== undefined) {
       e.stopPropagation();
       raumFilter = '__sorgen';

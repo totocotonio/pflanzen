@@ -82,7 +82,10 @@ def modell_anlegen(Base):
         auth = Column(String(100), nullable=False)
         zeit = Column(String(5), nullable=False, default="09:00")   # HH:MM, lokale Zeit
         zuletzt = Column(String(10), nullable=False, default="")    # ISO-Datum des letzten Versands
-        nicht_vor = Column(String(20), nullable=False, default="")  # ISO-Zeit, bis dahin nicht senden
+        nicht_vor = Column(String(20), nullable=False, default="")   # ISO-Zeit, bis dahin nicht senden
+        # Eigene Merkspalte: Die Frostwarnung laeuft neben der taeglichen
+        # Erinnerung, sonst faellt eine von beiden aus.
+        frost_zuletzt = Column(String(20), nullable=False, default="")
         erstellt = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     return PushAbo

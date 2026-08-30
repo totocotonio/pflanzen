@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=3.6.0">
+<link rel="stylesheet" href="style.css?v=3.7.0">
 </head>
 <body>
 
@@ -56,6 +56,7 @@
       <button class="stat" data-filter="alle"><b id="st-gesamt">0</b><span>Pflanzen</span></button>
     </div>
 
+    <div id="frost-warnung"></div>
     <div id="sorgen-hinweis" hidden></div>
     <div id="wetter-hinweis" hidden></div>
     <div id="heute-liste"></div>
@@ -269,6 +270,27 @@
           <option value="jung">Jungpflanze</option>
         </select>
       </div>
+      <div class="field">
+        <label>Im Freien</label>
+        <select id="f-freiland">
+          <option value="nein">Bleibt drinnen</option>
+          <option value="sommer">Im Sommer draußen</option>
+          <option value="ganzjahr">Ganzjährig draußen</option>
+        </select>
+      </div>
+      <div class="field" id="feld-mintemp" hidden>
+        <label>Verträgt bis</label>
+        <select id="f-mintemp">
+          <option value="12">12 °C – sehr empfindlich</option>
+          <option value="8">8 °C – empfindlich</option>
+          <option value="3">3 °C – robust</option>
+          <option value="-5">−5 °C – frosthart</option>
+        </select>
+      </div>
+      <div class="field" id="feld-draussen" hidden>
+        <label>Steht gerade draußen</label>
+        <span class="hint"><input type="checkbox" id="f-draussen" class="schalter"></span>
+      </div>
       <div class="field" id="feld-methode" hidden>
         <label>Bewurzelung in</label>
         <select id="f-methode">
@@ -292,6 +314,7 @@
     </div>
     <datalist id="name-liste"></datalist>
     <datalist id="art-liste"></datalist>
+    <div class="vorschlag" id="freiland-hinweis" hidden></div>
     <div class="vorschlag" id="phase-hinweis" hidden></div>
     <div class="vorschlag" id="art-vorschlag" hidden></div>
 
@@ -559,6 +582,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=3.6.0"></script>
+<script src="app.js?v=3.7.0"></script>
 </body>
 </html>

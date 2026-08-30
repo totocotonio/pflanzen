@@ -120,8 +120,18 @@ def lage(lat: float, lon: float) -> dict:
     # Winter macht weiterhin der Winter-Modus – sonst zählt beides doppelt.
     faktor = 0.8 if hitze else 1.0
 
+    # Die einzelnen Naechte, damit eine Warnung sagen kann, welche gemeint ist.
+    # "Heute Nacht 4 Grad" ist etwas anderes als "irgendwann wird es kalt".
+    zeiten = tag.get("time") or []
+    naechte = []
+    for i in range(heute, min(heute + 3, len(tmin))):
+        if tmin[i] is None or i >= len(zeiten):
+            continue
+        naechte.append({"datum": zeiten[i], "tmin": round(float(tmin[i]), 1)})
+
     ergebnis = {
         "stand": int(time.time()),
+        "naechte": naechte,
         "tmax": round(tmax[heute], 1) if heute < len(tmax) and tmax[heute] is not None else None,
         "tmin": round(tmin[heute], 1) if heute < len(tmin) and tmin[heute] is not None else None,
         "mittel": round(mittel, 1) if mittel is not None else None,

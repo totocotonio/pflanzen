@@ -197,6 +197,54 @@ def behandlungs_schritte(pflanze, heute):
     return offen
 
 
+# Ab dieser Stunde geht die Frostwarnung raus. Morgens um neun ist sie
+# nutzlos - man will sie, wenn noch Zeit bleibt, die Toepfe reinzutragen.
+FROST_STUNDE = 16
+
+
+def frost_gefahr(daten, lage):
+    """Pflanzen, die draussen stehen und die kommende Nacht nicht vertragen.
+
+    Zurueck kommt (Nachtminimum, [Namen]) oder None. Gerechnet wird nur die
+    naechste Nacht: Eine Warnung fuer uebermorgen wuerde man vergessen.
+    """
+    if not lage:
+        return None
+    naechte = lage.get("naechte") or []
+    if not naechte:
+        return None
+    tmin = naechte[0].get("tmin")
+    if tmin is None:
+        return None
+
+    betroffen = []
+    for pf in daten.get("plants") or []:
+        if pf.get("archiviert") or not pf.get("draussen"):
+            continue
+        if pf.get("freiland") in (None, "", "nein"):
+            continue
+        try:
+            grenze = float(pf.get("minTemp"))
+        except (TypeError, ValueError):
+            grenze = 8.0
+        if tmin <= grenze:
+            betroffen.append(pf.get("name") or "Pflanze")
+
+    return (tmin, betroffen) if betroffen else None
+
+
+def frost_nachricht(tmin, namen):
+    grad = str(round(tmin, 1)).replace(".", ",")
+    if len(namen) == 1:
+        text = f"{namen[0]} steht draussen und vertraegt das nicht."
+    elif len(namen) <= 3:
+        text = ", ".join(namen) + " stehen draussen und vertragen das nicht."
+    else:
+        text = (f"{namen[0]}, {namen[1]} und {len(namen) - 2} weitere stehen "
+                "draussen und vertragen das nicht.")
+    return f"Heute Nacht nur {grad} Grad", text
+
+
 def offene_punkte(daten):
     """Was heute ansteht: (Gießen, Wasserwechsel, Nachfüllen, Aufgaben, Behandlung)."""
     einstellungen = daten.get("settings") or {}
@@ -345,6 +393,35 @@ def main_lauf():
     gesendet = uebersprungen = entfernt = 0
 
     for abo in s.query(PushAbo).all():
+        datensatz = s.get(main.Datensatz, abo.user_id)
+
+        # Die Frostwarnung laeuft neben der taeglichen Erinnerung: Sie darf
+        # nicht ausfallen, nur weil morgens schon ans Giessen erinnert wurde.
+        if (datensatz and jetzt.hour >= FROST_STUNDE
+                and getattr(abo, "frost_zuletzt", "") != heute_iso):
+            inhalt = json.loads(datensatz.inhalt)
+            einst = inhalt.get("settings") or {}
+            ort = einst.get("ort") or {}
+            lage = None
+            if ort.get("lat") is not None and einst.get("wetterAn") is not False:
+                lage = wetterdienst.lage_sicher(ort.get("lat"), ort.get("lon"))
+            gefahr = frost_gefahr(inhalt, lage)
+            if gefahr:
+                titel, text = frost_nachricht(*gefahr)
+                if TROCKEN:
+                    print(f"  [trocken/frost] {titel} - {text}")
+                    abo.frost_zuletzt = heute_iso
+                    gesendet += 1
+                else:
+                    erfolg, hinweis = push.senden(abo, titel, text)
+                    if erfolg:
+                        abo.frost_zuletzt = heute_iso
+                        gesendet += 1
+                    elif hinweis == "abgemeldet":
+                        s.delete(abo)
+                        entfernt += 1
+                        continue
+
         if abo.zuletzt == heute_iso:
             uebersprungen += 1
             continue
@@ -366,7 +443,6 @@ def main_lauf():
             uebersprungen += 1
             continue
 
-        datensatz = s.get(main.Datensatz, abo.user_id)
         if not datensatz:
             uebersprungen += 1
             continue
