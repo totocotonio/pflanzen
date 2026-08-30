@@ -4,25 +4,26 @@
    über prefers-color-scheme (Systemeinstellung) und über [data-theme="light"]
    (manuelle Wahl). [data-theme="dark"] gewinnt immer gegen das System. */
 :root{
-  --bg:#000;
-  --surface:#1c1c1e;
-  --surface-2:#2c2c2e;
-  --surface-3:#3a3a3c;
-  --sep:rgba(84,84,88,.6);
-  --text:#fff;
-  --text-2:#98989f;
-  --text-3:#636366;
-  --accent:#30d158;
-  --accent-dim:#248a3d;
-  --blue:#0a84ff;
-  --orange:#ff9f0a;
-  --red:#ff453a;
-  --on-accent:#000;
-  --tabbar-bg:rgba(22,22,24,.82);
-  --sheet-bg:#131315;
+  /* Dunkel: fast schwarz, aber mit Grünstich statt neutralem Grau */
+  --bg:#0F1410;
+  --surface:#19201A;
+  --surface-2:#232C24;
+  --surface-3:#313B32;
+  --sep:rgba(190,210,192,.14);
+  --text:#EAF0E7;
+  --text-2:#9BAB9C;
+  --text-3:#6C7A6D;
+  --accent:#5FBF7F;
+  --accent-dim:#3D8A57;
+  --blue:#5B9DD9;
+  --orange:#D9A047;
+  --red:#D4674F;
+  --on-accent:#0F1410;
+  --tabbar-bg:rgba(21,27,22,.86);
+  --sheet-bg:#141A15;
   --schatten:none;
-  --glas:rgba(28,28,30,.72);
-  --glas-rand:rgba(255,255,255,.08);
+  --glas:rgba(25,32,26,.74);
+  --glas-rand:rgba(255,255,255,.07);
   --schleier:rgba(0,0,0,.55);
   color-scheme:dark;
   --r:16px;
@@ -35,49 +36,49 @@
    Nur auf :root, niemals zusätzlich auf body: die Akzentfarbe wird per JS
    inline auf <html> gesetzt, eine Definition auf body würde sie überschreiben. */
 :root[data-theme="light"]{
-  --bg:#f2f2f7;
-  --surface:#fff;
-  --surface-2:#e9e9ed;
-  --surface-3:#d6d6da;
-  --sep:rgba(60,60,67,.24);
-  --text:#000;
-  --text-2:#6c6c70;
-  --text-3:#a1a1a6;
-  --accent:#34c759;
-  --accent-dim:#248a3d;
-  --blue:#007aff;
-  --orange:#ff9500;
-  --red:#ff3b30;
-  --on-accent:#fff;
-  --tabbar-bg:rgba(249,249,251,.86);
-  --sheet-bg:#f2f2f7;
-  --schatten:0 1px 3px rgba(0,0,0,.06);
-  --glas:rgba(255,255,255,.78);
-  --glas-rand:rgba(0,0,0,.06);
+  --bg:#F1F4EE;
+  --surface:#FFFFFF;
+  --surface-2:#E7EDE3;
+  --surface-3:#D5DED0;
+  --sep:rgba(26,45,32,.13);
+  --text:#1A2D20;
+  --text-2:#5C6E60;
+  --text-3:#92A095;
+  --accent:#2F7D4F;
+  --accent-dim:#20603A;
+  --blue:#2E6FA8;
+  --orange:#C08328;
+  --red:#BC5138;
+  --on-accent:#FFFFFF;
+  --tabbar-bg:rgba(246,248,244,.88);
+  --sheet-bg:#F1F4EE;
+  --schatten:0 1px 2px rgba(26,45,32,.05);
+  --glas:rgba(255,255,255,.80);
+  --glas-rand:rgba(26,45,32,.07);
   --schleier:rgba(255,255,255,.62);
   color-scheme:light;
 }
 @media (prefers-color-scheme: light){
   :root:not([data-theme="dark"]){
-    --bg:#f2f2f7;
-    --surface:#fff;
-    --surface-2:#e9e9ed;
-    --surface-3:#d6d6da;
-    --sep:rgba(60,60,67,.24);
-    --text:#000;
-    --text-2:#6c6c70;
-    --text-3:#a1a1a6;
-    --accent:#34c759;
-    --accent-dim:#248a3d;
-    --blue:#007aff;
-    --orange:#ff9500;
-    --red:#ff3b30;
-    --on-accent:#fff;
-    --tabbar-bg:rgba(249,249,251,.86);
-    --sheet-bg:#f2f2f7;
-    --schatten:0 1px 3px rgba(0,0,0,.06);
-    --glas:rgba(255,255,255,.78);
-    --glas-rand:rgba(0,0,0,.06);
+    --bg:#F1F4EE;
+    --surface:#FFFFFF;
+    --surface-2:#E7EDE3;
+    --surface-3:#D5DED0;
+    --sep:rgba(26,45,32,.13);
+    --text:#1A2D20;
+    --text-2:#5C6E60;
+    --text-3:#92A095;
+    --accent:#2F7D4F;
+    --accent-dim:#20603A;
+    --blue:#2E6FA8;
+    --orange:#C08328;
+    --red:#BC5138;
+    --on-accent:#FFFFFF;
+    --tabbar-bg:rgba(246,248,244,.88);
+    --sheet-bg:#F1F4EE;
+    --schatten:0 1px 2px rgba(26,45,32,.05);
+    --glas:rgba(255,255,255,.80);
+    --glas-rand:rgba(26,45,32,.07);
     --schleier:rgba(255,255,255,.62);
     color-scheme:light;
   }
@@ -90,7 +91,7 @@ html,body{margin:0;padding:0;height:100%}
 body{
   background:var(--bg);color:var(--text);
   font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif;
-  font-size:17px;line-height:1.35;
+  font-size:17px;line-height:1.45;
   -webkit-font-smoothing:antialiased;
   overscroll-behavior-y:none;
 }
@@ -105,7 +106,7 @@ a{color:var(--blue);text-decoration:none}
 @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
 .hd{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:8px 0 14px}
-.hd h1{font-size:34px;line-height:1.1;font-weight:700;letter-spacing:-.5px;margin:0}
+.hd h1{font-size:32px;line-height:1.15;font-weight:650;letter-spacing:-.4px;margin:0}
 .hd .sub{color:var(--text-2);font-size:14px;margin-top:4px}
 .hd-btn{width:36px;height:36px;border-radius:50%;background:var(--surface-2);
   display:grid;place-items:center;font-size:19px;flex:0 0 auto}
@@ -122,29 +123,35 @@ a{color:var(--blue);text-decoration:none}
 
 /* Pflanzen-Zeile */
 .plant{display:flex;align-items:center;gap:14px;background:var(--surface);
-  border-radius:var(--r-lg);padding:12px 14px;margin-bottom:10px;position:relative;overflow:hidden;box-shadow:var(--schatten)}
+  border-radius:18px;padding:13px 15px;margin-bottom:8px;position:relative;overflow:hidden;
+  box-shadow:var(--schatten)}
 .plant:active{background:var(--surface-2)}
-.avatar{width:54px;height:54px;border-radius:15px;flex:0 0 auto;display:grid;place-items:center;
-  font-size:28px;background:var(--surface-2);overflow:hidden}
+.avatar{width:50px;height:50px;border-radius:14px;flex:0 0 auto;display:grid;place-items:center;
+  font-size:26px;background:var(--surface-2);overflow:hidden}
 .avatar img{width:100%;height:100%;object-fit:cover;display:block}
 .plant .info{flex:1;min-width:0}
 .plant .nm{font-weight:600;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .plant .meta{color:var(--text-2);font-size:13.5px;margin-top:2px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.water-btn{width:44px;height:44px;border-radius:50%;background:var(--surface-2);
-  display:grid;place-items:center;font-size:20px;flex:0 0 auto;transition:transform .12s}
+.water-btn{width:30px;height:30px;border-radius:50%;flex:0 0 auto;
+  border:2px solid var(--surface-3);background:transparent;
+  display:grid;place-items:center;font-size:0;
+  transition:transform .12s, background .15s, border-color .15s}
 .water-btn:active{transform:scale(.88)}
-.water-btn.due{background:var(--accent)}
-.water-btn.over{background:var(--red)}
+.water-btn.due{border-color:var(--accent)}
+.water-btn.due::after{content:'';width:12px;height:12px;border-radius:50%;background:var(--accent)}
+.water-btn.over{border-color:var(--red)}
+.water-btn.over::after{content:'';width:12px;height:12px;border-radius:50%;background:var(--red)}
 
 .badge{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:20px;
   background:var(--surface-3);color:var(--text-2)}
-.badge.due{background:rgba(48,209,88,.18);color:var(--accent)}
-.badge.over{background:rgba(255,69,58,.18);color:var(--red)}
-.badge.soon{background:rgba(255,159,10,.18);color:var(--orange)}
+.badge.due{background:color-mix(in srgb, var(--accent) 16%, transparent);color:var(--accent)}
+.badge.over{background:color-mix(in srgb, var(--red) 16%, transparent);color:var(--red)}
+.badge.soon{background:color-mix(in srgb, var(--orange) 18%, transparent);color:var(--orange)}
 
 /* Fortschrittsbalken */
-.bar{height:4px;border-radius:2px;background:var(--surface-3);margin-top:8px;overflow:hidden}
+.bar{height:3px;border-radius:2px;background:var(--surface-3);margin-top:7px;overflow:hidden;
+  max-width:190px}
 .bar i{display:block;height:100%;border-radius:2px;background:var(--accent);transition:width .3s}
 .bar i.over{background:var(--red)}
 .bar i.soon{background:var(--orange)}
@@ -178,8 +185,8 @@ a{color:var(--blue);text-decoration:none}
 .field.col{flex-direction:column;align-items:stretch;gap:8px}
 .field.col label{font-size:13px;color:var(--text-2)}
 
-.btn{display:block;width:100%;padding:15px;border-radius:var(--r);font-size:17px;font-weight:600;
-  background:var(--accent);color:var(--on-accent);text-align:center;margin-top:14px}
+.btn{display:block;width:100%;padding:15px;border-radius:14px;font-size:16.5px;font-weight:600;
+  background:var(--accent);color:var(--on-accent);text-align:center;margin-top:12px}
 .btn:active{opacity:.75}
 .btn.sec{background:var(--surface-2);color:var(--text)}
 .btn.danger{background:var(--surface-2);color:var(--red)}
@@ -274,10 +281,59 @@ a{color:var(--blue);text-decoration:none}
 .stat b{display:block;font-size:26px;font-weight:700;letter-spacing:-.5px}
 .stat span{font-size:12px;color:var(--text-2)}
 
-.detail-hero{text-align:center;padding:8px 0 18px}
-.detail-hero .avatar{width:110px;height:110px;border-radius:28px;font-size:56px;margin:0 auto 12px}
-.detail-hero h2{font-size:26px;font-weight:700;margin:0}
-.detail-hero p{color:var(--text-2);font-size:15px;margin:4px 0 0}
+/* ---------- Detailansicht ---------- */
+.hero{position:relative;border-radius:20px;overflow:hidden;margin:0 0 16px;
+  background:var(--surface-2);aspect-ratio:16/10}
+.hero img{width:100%;height:100%;object-fit:cover;display:block}
+.hero-emoji{width:100%;height:100%;display:grid;place-items:center;font-size:96px;
+  background:linear-gradient(160deg,
+    color-mix(in srgb, var(--accent) 16%, var(--surface)), var(--surface-2))}
+.hero-chips{position:absolute;left:12px;right:12px;bottom:12px;display:flex;gap:8px;
+  flex-wrap:wrap}
+.hero-chip{background:rgba(255,255,255,.92);color:#1A2D20;font-size:12.5px;font-weight:600;
+  padding:5px 11px;border-radius:20px;backdrop-filter:blur(8px)}
+.hero-chip.over{background:var(--red);color:#fff}
+.hero-chip.due{background:var(--accent);color:var(--on-accent)}
+.hero-chip.soon{background:var(--orange);color:#fff}
+
+.detail-name{font-size:28px;font-weight:650;letter-spacing:-.3px;margin:0 2px 2px}
+.detail-art{color:var(--text-2);font-size:15px;font-style:italic;margin:0 2px 18px}
+
+/* Statuskreise */
+.status-reihe{display:flex;gap:10px;margin-bottom:16px;overflow-x:auto;
+  scrollbar-width:none;padding-bottom:2px}
+.status-reihe::-webkit-scrollbar{display:none}
+.status-kachel{flex:0 0 auto;width:112px;background:var(--surface);border-radius:18px;
+  padding:16px 8px 14px;text-align:center;box-shadow:var(--schatten)}
+/* Bei nur zwei Kacheln die Breite ausnutzen */
+.status-reihe:has(.status-kachel:nth-child(2):last-child) .status-kachel{flex:1;width:auto}
+.status-reihe:has(.status-kachel:only-child) .status-kachel{flex:1;width:auto}
+.ring{position:relative;width:64px;height:64px;margin:0 auto 10px}
+.ring svg{width:64px;height:64px;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:4;stroke-linecap:round}
+.ring-bahn{stroke:var(--surface-3)}
+.ring-wert{transition:stroke-dasharray .4s}
+.ring-inhalt{position:absolute;inset:0;display:grid;place-items:center;font-size:22px}
+.status-titel{font-size:13.5px;font-weight:600}
+.status-wann{font-size:13px;margin-top:2px}
+.status-letzt{font-size:11.5px;color:var(--text-3);margin-top:3px}
+
+/* Aufgabenkarte */
+.karte{background:var(--surface);border-radius:18px;padding:14px 16px;margin-bottom:14px;
+  box-shadow:var(--schatten)}
+.karte-ruhig{padding:18px 16px}
+.karte-kopf{font-size:15px;font-weight:650;margin-bottom:6px}
+.tun{display:flex;align-items:center;gap:12px;width:100%;padding:11px 0;text-align:left;
+  border-bottom:.5px solid var(--sep)}
+.tun:last-of-type{border-bottom:0}
+.tun-kreis{width:24px;height:24px;border-radius:50%;border:2px solid var(--surface-3);
+  flex:0 0 auto;transition:background .15s,border-color .15s}
+.tun:active .tun-kreis{background:var(--accent);border-color:var(--accent)}
+.tun-text{flex:1;font-size:16px}
+.tun-spaet{font-size:11.5px;font-weight:600;color:var(--red);
+  background:color-mix(in srgb, var(--red) 14%, transparent);
+  padding:3px 8px;border-radius:20px;white-space:nowrap}
+.karte .btn{margin-top:12px}
 
 .log-item{display:flex;justify-content:space-between;padding:10px 16px;background:var(--surface);
   border-bottom:.5px solid var(--sep);font-size:15px}

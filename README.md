@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** ✅ Live (v1.18.0)
+**Status:** ✅ Live (v2.0.0)
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -91,9 +91,9 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 |---|---|
 | Frontend | HTML, CSS, Vanilla JavaScript – keine Frameworks, keine externen Libraries |
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
-| Design | iOS-orientiertes Dark UI, System-Schriften, `env(safe-area-inset-*)` |
+| Design | warme Grün- und Erdtöne, hell und dunkel, System-Schriften, `env(safe-area-inset-*)` |
 | Speicher | `localStorage`, Schlüssel `pg_data` |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v1.18.0` |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v2.0.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
 | Push | Web Push API + VAPID, pywebpush, systemd-Timer alle 15 Minuten |
 | Hosting | LXC Container auf Proxmox |
@@ -261,6 +261,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v2.0.0** | Neues Erscheinungsbild: warme Farbwelt, Detailansicht mit Bild und Fortschrittsringen |
 | **v1.18.0** | Frühere Stände wiederherstellbar, tägliches Datenbank-Backup |
 | **v1.17.0** | Erinnerungen für alle Pflegeaufgaben |
 | **v1.16.0** | Archiv, Sortierung, Winterruhe je Pflanze, QR-Code |

@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '1.18.0';
+const VERSION = '2.0.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -209,14 +209,14 @@ function loeschePflanze(id) {
    synchronisiert. Jedes Konto hat eigene Einstellungen. */
 
 const AKZENTE = {
-  gruen:   { name: 'Grün',    dunkel: '#30d158', hell: '#34c759', auf: '#000' },
-  blau:    { name: 'Blau',    dunkel: '#0a84ff', hell: '#007aff', auf: '#fff' },
-  tuerkis: { name: 'Türkis',  dunkel: '#40cbe0', hell: '#00a6c4', auf: '#000' },
-  violett: { name: 'Violett', dunkel: '#bf5af2', hell: '#af52de', auf: '#fff' },
-  pink:    { name: 'Pink',    dunkel: '#ff6482', hell: '#ff2d55', auf: '#fff' },
-  rot:     { name: 'Rot',     dunkel: '#ff453a', hell: '#ff3b30', auf: '#fff' },
-  orange:  { name: 'Orange',  dunkel: '#ff9f0a', hell: '#ff9500', auf: '#000' },
-  gelb:    { name: 'Gelb',    dunkel: '#ffd60a', hell: '#f5c400', auf: '#000' }
+  gruen:   { name: 'Blattgrün', dunkel: '#5FBF7F', hell: '#2F7D4F', auf: '#FFFFFF' },
+  salbei:  { name: 'Salbei',    dunkel: '#8FBFA0', hell: '#5E8C6A', auf: '#FFFFFF' },
+  oliv:    { name: 'Oliv',      dunkel: '#A8B96A', hell: '#6E7F32', auf: '#FFFFFF' },
+  terra:   { name: 'Terrakotta',dunkel: '#D4795E', hell: '#B0563A', auf: '#FFFFFF' },
+  ocker:   { name: 'Ocker',     dunkel: '#D9A047', hell: '#B07C21', auf: '#FFFFFF' },
+  rost:    { name: 'Rost',      dunkel: '#C96A4B', hell: '#A44A2C', auf: '#FFFFFF' },
+  petrol:  { name: 'Petrol',    dunkel: '#4FA3A8', hell: '#2C7076', auf: '#FFFFFF' },
+  pflaume: { name: 'Pflaume',   dunkel: '#B08BC4', hell: '#77518C', auf: '#FFFFFF' }
 };
 
 const HINTERGRUENDE = {
@@ -238,8 +238,14 @@ function dunkelAktiv() {
 }
 
 /** Setzt Akzentfarbe, Hintergrund, Begrüßung, Titel und Symbol. */
+/* Die Farbnamen haben sich mit v2.0.0 geändert. Wer noch einen alten Wert
+   gespeichert hat, bekommt die nächstliegende neue Farbe. */
+const AKZENT_ALT = { blau: 'petrol', tuerkis: 'petrol', violett: 'pflaume',
+                     pink: 'pflaume', rot: 'rost', orange: 'ocker', gelb: 'ocker' };
+
 function applyPersonalisierung() {
   const st = DB.settings;
+  if (AKZENT_ALT[st.akzent]) { st.akzent = AKZENT_ALT[st.akzent]; save(false); }
   const dunkel = dunkelAktiv();
   const wurzel = document.documentElement;
 
@@ -413,6 +419,11 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '2.0.0', datum: '30.08.2026', punkte: [
+    'Neue Farbwelt: warme Grün- und Erdtöne statt Systemgrau.',
+    'Detailansicht neu: großes Bild, Fortschrittsringe je Aufgabe, Aufgabenkarte zum Abhaken.',
+    'Akzentfarben passen zur neuen Palette: Blattgrün, Salbei, Oliv, Terrakotta, Ocker, Rost, Petrol, Pflaume.'
+  ]},
   { v: '1.18.0', datum: '30.08.2026', punkte: [
     'Frühere Stände: Der Server hebt die letzten zwanzig Datenstände auf, wiederherstellbar unter Mehr.',
     'Gesichert wird stündlich und immer dann, wenn Pflanzen verschwinden.',
@@ -2169,25 +2180,95 @@ function loeschen() {
   toast('Gelöscht');
 }
 
+/** Fortschrittsring als SVG: zeigt, wie weit das Intervall aufgebraucht ist. */
+function ringHTML(anteil, farbe, inhalt) {
+  const r = 26, umfang = 2 * Math.PI * r;
+  const gefuellt = Math.max(0, Math.min(1, anteil)) * umfang;
+  return `<div class="ring">
+    <svg viewBox="0 0 64 64" aria-hidden="true">
+      <circle class="ring-bahn" cx="32" cy="32" r="${r}"></circle>
+      <circle class="ring-wert" cx="32" cy="32" r="${r}"
+        stroke="${farbe}" stroke-dasharray="${gefuellt} ${umfang}"></circle>
+    </svg>
+    <span class="ring-inhalt">${inhalt}</span>
+  </div>`;
+}
+
+/** Eine Kachel im Kopf der Detailansicht: Ring, Aufgabe, Fälligkeit. */
+function statusKachel(titel, tage, anteil, symbol, letztDatum) {
+  const farbe = tage < 0 ? 'var(--red)' : tage === 0 ? 'var(--accent)'
+    : tage <= 2 ? 'var(--orange)' : 'var(--accent)';
+  const wann = tage < 0 ? (Math.abs(tage) === 1 ? '1 Tag überfällig' : Math.abs(tage) + ' Tage überfällig')
+    : tage === 0 ? 'Heute' : tage === 1 ? 'Morgen' : 'in ' + tage + ' Tagen';
+  return `<div class="status-kachel">
+    ${ringHTML(anteil, farbe, symbol)}
+    <div class="status-titel">${esc(titel)}</div>
+    <div class="status-wann" style="color:${farbe}">${wann}</div>
+    ${letztDatum ? `<div class="status-letzt">zuletzt ${letztDatum}</div>` : ''}
+  </div>`;
+}
+
 function openDetail(id) {
   const p = DB.plants.find(x => x.id === id);
   if (!p) return;
-  const st = statusOf(p);
-  const dt = duengerTageBis(p);
+
+  const iv = effIntervall(p);
+  const t = tageBis(p);
+  const anteil = 1 - (t / iv);
   const logs = DB.logs.filter(l => l.plantId === id).sort((a, b) => b.ts - a.ts).slice(0, 8);
+  const datum = wert => wert ? fromISO(wert).toLocaleDateString('de-DE',
+    { day: 'numeric', month: 'short' }) : null;
+
+  // Offene Aufgaben: Gießen plus alles, was sonst ansteht
+  const offen = [];
+  if (t <= 0) offen.push({ art: 'wasser', titel: 'Gießen', tage: t,
+                           zusatz: p.menge ? esc(p.menge) : '' });
+  for (const a of AUFGABEN) {
+    const at = aufgabeTageBis(p, a);
+    if (at !== null && at <= 0) offen.push({ art: a.schluessel, titel: a.name, tage: at, zusatz: '' });
+  }
+
+  const kacheln = [statusKachel('Gießen', t, anteil, '💧', datum(p.letzt))]
+    .concat(AUFGABEN.filter(a => Number(p[a.feldInt]) > 0).map(a => {
+      const at = aufgabeTageBis(p, a);
+      const gesamt = a.einheit === 'monate' ? Number(p[a.feldInt]) * 30 : Number(p[a.feldInt]);
+      return statusKachel(a.name, at, 1 - (at / Math.max(1, gesamt)), a.emoji, datum(p[a.feldLetzt]));
+    })).join('');
 
   $('#detail-body').innerHTML = `
     <div class="grabber"></div>
-    <div class="detail-hero">
-      ${avatarHTML(p)}
-      <h2>${esc(p.name)}</h2>
-      <p>${esc(p.art || '')}${p.art && p.raum ? ' · ' : ''}${esc(p.raum || '')}</p>
-      <p style="margin-top:10px"><span class="badge ${st === 'ok' ? '' : st}">${statusText(p)}</span></p>
+
+    <div class="hero">
+      ${p.foto
+        ? `<img src="${p.foto}" alt="">`
+        : `<div class="hero-emoji">${p.emoji || '🪴'}</div>`}
+      <div class="hero-chips">
+        ${p.raum ? `<span class="hero-chip">${esc(p.raum)}</span>` : ''}
+        <span class="hero-chip ${statusOf(p)}">${statusText(p)}</span>
+      </div>
     </div>
 
-    <button class="btn" data-water="${p.id}">💧 Jetzt gegossen</button>
-    ${AUFGABEN.filter(a => Number(p[a.feldInt]) > 0).map(a =>
-      `<button class="btn sec" data-aufgabe="${a.schluessel}" data-pid="${p.id}">${a.emoji} ${a.name}</button>`).join('')}
+    <h2 class="detail-name">${esc(p.name)}</h2>
+    ${p.art ? `<p class="detail-art">${esc(p.art)}</p>` : ''}
+
+    <div class="status-reihe">${kacheln}</div>
+
+    ${offen.length ? `
+      <div class="karte">
+        <div class="karte-kopf">Heute zu tun</div>
+        ${offen.map(o => `
+          <button class="tun" data-tun="${o.art}" data-pid="${p.id}">
+            <span class="tun-kreis"></span>
+            <span class="tun-text">${esc(o.titel)}${o.zusatz ? ' · ' + o.zusatz : ''}</span>
+            ${o.tage < 0 ? `<span class="tun-spaet">${Math.abs(o.tage)} ${
+              Math.abs(o.tage) === 1 ? 'Tag' : 'Tage'} zu spät</span>` : ''}
+          </button>`).join('')}
+        ${offen.length > 1 ? `<button class="btn" data-alles-hier="${p.id}">Alles erledigen</button>` : ''}
+      </div>` : `
+      <div class="karte karte-ruhig">
+        <div class="tun-text" style="text-align:center;color:var(--text-2)">
+          Nichts zu tun. Nächstes Gießen ${statusText(p).toLowerCase()}.</div>
+      </div>`}
 
     <div class="section-title">Pflege</div>
     <div class="group">
@@ -2195,18 +2276,12 @@ function openDetail(id) {
         winterAktiv() && effIntervall(p) !== Number(p.intervall) ? ' · Winter: ' + effIntervall(p) : ''}</span></div>
       ${p.winterFaktor ? `<div class="field"><label>Winterruhe</label><span class="hint">×${
         String(p.winterFaktor).replace('.', ',')}</span></div>` : ''}
-      <div class="field"><label>Zuletzt gegossen</label><span class="hint">${p.letzt ? fromISO(p.letzt).toLocaleDateString('de-DE') : '–'}</span></div>
       ${p.menge ? `<div class="field"><label>Wassermenge</label><span class="hint">${esc(p.menge)}</span></div>` : ''}
       ${p.licht ? `<div class="field"><label>Licht</label><span class="hint">${esc(p.licht)}</span></div>` : ''}
-      ${AUFGABEN.map(a => {
-        const t = aufgabeTageBis(p, a);
-        if (t === null) return '';
-        return `<div class="field"><label>${a.name}</label><span class="hint">${
-          t <= 0 ? 'fällig' : 'in ' + t + (t === 1 ? ' Tag' : ' Tagen')}</span></div>`;
-      }).join('')}
     </div>
 
-    ${p.notiz ? `<div class="section-title">Notizen</div><div class="card" style="white-space:pre-wrap">${esc(p.notiz)}</div>` : ''}
+    ${p.notiz ? `<div class="section-title">Notizen</div>
+      <div class="karte" style="white-space:pre-wrap;color:var(--text-2)">${esc(p.notiz)}</div>` : ''}
 
     ${fotoGalerieHTML(p)}
 
@@ -2214,23 +2289,53 @@ function openDetail(id) {
       <div class="log-item"><span>${logText(l.typ)}</span>
       <span>${new Date(l.ts).toLocaleDateString('de-DE')}</span></div>`).join('') + `</div>` : ''}
 
-    <button class="btn sec" data-hilfe="${p.id}">🩺 Problem mit dieser Pflanze?</button>
-    <button class="btn sec" data-qr="${p.id}">🏷 QR-Code für den Topf</button>
+    <button class="btn sec" data-hilfe="${p.id}">Problem mit dieser Pflanze?</button>
+    <button class="btn sec" data-qr="${p.id}">QR-Code für den Topf</button>
     <button class="btn sec" data-edit="${p.id}">Bearbeiten</button>
     ${p.archiviert
       ? `<button class="btn sec" data-entarchiv="${p.id}">Zurück in die Liste</button>`
-      : `<button class="btn sec" data-archiv="${p.id}">📦 Archivieren</button>`}
+      : `<button class="btn sec" data-archiv="${p.id}">Archivieren</button>`}
     <button class="btn danger" data-del="${p.id}">Pflanze löschen</button>
     <button class="btn sec" data-close>Schließen</button>
   `;
   openSheet('#sheet-detail');
 }
 
-/** Beschriftung eines Verlaufseintrags. */
-function logText(typ) {
-  if (typ === 'wasser') return '💧 Gegossen';
-  const a = AUFGABEN.find(x => x.schluessel === typ);
-  return a ? a.emoji + ' ' + a.partizip.charAt(0).toUpperCase() + a.partizip.slice(1) : typ;
+/** Erledigt eine einzelne offene Aufgabe aus der Detailansicht. */
+function tunErledigt(pid, art) {
+  if (art === 'wasser') giessen(pid);
+  else aufgabeErledigt(pid, art);
+}
+
+/** Alles, was bei dieser Pflanze gerade offen ist, in einem Zug. */
+function allesHier(pid) {
+  const p = DB.plants.find(x => x.id === pid);
+  if (!p) return;
+  const heute = toISO(new Date());
+  const eintraege = [];
+
+  if (tageBis(p) <= 0) {
+    const logId = uid();
+    eintraege.push({ feld: 'letzt', plantId: pid, vorher: p.letzt, logId });
+    p.letzt = heute;
+    DB.logs.push({ id: logId, plantId: pid, typ: 'wasser', ts: Date.now() });
+  }
+  for (const a of AUFGABEN) {
+    const at = aufgabeTageBis(p, a);
+    if (at === null || at > 0) continue;
+    const logId = uid();
+    eintraege.push({ feld: a.feldLetzt, plantId: pid, vorher: p[a.feldLetzt], logId });
+    p[a.feldLetzt] = heute;
+    DB.logs.push({ id: logId, plantId: pid, typ: a.schluessel, ts: Date.now() });
+  }
+  if (!eintraege.length) return;
+
+  letzteAktion = { eintraege };
+  save();
+  renderAll();
+  openDetail(pid);
+  if (navigator.vibrate) navigator.vibrate(14);
+  toast(p.name + ': ' + eintraege.length + ' erledigt', 'Rückgängig', rueckgaengig);
 }
 
 /* ---------- Foto ---------- */
@@ -2631,7 +2736,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -2663,6 +2768,8 @@ function bind() {
     if (t.dataset.edit) { closeSheets(); setTimeout(() => openEdit(t.dataset.edit), 180); return; }
     if (t.dataset.del) { loeschePflanze(t.dataset.del); return; }
     if (t.dataset.qr) { e.stopPropagation(); qrZeigen(t.dataset.qr); return; }
+    if (t.dataset.tun) { e.stopPropagation(); tunErledigt(t.dataset.pid, t.dataset.tun); return; }
+    if (t.dataset.allesHier) { e.stopPropagation(); allesHier(t.dataset.allesHier); return; }
     if (t.dataset.stand) {
       e.stopPropagation();
       standWiederherstellen(t.dataset.stand, Number(t.dataset.anzahl) || 0);

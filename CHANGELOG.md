@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.0.0 - 2026-08-30
+
+Neues Erscheinungsbild. Das bisherige folgte dem iOS-Systemlook – neutrales
+Grau, reines Schwarz, kräftige Systemfarben. Für eine Pflanzen-App wirkt das
+kühl und beliebig.
+
+- **Warme Farbwelt**: gedecktes Blattgrün und Erdtöne. Der helle Modus hat
+  einen cremig-grünen Grund statt Systemgrau, Text ist dunkles Waldgrün statt
+  Schwarz. Der dunkle Modus ist fast schwarz, aber mit Grünstich.
+- **Neue Detailansicht**: großes Bild der Pflanze über die volle Breite, mit
+  Standort und Fälligkeit als Chips darüber. Darunter der Name und die
+  botanische Bezeichnung.
+- **Fortschrittsringe** je Aufgabe: Gießen, Düngen, Umtopfen und Schneiden
+  zeigen als Ring, wie weit das Intervall aufgebraucht ist – mit Fälligkeit
+  und Datum des letzten Mals.
+- **Aufgabenkarte "Heute zu tun"**: offene Punkte einzeln abhaken, überfällige
+  mit Hinweis wie "2 Tage zu spät", darunter "Alles erledigen" für die ganze
+  Pflanze auf einmal.
+- **Ruhigere Listen**: statt farbig gefüllter Knöpfe mit Emoji nur noch ein
+  schlichter Abhak-Kreis, der sich nach der Dringlichkeit färbt.
+- **Akzentfarben** passen zur neuen Palette: Blattgrün, Salbei, Oliv,
+  Terrakotta, Ocker, Rost, Petrol, Pflaume. Alte Einstellungen werden auf die
+  nächstliegende neue Farbe umgestellt.
+
 ## v1.18.0 - 2026-08-30
 
 - Frühere Stände: Der Server hebt die letzten zwanzig Datenstände auf. Unter
