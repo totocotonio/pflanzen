@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=3.1.0">
+<link rel="stylesheet" href="style.css?v=3.3.0">
 </head>
 <body>
 
@@ -254,6 +254,26 @@
           <option value="wasser">Ableger im Wasser</option>
         </select>
       </div>
+      <div class="field">
+        <label>Lebensphase</label>
+        <select id="f-phase">
+          <option value="erwachsen">Ausgewachsene Pflanze</option>
+          <option value="steckling">Steckling / Ableger</option>
+          <option value="jung">Jungpflanze</option>
+        </select>
+      </div>
+      <div class="field" id="feld-methode" hidden>
+        <label>Bewurzelung in</label>
+        <select id="f-methode">
+          <option value="wasser">Wasserglas</option>
+          <option value="erde">Anzuchterde</option>
+          <option value="moos">Sphagnum-Moos</option>
+          <option value="perlite">Perlite</option>
+        </select>
+      </div>
+      <div class="field" id="feld-phase-seit" hidden>
+        <label id="label-phase-seit">Gesteckt am</label><input type="date" id="f-phase-seit">
+      </div>
       <div class="field" id="feld-raum-neu" hidden>
         <label>Name des Standorts</label>
         <input id="f-raum" placeholder="z.B. Dachterrasse" autocomplete="off" maxlength="30">
@@ -265,6 +285,7 @@
     </div>
     <datalist id="name-liste"></datalist>
     <datalist id="art-liste"></datalist>
+    <div class="vorschlag" id="phase-hinweis" hidden></div>
     <div class="vorschlag" id="art-vorschlag" hidden></div>
 
     <div class="section-title">Im selben Topf</div>
@@ -516,6 +537,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=3.1.0"></script>
+<script src="app.js?v=3.3.0"></script>
 </body>
 </html>

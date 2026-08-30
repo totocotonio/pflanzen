@@ -79,6 +79,25 @@ def wetter_faktor(pflanze, lage):
     return 0.7 if "sonne" in umgebung else 0.8
 
 
+def zustand_faktor(pflanze):
+    """Verlaengerung, wenn es der Pflanze nicht gut geht.
+
+    Nur nach oben: Eine geschwaechte Pflanze verbraucht weniger, und nasse
+    Erde macht Wurzelprobleme schlimmer. Dieselbe Regel wie im Frontend.
+    """
+    z = pflanze.get("zustand")
+    if z == "schlecht":
+        return 1.4
+    if z == "mittel":
+        return 1.2
+    return 1.0
+
+
+def duengen_pausiert(pflanze):
+    """Geschwaechte Pflanzen und Stecklinge bekommen keinen Duenger."""
+    return pflanze.get("zustand") == "schlecht" or pflanze.get("phase") == "steckling"
+
+
 def eff_intervall(pflanze, einstellungen, lage=None):
     """Gießintervall inklusive Winterruhe – dieselbe Regel wie im Frontend.
 
@@ -90,7 +109,7 @@ def eff_intervall(pflanze, einstellungen, lage=None):
     intervall = int(pflanze.get("intervall") or 7)
     if haltung_von(pflanze) in ("wasser", "hydro"):
         return max(1, intervall)
-    faktor = wetter_faktor(pflanze, lage)
+    faktor = wetter_faktor(pflanze, lage) * zustand_faktor(pflanze)
     if ist_winter(einstellungen):
         eigen = float(pflanze.get("winterFaktor") or 0)
         faktor *= eigen if eigen else 1.5
@@ -160,6 +179,8 @@ def offene_punkte(daten):
             ziel.append(p.get("name") or "Pflanze")
 
         for a in AUFGABEN:
+            if a["verb"] == "düngen" and duengen_pausiert(p):
+                continue
             try:
                 intervall = int(p.get(a["int"]) or 0)
             except (TypeError, ValueError):

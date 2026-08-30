@@ -477,6 +477,24 @@ a{color:var(--blue);text-decoration:none}
 .plan-schritt::before{content:'';position:absolute;left:0;top:8px;width:6px;height:6px;
   border-radius:50%;background:var(--surface-3)}
 
+/* Zustand */
+.zustand-karte.mittel{border:1px solid color-mix(in srgb, var(--orange) 45%, transparent)}
+.zustand-karte.schlecht{border:1px solid color-mix(in srgb, var(--red) 45%, transparent)}
+.zustand-wahl{display:flex;gap:8px;margin:10px 0 4px}
+.zustand-knopf{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;
+  padding:11px 6px;border-radius:14px;background:var(--surface-2);color:var(--text-2);
+  font-size:12.5px;line-height:1.25;text-align:center;border:1px solid transparent}
+.zustand-knopf.on{background:color-mix(in srgb, var(--accent) 16%, transparent);
+  border-color:color-mix(in srgb, var(--accent) 45%, transparent);color:var(--text)}
+.zustand-emoji{font-size:22px;line-height:1}
+.zustand-folge{margin-top:10px;padding:11px 13px;border-radius:12px;background:var(--surface-2);
+  color:var(--text-2);font-size:14px;line-height:1.45}
+.hero-chip.warn{background:var(--orange);color:#fff}
+
+/* Steckling und Jungpflanze */
+.karte.phase{border:1px solid color-mix(in srgb, var(--accent) 30%, transparent)}
+.karte.phase .btn{margin-top:12px}
+
 /* Laufende Behandlung in der Pflanze */
 .karte.behandlung{border:1px solid color-mix(in srgb, var(--accent) 35%, transparent)}
 .beh-fortschritt{display:flex;align-items:center;gap:10px;margin:8px 0 4px}

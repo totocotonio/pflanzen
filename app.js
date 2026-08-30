@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.1.0';
+const VERSION = '3.3.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -94,8 +94,11 @@ function effIntervall(p) {
   // Eigener Winterwert der Pflanze schlägt die allgemeine Einstellung
   const eigen = Number(p.winterFaktor) || 0;
   const f = winterAktiv() ? (eigen || 1.5) : 1;
-  // Das Wetter wirkt nur verkürzend (Hitze); verlängern macht der Winter-Modus
-  return Math.max(1, Math.round((Number(p.intervall) || 7) * f * wetterFaktor(p)));
+  // Das Wetter wirkt nur verkürzend (Hitze); verlängern macht der Winter-Modus.
+  // Der Zustand wirkt nur verlängernd: Wer bei kranken Wurzeln im gewohnten
+  // Takt weitergießt, macht es schlimmer.
+  return Math.max(1, Math.round((Number(p.intervall) || 7)
+    * f * wetterFaktor(p) * zustandFaktor(p)));
 }
 /** Tage bis zum nächsten Gießen nach dem reinen Rhythmus. */
 function tageBisRhythmus(p) {
@@ -495,6 +498,18 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.3.0', datum: '30.08.2026', punkte: [
+    'Zustand je Pflanze – und die App richtet sich danach: Bei „geht ihr schlecht“ wird das Gießintervall um 40 % verlängert und das Düngen pausiert.',
+    'Die Karte sagt jedes Mal dazu, was sich dadurch ändert und warum.',
+    'Peperomien fehlten ganz in der Artenliste. Ohne Treffer blieb es beim Standardwert – für dickfleischige Blätter viel zu häufig.',
+    'Vier Peperomia-Arten ergänzt, alle mit 12 bis 14 Tagen statt wöchentlich.'
+  ]},
+  { v: '3.2.0', datum: '30.08.2026', punkte: [
+    'Lebensphase je Pflanze: Steckling, Jungpflanze oder ausgewachsen.',
+    'Stecklinge kennen vier Bewurzelungsmethoden – Wasserglas, Anzuchterde, Sphagnum-Moos, Perlite – mit der jeweils üblichen Dauer und einem Fortschritt.',
+    'Kein Dünger bis zur Bewurzelung, danach halbe Dosis: Die App blendet die Felder entsprechend aus und rechnet mit.',
+    'Zweite Anleitung: Stecklinge schneiden und bewurzeln, elf Schritte.'
+  ]},
   { v: '3.1.0', datum: '30.08.2026', punkte: [
     'Geführte Anleitung zum Umtopfen: zehn Schritte, immer nur einer auf dem Schirm.',
     'Vorweg Zeitpunkt, Anzeichen und Material – und zu jedem Schritt der Fehler, den man dabei macht.',
@@ -1067,7 +1082,9 @@ function plantRow(p) {
     ${avatarHTML(p)}
     <div class="info">
       <div class="nm">${esc(p.name)}</div>
-      <div class="meta">${statusText(p)}${p.raum ? ' · ' + esc(p.raum) : ''}${p.menge ? ' · ' + esc(p.menge) : ''}</div>
+      <div class="meta">${zustandVon(p) !== 'gut'
+        ? ZUSTAENDE.find(x => x.k === zustandVon(p)).emoji + ' ' : ''}${
+        statusText(p)}${p.raum ? ' · ' + esc(p.raum) : ''}${p.menge ? ' · ' + esc(p.menge) : ''}</div>
       <div class="bar"><i class="${st === 'over' ? 'over' : st === 'soon' ? 'soon' : ''}" style="width:${pct}%"></i></div>
     </div>
     <button class="water-btn ${st === 'over' ? 'over' : st === 'due' ? 'due' : ''}" data-water="${p.id}" title="Gegossen">💧</button>
@@ -1545,6 +1562,10 @@ const ARTEN = [
   { n: 'Alocasia Polly', art: 'Alocasia amazonica', alias: 'Polly, Amazonica, Alocasia Sanderiana', iv: 4, licht: 'Hell, ohne direkte Sonne', menge: '200 ml', d: 21, um: 18, hinweis: 'Empfindlich gegen trockene Heizungsluft, gerne besprühen.' },
   { n: 'Alocasia Frydek', art: 'Alocasia micholitziana', alias: 'Frydek, Green Velvet', iv: 5, licht: 'Halbschatten', menge: '200 ml', d: 21, um: 18, hinweis: 'Samtige Blätter nicht besprühen, lieber die Luftfeuchte erhöhen.' },
   { n: 'Calathea', art: 'Calathea', alias: 'Korbmarante, Goeppertia', iv: 4, licht: 'Halbschatten', menge: '200 ml', d: 21, um: 24, hinweis: 'Empfindlich gegen Kalk, weiches Wasser nehmen.' },
+  { n: 'Peperomia', art: 'Peperomia', alias: 'Zwergpfeffer, Pfeffergesicht', iv: 12, licht: 'Hell, ohne direkte Sonne', menge: '100 ml', d: 45, um: 36, w: 2, hinweis: 'Die dickfleischigen Blätter speichern Wasser – erst gießen, wenn die Erde durchgetrocknet ist. Staunässe bringt sie schneller um als Trockenheit.' },
+  { n: 'Zwergpfeffer', art: 'Peperomia caperata', alias: 'Peperomia caperata, Runzeliger Zwergpfeffer, Emerald Ripple', iv: 12, licht: 'Halbschatten', menge: '80 ml', d: 45, um: 36, w: 2, hinweis: 'Alle 10 bis 14 Tage reicht. Die gewellten Blätter sind ein Wasserspeicher, die Wurzeln sind fein und faulen leicht. Nicht über die Blätter gießen, sie stehen zu dicht.' },
+  { n: 'Wassermelonen-Peperomie', art: 'Peperomia argyreia', alias: 'Peperomia argyreia, Melonenbegonie', iv: 12, licht: 'Halbschatten', menge: '80 ml', d: 45, um: 36, w: 2, hinweis: 'Wie alle Peperomien: lieber zu trocken als zu nass. Die gestreiften Blätter bleichen in direkter Sonne aus.' },
+  { n: 'Dickblatt-Peperomie', art: 'Peperomia obtusifolia', alias: 'Peperomia obtusifolia, Fleischige Peperomie', iv: 14, licht: 'Hell, ohne direkte Sonne', menge: '100 ml', d: 45, um: 36, w: 2.5, hinweis: 'Die festesten Blätter der Gattung, entsprechend selten gießen – alle zwei Wochen genügt meist.' },
   { n: 'Pilea', art: 'Pilea peperomioides', alias: 'Ufopflanze, Glückstaler', iv: 7, licht: 'Hell, ohne direkte Sonne', menge: '150 ml', d: 30, um: 18, hinweis: 'Regelmäßig drehen, wächst sonst schief.' },
 
   // --- Feigen ---
@@ -2367,6 +2388,11 @@ function pflanzenPruefung(p) {
 
   hinweise.push(...umgebungsHinweise(p));
 
+  if (zustandVon(p) === 'schlecht') {
+    hinweise.push('Du hast eingetragen, dass es der Pflanze schlecht geht. Das ' +
+      'Gießintervall ist deshalb verlängert und das Düngen pausiert.');
+  }
+
   const t = tageBis(p);
   if (t < -7) hinweise.push(`Die Pflanze ist seit ${Math.abs(t)} Tagen überfällig.`);
   return hinweise;
@@ -2441,6 +2467,331 @@ function lageWorte(u, lage) {
     .map(k => LAGE_WORTE[k] || k).join(', ');
 }
 
+/* ---------- Zustand der Pflanze ----------
+   Ein Gießplan rechnet stur nach Kalender. Das geht gut, solange es der
+   Pflanze gut geht – und genau dann, wenn es das nicht tut, ist es falsch.
+
+   Einer geschwächten Pflanze schadet die gewohnte Wassermenge: Wenn Wurzeln
+   faulen oder Blätter fehlen, verbraucht sie weniger und der Ballen bleibt
+   länger nass. Dünger ist dann ebenfalls falsch – er verbrennt beschädigte
+   Wurzeln, statt beim Erholen zu helfen. Das ist keine Feinheit, sondern der
+   häufigste Grund, warum eine kränkelnde Pflanze am Ende eingeht.
+
+   Der Zustand greift deshalb wirklich ein und sagt auch, dass er es tut. */
+const ZUSTAENDE = [
+  { k: 'gut', emoji: '🙂', name: 'Geht ihr gut', kurz: 'gut' },
+  { k: 'mittel', emoji: '😐', name: 'Schwächelt', kurz: 'schwächelt' },
+  { k: 'schlecht', emoji: '😟', name: 'Geht ihr schlecht', kurz: 'schlecht' }
+];
+
+function zustandVon(p) {
+  const z = p && p.zustand;
+  return ZUSTAENDE.some(x => x.k === z) ? z : 'gut';
+}
+
+/** Faktor aufs Gießintervall.
+
+    Nach oben, nicht nach unten: Eine kränkelnde Pflanze verbraucht weniger.
+    Wer bei Wurzelfäule im gewohnten Takt weitergießt, macht es schlimmer. */
+function zustandFaktor(p) {
+  const z = zustandVon(p);
+  if (z === 'schlecht') return 1.4;
+  if (z === 'mittel') return 1.2;
+  return 1;
+}
+
+/** Wird gerade gedüngt? Bei geschwächten Pflanzen nicht. */
+function duengenPausiert(p) {
+  return zustandVon(p) === 'schlecht' || istSteckling(p);
+}
+
+function zustandSetzen(id, k) {
+  const p = DB.plants.find(x => x.id === id);
+  if (!p || !ZUSTAENDE.some(x => x.k === k)) return;
+  const vorher = zustandVon(p);
+  if (vorher === k) return;
+
+  p.zustand = k;
+  p.zustandSeit = toISO(new Date());
+  DB.logs.push({ id: uid(), plantId: id, typ: 'zustand',
+                 text: ZUSTAENDE.find(x => x.k === k).name, ts: Date.now() });
+  save();
+  renderAll();
+  if ($('#sheet-detail').classList.contains('open')) openDetail(id);
+  if (navigator.vibrate) navigator.vibrate(10);
+
+  if (k === 'gut') {
+    toast('🙂 ' + p.name + ': geht ihr wieder gut');
+  } else {
+    const eff = effIntervall(p);
+    toast(`${k === 'schlecht' ? '😟' : '😐'} ${p.name}: Gießen jetzt alle ${eff} Tage` +
+          (k === 'schlecht' ? ', Düngen pausiert' : ''),
+          'Was ist los?', () => { closeSheets(); setTimeout(() => hilfeOeffnen(id), 180); });
+  }
+}
+
+/** Die Karte in der Detailansicht: Auswahl plus das, was daraus folgt. */
+function zustandKarteHTML(p) {
+  const z = zustandVon(p);
+  const seit = p.zustandSeit ? tageDiff(fromISO(p.zustandSeit), heute0()) : null;
+  const folgen = [];
+
+  if (z !== 'gut') {
+    const roh = Math.max(1, Math.round((Number(p.intervall) || 7)
+      * (winterAktiv() && !istAbleger(p) ? (Number(p.winterFaktor) || 1.5) : 1)
+      * wetterFaktor(p)));
+    const eff = effIntervall(p);
+    if (eff !== roh) {
+      folgen.push(`Gießen alle ${eff} statt ${roh} Tage – eine geschwächte Pflanze ` +
+        `verbraucht weniger, und nasse Erde macht Wurzelprobleme schlimmer.`);
+    }
+  }
+  if (z === 'schlecht') {
+    folgen.push('Düngen ist pausiert. Salz verbrennt beschädigte Wurzeln, statt beim ' +
+      'Erholen zu helfen – erst wieder düngen, wenn neue Blätter kommen.');
+    folgen.push('Umtopfen und Schneiden melden sich weiter, aber überlege zweimal: ' +
+      'Beides kostet zusätzlich Kraft, außer es geht um Wurzelfäule.');
+  }
+
+  return `
+    <div class="karte zustand-karte ${z}">
+      <div class="karte-kopf">Wie geht es ${esc(p.name)}?</div>
+      <div class="zustand-wahl">
+        ${ZUSTAENDE.map(x => `
+          <button class="zustand-knopf ${x.k === z ? 'on' : ''}" data-zustand="${x.k}" data-pid="${p.id}">
+            <span class="zustand-emoji">${x.emoji}</span>
+            <span>${esc(x.name)}</span>
+          </button>`).join('')}
+      </div>
+      ${z !== 'gut' && seit !== null ? `<div class="beh-seit">${
+        seit === 0 ? 'Seit heute' : seit === 1 ? 'Seit gestern' : 'Seit ' + seit + ' Tagen'}</div>` : ''}
+      ${folgen.map(f => `<div class="zustand-folge">${esc(f)}</div>`).join('')}
+      ${z !== 'gut' && !behandlungVon(p)
+        ? `<button class="btn" data-hilfe="${p.id}">Ursache suchen</button>` : ''}
+    </div>`;
+}
+
+/* ---------- Lebensphasen ----------
+   Ein Steckling ist keine kleine Zimmerpflanze, sondern ein Stück Pflanze ohne
+   Wurzeln. Er kann kein Wasser aufnehmen, verdunstet aber weiter – deshalb
+   braucht er hohe Luftfeuchte statt viel Gießwasser, keinen Dünger (der
+   verbrennt die frischen Wurzelansätze) und keine direkte Sonne.
+
+   Eine frisch bewurzelte Jungpflanze ist der nächste Fall: Sie wächst, aber
+   ihr Wurzelwerk ist noch klein. Halbe Düngerdosis, kleinere Wassermengen
+   häufiger, langsam ans Licht gewöhnen.
+
+   Die Phase steht neben der Haltung, nicht darin: Ein Steckling kann im
+   Wasserglas, in Anzuchterde, in Sphagnum oder in Perlite stecken. */
+const PHASEN = {
+  steckling: { name: 'Steckling', emoji: '🌱' },
+  jung: { name: 'Jungpflanze', emoji: '🌿' },
+  erwachsen: { name: '', emoji: '' }
+};
+
+/* Bewurzelungsmethoden. `wochen` ist die Spanne, nach der man üblicherweise
+   Wurzeln sieht – gemeint als Orientierung, nicht als Versprechen. */
+const METHODEN = [
+  { k: 'wasser', name: 'Wasserglas', emoji: '🫙', wochen: [2, 6],
+    hinweis: 'Am einfachsten zu kontrollieren. Wasser alle 3 bis 5 Tage wechseln, ' +
+      'sonst kippt es. Wasserwurzeln sind weicher als Erdwurzeln – beim späteren ' +
+      'Eintopfen gehen ein paar davon ein, das ist normal.' },
+  { k: 'erde', name: 'Anzuchterde', emoji: '🪴', wochen: [3, 8],
+    hinweis: 'Gleichmäßig feucht halten, nie nass. Eine durchsichtige Tüte oder ein ' +
+      'Zimmergewächshaus darüber hält die Luftfeuchte oben – ohne Wurzeln verdunstet ' +
+      'das Blatt mehr, als der Steckling nachliefern kann. Täglich kurz lüften.' },
+  { k: 'moos', name: 'Sphagnum-Moos', emoji: '🌾', wochen: [2, 5],
+    hinweis: 'Der Kompromiss: luftig wie Erde, kontrollierbar wie Wasser. Moos nur ' +
+      'ausgedrückt feucht einsetzen, nicht tropfnass. Die Wurzeln sind hinterher ' +
+      'kräftiger als Wasserwurzeln.' },
+  { k: 'perlite', name: 'Perlite', emoji: '⚪', wochen: [2, 5],
+    hinweis: 'Sehr luftig, fault praktisch nie. Der Behälter braucht unten zwei ' +
+      'Zentimeter Wasser, das Perlite zieht es hoch.' }
+];
+
+function phaseVon(p) {
+  const ph = p && p.phase;
+  return PHASEN[ph] ? ph : 'erwachsen';
+}
+
+function istSteckling(p) { return phaseVon(p) === 'steckling'; }
+function istJung(p) { return phaseVon(p) === 'jung'; }
+
+function methodeVon(p) {
+  return METHODEN.find(m => m.k === p.methode)
+    || METHODEN.find(m => m.k === (istAbleger(p) ? 'wasser' : 'erde'));
+}
+
+/** Tage seit dem Beginn der aktuellen Phase. */
+function phaseTage(p) {
+  const seit = p.phaseSeit || p.imWasserSeit;
+  if (!seit) return null;
+  const tage = tageDiff(fromISO(seit), heute0());
+  return tage >= 0 ? tage : null;
+}
+
+/** Menschlicher Text zur Dauer, „seit 3 Wochen“. */
+function seitText(tage) {
+  if (tage === null) return '';
+  if (tage === 0) return 'seit heute';
+  if (tage === 1) return 'seit gestern';
+  if (tage < 14) return `seit ${tage} Tagen`;
+  const wochen = Math.round(tage / 7);
+  if (wochen < 9) return `seit ${wochen} Wochen`;
+  return `seit ${Math.round(tage / 30)} Monaten`;
+}
+
+/** Karte für die Detailansicht: Fortschritt der Bewurzelung bzw. Anwachsphase. */
+function phaseKarteHTML(p) {
+  const phase = phaseVon(p);
+  if (phase === 'erwachsen') return '';
+  const tage = phaseTage(p);
+
+  if (phase === 'steckling') {
+    const m = methodeVon(p);
+    const [von, bis] = m.wochen;
+    const anteil = tage === null ? 0
+      : Math.min(1, tage / (bis * 7));
+    const stand = tage === null ? 'Kein Startdatum eingetragen'
+      : tage < von * 7
+        ? `Wurzeln kommen meist nach ${von} bis ${bis} Wochen.`
+        : tage <= bis * 7
+          ? 'Jetzt ist die übliche Zeit – regelmäßig nachsehen.'
+          : `Länger als ${bis} Wochen ohne Wurzeln. Sitzt der Schnitt unter einem ` +
+            `Blattknoten? Ist es warm genug (20 bis 25 Grad)?`;
+
+    return `
+      <div class="karte phase">
+        <div class="karte-kopf">${m.emoji} Steckling in ${esc(m.name)}${
+          tage !== null ? ' · ' + seitText(tage) : ''}</div>
+        <div class="beh-fortschritt">
+          <div class="beh-balken"><i style="width:${Math.round(anteil * 100)}%"></i></div>
+          <span>${von}–${bis} Wo.</span>
+        </div>
+        <div class="beh-warten">${esc(stand)}</div>
+        <button class="btn" data-bewurzelt="${p.id}">🌿 Hat Wurzeln – ist jetzt Jungpflanze</button>
+        <button class="btn sec" data-anleitung="stecklinge" data-pid="${p.id}">Anleitung ansehen</button>
+      </div>`;
+  }
+
+  // Jungpflanze
+  const reif = tage !== null && tage >= 180;
+  return `
+    <div class="karte phase">
+      <div class="karte-kopf">🌿 Jungpflanze${tage !== null ? ' · ' + seitText(tage) : ''}</div>
+      <div class="beh-warten">Dünger in halber Dosis, lieber kleine Mengen öfter als
+        einmal viel. Das Wurzelwerk ist noch klein und verträgt weder Trockenheit
+        noch stehende Nässe.</div>
+      ${reif ? `<button class="btn" data-erwachsen="${p.id}">Ist ausgewachsen</button>`
+             : `<button class="btn sec" data-erwachsen="${p.id}">Ist ausgewachsen</button>`}
+    </div>`;
+}
+
+/** Chips unter dem Namen. */
+function phaseChipsHTML(p) {
+  const phase = phaseVon(p);
+  if (phase === 'erwachsen') return '';
+  const tage = phaseTage(p);
+  if (phase === 'steckling') {
+    const m = methodeVon(p);
+    return `<div class="topf-arten">
+      <span class="topf-art">🌱 Steckling</span>
+      <span class="topf-art">${m.emoji} ${esc(m.name)}</span>
+      ${tage !== null ? `<span class="topf-art">${esc(seitText(tage))}</span>` : ''}
+      <span class="topf-art">kein Dünger</span>
+    </div>`;
+  }
+  return `<div class="topf-arten">
+    <span class="topf-art">🌿 Jungpflanze</span>
+    ${tage !== null ? `<span class="topf-art">${esc(seitText(tage))}</span>` : ''}
+    <span class="topf-art">Dünger halbe Dosis</span>
+  </div>`;
+}
+
+/** Aus dem Steckling wird eine Jungpflanze. */
+function stecklingBewurzelt(id) {
+  const p = DB.plants.find(x => x.id === id);
+  if (!p) return;
+  const m = methodeVon(p);
+  if (!confirm(p.name + ' hat Wurzeln?\n\n' +
+      (m.k === 'wasser'
+        ? 'Zum Eintopfen sollten die Wurzeln 3 bis 5 cm lang sein. Danach erinnert '
+          + 'die App ans Gießen statt ans Wasserwechseln.'
+        : 'Die App stellt auf die Pflege einer Jungpflanze um.'))) return;
+
+  const art = artFinden(p.name) || artFinden(p.art);
+  p.phase = 'jung';
+  p.phaseSeit = toISO(new Date());
+  if (m.k === 'wasser') {
+    // Ab in die Erde: Rhythmus und Werte der Art übernehmen
+    p.haltung = 'erde';
+    delete p.imWasser;
+    delete p.imWasserSeit;
+    p.intervall = art ? art.iv : 7;
+    p.letzt = toISO(new Date());
+    if (art && !p.menge) p.menge = art.menge;
+    if (art && !p.licht) p.licht = art.licht;
+  }
+  // Jungpflanzen bekommen Dünger in halber Dosis, also im doppelten Abstand
+  if (art && art.d && !Number(p.duengerInt)) {
+    p.duengerInt = art.d * 2;
+    p.duengerLetzt = toISO(new Date());
+  }
+  DB.logs.push({ id: uid(), plantId: id, typ: 'bewurzelt', ts: Date.now() });
+  save();
+  renderAll();
+  openDetail(id);
+  toast('🌿 ' + p.name + ' ist jetzt eine Jungpflanze');
+}
+
+/** Aus der Jungpflanze wird eine ausgewachsene. */
+function jungAusgewachsen(id) {
+  const p = DB.plants.find(x => x.id === id);
+  if (!p) return;
+  const art = artFinden(p.name) || artFinden(p.art);
+  p.phase = 'erwachsen';
+  delete p.phaseSeit;
+  // Volle Düngerdosis heißt: zurück auf das übliche Intervall
+  if (art && art.d && Number(p.duengerInt) === art.d * 2) p.duengerInt = art.d;
+  DB.logs.push({ id: uid(), plantId: id, typ: 'ausgewachsen', ts: Date.now() });
+  save();
+  renderAll();
+  openDetail(id);
+  toast(p.name + ' ist ausgewachsen');
+}
+
+/* ---------- Formular ---------- */
+function phaseAnzeigen() {
+  const phase = $('#f-phase').value;
+  const steckling = phase === 'steckling';
+  $('#feld-methode').hidden = !steckling;
+  $('#feld-phase-seit').hidden = phase === 'erwachsen';
+  $('#label-phase-seit').textContent = steckling ? 'Gesteckt am' : 'Jungpflanze seit';
+
+  const hinweis = $('#phase-hinweis');
+  if (steckling) {
+    const m = METHODEN.find(x => x.k === $('#f-methode').value) || METHODEN[0];
+    hinweis.innerHTML = `<p><b>${m.emoji} ${esc(m.name)}:</b> ${esc(m.hinweis)}</p>` +
+      `<p>Bis zur Bewurzelung <b>nicht düngen</b> – Salze verbrennen die frischen ` +
+      `Wurzelansätze. Und kein direktes Sonnenlicht: Ohne Wurzeln kann der Steckling ` +
+      `das verdunstete Wasser nicht ersetzen.</p>`;
+    hinweis.hidden = false;
+  } else if (phase === 'jung') {
+    hinweis.innerHTML = '<p>Jungpflanzen bekommen <b>Dünger in halber Dosis</b> und ' +
+      'lieber kleine Wassermengen häufiger. Das Wurzelwerk ist noch klein und ' +
+      'verträgt weder Austrocknen noch stehende Nässe.</p>';
+    hinweis.hidden = false;
+  } else {
+    hinweis.hidden = true;
+  }
+
+  // Ein Steckling wird nicht gedüngt, umgetopft oder geschnitten
+  feldZeigen('#f-duenger-int', !steckling && $('#f-haltung').value === 'erde');
+  feldZeigen('#f-duenger-letzt', !steckling && $('#f-haltung').value === 'erde');
+  feldZeigen('#f-umtopfen-int', !steckling && $('#f-haltung').value === 'erde');
+  feldZeigen('#f-umtopfen-letzt', !steckling && $('#f-haltung').value === 'erde');
+}
+
 /* ---------- Anleitungen ----------
    Die App sagt, wann etwas fällig ist. Beim Gießen reicht das. Beim Umtopfen
    nicht: Da hängt viel daran, dass man es richtig macht, und die häufigsten
@@ -2505,6 +2856,67 @@ const ANLEITUNGEN = [
     warnung: 'Nicht im Winter umtopfen, außer es ist ein Notfall wie Wurzelfäule. ' +
       'Zwischen November und Januar wächst kaum etwas nach, und die Pflanze steht dann ' +
       'monatelang in Erde, die sie nicht durchwurzeln kann.'
+  },
+  {
+    id: 'stecklinge', emoji: '🌱', titel: 'Stecklinge schneiden und bewurzeln',
+    kurz: 'Wo der Schnitt hin muss, welches Medium sich eignet, und wann eingetopft wird.',
+    dauer: '15 Minuten, dann 2 bis 8 Wochen Geduld',
+    zeitpunkt: 'April bis August, in der Wachstumszeit',
+    abschluss: 'Jetzt heißt es warten. Leg den Steckling in der App als eigene Pflanze ' +
+      'mit der Phase „Steckling“ an, dann erinnert sie ans Wasserwechseln und zeigt, ' +
+      'wie lange er schon steht.',
+    woran: [
+      'Die Mutterpflanze ist gesund und treibt gerade aus',
+      'Ein Trieb ist lang und kahl geworden – der Rückschnitt liefert das Material',
+      'Es gibt einen Trieb mit mindestens zwei Blättern und einem Blattknoten',
+      'Bei Monstera, Efeutute und Philodendron: eine Luftwurzel am Knoten',
+      'Draußen sind es über 20 Grad, drinnen wird es nicht kälter als 20'
+    ],
+    material: [
+      'Scharfes, sauberes Messer oder Skalpell – keine stumpfe Schere, sie quetscht',
+      'Glas, Anzuchttopf, Sphagnum-Moos oder Perlite',
+      'Durchsichtige Tüte oder Zimmergewächshaus (außer bei Wasser)',
+      'Optional Bewurzelungspulver für hartnäckige Arten',
+      'Bei Wolfsmilchgewächsen und Ficus: Handschuhe und Küchenpapier für den Milchsaft'
+    ],
+    schritte: [
+      { titel: 'Den richtigen Trieb aussuchen',
+        text: 'Ein kräftiger, nicht blühender Trieb mit zwei bis drei Blättern. Junge, biegsame Triebe bewurzeln schneller als verholzte.',
+        tipp: 'Von einer kranken oder befallenen Pflanze wird auch der Steckling krank.' },
+      { titel: 'Unter dem Blattknoten schneiden',
+        text: 'Etwa einen halben Zentimeter unterhalb eines Blattknotens ansetzen – der Verdickung, aus der Blatt und Luftwurzel kommen. Genau dort sitzen die Zellen, die neue Wurzeln bilden.',
+        tipp: 'Der häufigste Fehler: mitten im Stängel geschnitten. Ohne Knoten passiert nichts, der Steckling fault einfach.' },
+      { titel: 'Untere Blätter entfernen',
+        text: 'Alles abzupfen, was später im Wasser oder Substrat stehen würde. Oben zwei bis drei Blätter reichen.',
+        tipp: 'Blätter unter Wasser faulen und kippen das ganze Glas. Zu viele Blätter oben verdunsten mehr, als der Steckling ohne Wurzeln nachliefern kann.' },
+      { titel: 'Milchsaft abspülen',
+        text: 'Bei Ficus, Wolfsmilch und Weihnachtsstern die Schnittstelle kurz unter lauwarmes Wasser halten, bis nichts mehr austritt.',
+        tipp: 'Getrockneter Milchsaft verschließt die Schnittstelle – dann kommt kein Wasser mehr rein.' },
+      { titel: 'Medium wählen',
+        text: 'Wasserglas ist am leichtesten zu kontrollieren. Sphagnum-Moos und Perlite geben kräftigere Wurzeln, weil mehr Luft drankommt. Anzuchterde spart das spätere Umgewöhnen.',
+        tipp: 'Wasserwurzeln sind weicher. Beim Eintopfen gehen ein paar davon ein – das ist normal, aber ein Rückschlag.' },
+      { titel: 'Einsetzen',
+        text: 'Im Glas: nur der untere Teil steht im Wasser, kein Blatt. In Substrat: den Knoten etwa zwei Zentimeter tief setzen und andrücken.',
+        tipp: 'Substrat nur feucht, nie nass. Perlite braucht unten zwei Zentimeter Wasser, das es hochzieht.' },
+      { titel: 'Luftfeuchte schaffen',
+        text: 'Außer im Wasserglas eine durchsichtige Tüte oder ein Zimmergewächshaus darüber. Täglich kurz lüften, damit sich kein Schimmel bildet.',
+        tipp: 'Ohne Wurzeln zieht der Steckling sein Wasser nur aus der Luft. Ohne Haube vertrocknet er, obwohl das Substrat feucht ist.' },
+      { titel: 'Hell, aber ohne Sonne',
+        text: 'Ein Nordfenster oder ein paar Meter neben dem Südfenster. Zwischen 20 und 25 Grad geht es am schnellsten.',
+        tipp: 'Direkte Sonne kocht die Haube aus und verbrennt die Blätter innerhalb eines Nachmittags.' },
+      { titel: 'Nicht düngen',
+        text: 'Bis Wurzeln da sind, gibt es keinen Dünger. Danach die halbe Dosis.',
+        tipp: 'Salz verbrennt die frischen Wurzelansätze. Das ist nach der falschen Schnittstelle der zweithäufigste Grund fürs Scheitern.' },
+      { titel: 'Warten und kontrollieren',
+        text: 'Je nach Art und Medium dauert es zwei bis acht Wochen. Im Wasser alle drei bis fünf Tage wechseln, sonst kippt es.',
+        tipp: 'Nicht ständig herausziehen – jedes Mal reißen die feinen Wurzelspitzen ab.' },
+      { titel: 'Eintopfen',
+        text: 'Wenn die Wurzeln drei bis fünf Zentimeter lang sind, in einen kleinen Topf mit lockerer Erde. Danach in der App auf „Jungpflanze“ stellen.',
+        tipp: 'Zu früh eingetopft trocknet er aus, zu spät gewöhnt er sich schlechter an die Erde um.' }
+    ],
+    warnung: 'Zwischen Oktober und Februar bewurzeln Stecklinge kaum – zu wenig Licht ' +
+      'und zu wenig Wärme. Wer es trotzdem versucht, braucht Pflanzenlicht und eine ' +
+      'Heizmatte, sonst faulen sie nur.'
   }
 ];
 
@@ -2562,7 +2974,7 @@ function anleitungZeichnen() {
       <div class="empty">
         <div class="big">✅</div>
         <p><b>Geschafft</b></p>
-        <p>${p ? esc(p.name) + ' steht im neuen Topf.' : 'Fertig.'}</p>
+        <p>${esc(a.abschluss || (p ? p.name + ' steht im neuen Topf.' : 'Fertig.'))}</p>
       </div>
       ${offen
         ? `<button class="btn" data-anleitung-fertig="${p.id}">Als „umgetopft" eintragen</button>`
@@ -2658,6 +3070,8 @@ function aufgabenVon(p) {
   for (const a of AUFGABEN) {
     const iv = Number(p[a.feldInt]) || 0;
     if (!iv) continue;
+    // Geschwächte Pflanzen und Stecklinge werden nicht gedüngt
+    if (a.schluessel === 'duenger' && duengenPausiert(p)) continue;
     raus.push({
       schluessel: a.schluessel, name: a.name, partizip: a.partizip, emoji: a.emoji,
       einheit: a.einheit, intervall: iv, letzt: p[a.feldLetzt] || '',
@@ -3898,6 +4312,9 @@ function haltungAnzeigen() {
   feldZeigen('#f-duenger-int', erde);
   feldZeigen('#f-duenger-letzt', erde);
 
+  // Für einen Steckling gelten andere Regeln – phaseAnzeigen entscheidet zuletzt
+  if ($('#f-phase')) phaseAnzeigen();
+
   const hinweis = $('#hydro-hinweis');
   if (hydro) {
     hinweis.innerHTML = '<p>Blähton, Pon und Seramis enthalten keine Nährstoffe. ' +
@@ -3980,10 +4397,14 @@ function openEdit(id) {
   $('#f-notiz').value = p ? (p.notiz || '') : '';
   editEmoji = p ? (p.emoji || '🪴') : '🪴';
   editFoto = p ? (p.foto || null) : null;
+  $('#f-phase').value = p ? phaseVon(p) : 'erwachsen';
+  $('#f-methode').value = p ? (p.methode || (istAbleger(p) ? 'wasser' : 'erde')) : 'wasser';
+  $('#f-phase-seit').value = p ? (p.phaseSeit || p.imWasserSeit || '') : toISO(new Date());
   editUmgebung = p ? umgebungVon(p).slice() : [];
   editEigene = p ? eigeneVon(p).map(e => Object.assign({}, e)) : [];
   zeichneUmgebung();
   zeichneEigene();
+  phaseAnzeigen();
   $('#btn-delete').style.display = p ? 'block' : 'none';
   $('#btn-foto-del').style.display = editFoto ? 'block' : 'none';
   renderEmojiPick();
@@ -4025,6 +4446,10 @@ function speichern() {
     haltung: $('#f-haltung').value,
     imWasserSeit: $('#f-haltung').value === 'wasser'
       ? ($('#f-wasser-seit').value || toISO(new Date())) : '',
+    phase: $('#f-phase').value,
+    methode: $('#f-phase').value === 'steckling' ? $('#f-methode').value : '',
+    phaseSeit: $('#f-phase').value === 'erwachsen' ? ''
+      : ($('#f-phase-seit').value || toISO(new Date())),
     umgebung: editUmgebung.slice(),
     eigene: editEigene.map(e => Object.assign({}, e)),
     spuelenTage: $('#f-haltung').value === 'hydro'
@@ -4133,13 +4558,17 @@ function openDetail(id) {
         : `<div class="hero-emoji">${p.emoji || '🪴'}</div>`}
       <div class="hero-chips">
         ${p.raum ? `<span class="hero-chip">${esc(p.raum)}</span>` : ''}
+        ${zustandVon(p) !== 'gut'
+          ? `<span class="hero-chip warn">${
+              ZUSTAENDE.find(x => x.k === zustandVon(p)).emoji} ${
+              esc(ZUSTAENDE.find(x => x.k === zustandVon(p)).kurz)}</span>` : ''}
         <span class="hero-chip ${statusOf(p)}">${statusText(p)}</span>
       </div>
     </div>
 
     <h2 class="detail-name">${esc(p.name)}</h2>
     ${p.art ? `<p class="detail-art">${esc(p.art)}</p>` : ''}
-    ${istAbleger(p) ? `<div class="topf-arten">
+    ${istAbleger(p) && !istSteckling(p) ? `<div class="topf-arten">
       <span class="topf-art">🫙 Ableger im Wasser</span>
       ${abegerSeit(p) ? `<span class="topf-art">${esc(abegerSeit(p))}</span>` : ''}
     </div>` : ''}
@@ -4147,6 +4576,7 @@ function openDetail(id) {
       <span class="topf-art">🪨 Semi-Hydro</span>
       <span class="topf-art">Dünger bei jeder Gabe</span>
     </div>` : ''}
+    ${phaseChipsHTML(p)}
     ${umgebungChipsHTML(p)}
     ${mitbewohner(p).length ? `<div class="topf-arten">
       <span class="topf-art">im selben Topf:</span>
@@ -4155,6 +4585,8 @@ function openDetail(id) {
 
     <div class="status-reihe">${kacheln}</div>
 
+    ${zustandKarteHTML(p)}
+    ${phaseKarteHTML(p)}
     ${behandlungKarteHTML(p)}
 
     ${offen.length ? `
@@ -4209,7 +4641,7 @@ function openDetail(id) {
     ${verlaufHTML(p)}
 
     ${abschnittHTML('mehr', 'Mehr zu dieser Pflanze', `
-      ${istAbleger(p) ? `<button class="btn sec" data-eintopfen="${p.id}">🪴 Ist bewurzelt, kommt in Erde</button>` : ''}
+      ${istAbleger(p) && !istSteckling(p) ? `<button class="btn sec" data-eintopfen="${p.id}">🪴 Ist bewurzelt, kommt in Erde</button>` : ''}
       <button class="btn sec" data-hilfe="${p.id}">${
         behandlungVon(p) ? 'Weiteres Problem?' : 'Problem mit dieser Pflanze?'}</button>
       <button class="btn sec" data-anleitung="umtopfen" data-pid="${p.id}">🪴 Anleitung zum Umtopfen</button>
@@ -4273,6 +4705,9 @@ function allesHier(pid) {
 function logText(typ, text) {
   if (typ === 'notiz') return '📝 ' + (text || 'Notiz');
   if (String(typ).startsWith('eigen:')) return '📌 ' + eigenName(typ);
+  if (typ === 'zustand') return '🩺 Zustand: ' + (text || 'geändert');
+  if (typ === 'bewurzelt') return '🌿 Bewurzelt, jetzt Jungpflanze';
+  if (typ === 'ausgewachsen') return '🪴 Ausgewachsen';
   if (typ === 'behandlung-start') return '🩹 Behandlung begonnen';
   if (typ === 'behandlung-ende') return '🩹 Behandlung beendet';
   if (typ === 'wasser') return '💧 Gegossen';
@@ -4748,6 +5183,8 @@ function bind() {
   /* Nicht hochgeladene Änderungen nachholen, sobald es wieder geht */
   window.addEventListener('online', () => { if (SYNC.dirty) schiebeHoch(); });
 
+  $('#f-phase').onchange = phaseAnzeigen;
+  $('#f-methode').onchange = phaseAnzeigen;
   $('#btn-eigen-neu').onclick = eigeneNeuOeffnen;
   $('#zeile-ort').onclick = ortOeffnen;
   $('#set-wetter').onchange = e => {
@@ -4769,7 +5206,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -4796,6 +5233,9 @@ function bind() {
       return;
     }
     if (t.dataset.ort) { e.stopPropagation(); ortWaehlen(t.dataset.ort); return; }
+    if (t.dataset.zustand) { e.stopPropagation(); zustandSetzen(t.dataset.pid, t.dataset.zustand); return; }
+    if (t.dataset.bewurzelt) { e.stopPropagation(); stecklingBewurzelt(t.dataset.bewurzelt); return; }
+    if (t.dataset.erwachsen) { e.stopPropagation(); jungAusgewachsen(t.dataset.erwachsen); return; }
     if (t.dataset.anleitung) {
       e.stopPropagation();
       const pid = t.dataset.pid || null;

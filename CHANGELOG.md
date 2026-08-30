@@ -1,5 +1,61 @@
 # Changelog
 
+## v3.3.0 - 2026-08-30
+
+### Zustand der Pflanze – und die App richtet sich danach
+
+Ein Gießplan rechnet stur nach Kalender. Das geht gut, solange es der Pflanze
+gut geht – und genau dann, wenn es das nicht tut, ist es falsch.
+
+- Drei Stufen in der Detailansicht: **geht ihr gut / schwächelt / geht ihr
+  schlecht.**
+- **Das Gießintervall wird verlängert**, nicht verkürzt: bei „schwächelt" um
+  20 %, bei „geht ihr schlecht" um 40 %. Eine geschwächte Pflanze verbraucht
+  weniger, und nasse Erde macht Wurzelprobleme schlimmer.
+- **Düngen wird pausiert**, solange es ihr schlecht geht. Salz verbrennt
+  beschädigte Wurzeln, statt beim Erholen zu helfen – nach der falschen
+  Wassermenge der häufigste Grund, warum eine kränkelnde Pflanze am Ende
+  eingeht.
+- Die Karte sagt jedes Mal dazu, **was sich ändert und warum** („Gießen alle 14
+  statt 10 Tage"), und bietet direkt den Weg zur Ursachensuche an.
+- Der Zustand steht im Kopfbild, in der Pflanzenliste und im Verlauf.
+- Der Push-Versand rechnet mit denselben Regeln.
+
+### Peperomien fehlten ganz
+
+Gemeldet für die Peperomia caperata: Die App schlug zweimal wöchentlich gießen
+vor. Für dickfleischige Blätter ist das viel zu häufig.
+
+- Ursache: **Peperomia stand mit keiner einzigen Art in der Liste.** Ohne
+  Treffer greift kein Vorschlag, und es blieb beim Standardwert.
+- Ergänzt: **Peperomia** (allgemein), **Zwergpfeffer / Peperomia caperata**,
+  **Wassermelonen-Peperomie / Peperomia argyreia** und **Dickblatt-Peperomie /
+  Peperomia obtusifolia** – alle mit 12 bis 14 Tagen, Winterruhe ×2 bis ×2,5
+  und dem Hinweis, dass Staunässe sie schneller umbringt als Trockenheit.
+
+## v3.2.0 - 2026-08-30
+
+### Stecklinge und Jungpflanzen
+
+Ein Steckling ist keine kleine Zimmerpflanze, sondern ein Stück Pflanze ohne
+Wurzeln. Er kann kein Wasser aufnehmen, verdunstet aber weiter.
+
+- Neue **Lebensphase** je Pflanze: Steckling, Jungpflanze oder ausgewachsen.
+  Sie steht neben der Haltung, nicht darin – ein Steckling kann im Wasserglas,
+  in Anzuchterde, in Sphagnum-Moos oder in Perlite stecken.
+- Zu jeder der **vier Bewurzelungsmethoden** die übliche Dauer, der passende
+  Hinweis und ein Fortschritt: „Wurzeln kommen meist nach 2 bis 6 Wochen",
+  später „Länger als 6 Wochen ohne Wurzeln – sitzt der Schnitt unter einem
+  Blattknoten?"
+- **Kein Dünger bis zur Bewurzelung** – die Felder werden ausgeblendet, und der
+  Push meldet sich nicht. Danach halbe Dosis: Beim Übergang zur Jungpflanze
+  setzt die App das Düngeintervall auf den doppelten Abstand.
+- Übergänge mit einem Knopf: „Hat Wurzeln" und „Ist ausgewachsen", beides im
+  Verlauf festgehalten. Beim Wasserglas topft die App gleich mit ein.
+- Zweite Anleitung: **Stecklinge schneiden und bewurzeln**, elf Schritte – vom
+  Schnitt einen halben Zentimeter unter dem Blattknoten (der häufigste Fehler)
+  bis zum Eintopfen bei 3 bis 5 cm Wurzellänge.
+
 ## v3.1.0 - 2026-08-30
 
 ### Anleitung zum Umtopfen
