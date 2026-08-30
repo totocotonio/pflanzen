@@ -29,7 +29,15 @@ AUFGABEN = [
     {"int": "duengerInt", "letzt": "duengerLetzt", "einheit": "tage", "verb": "düngen"},
     {"int": "umtopfenMon", "letzt": "umtopfenLetzt", "einheit": "monate", "verb": "umtopfen"},
     {"int": "schneidenMon", "letzt": "schneidenLetzt", "einheit": "monate", "verb": "schneiden"},
+    {"int": "spuelenTage", "letzt": "spuelenLetzt", "einheit": "tage", "verb": "spülen"},
 ]
+
+
+def haltung_von(pflanze):
+    """'erde', 'wasser' (Ableger) oder 'hydro'. imWasser ist der Altbestand."""
+    if pflanze.get("haltung"):
+        return pflanze["haltung"]
+    return "wasser" if pflanze.get("imWasser") else "erde"
 
 
 def als_datum(text):
@@ -63,10 +71,11 @@ def eff_intervall(pflanze, einstellungen):
 
     Ein eigener Winterwert der Pflanze schlägt die allgemeine Einstellung.
     Ableger im Wasserglas kennen keine Winterruhe: Das Wasser kippt im
-    Januar genauso schnell wie im Juli.
+    Januar genauso schnell wie im Juli. Bei Semi-Hydro verdunstet der
+    Vorrat ebenfalls unabhängig von der Jahreszeit.
     """
     intervall = int(pflanze.get("intervall") or 7)
-    if pflanze.get("imWasser"):
+    if haltung_von(pflanze) in ("wasser", "hydro"):
         return max(1, intervall)
     if not ist_winter(einstellungen):
         return max(1, intervall)
@@ -76,10 +85,10 @@ def eff_intervall(pflanze, einstellungen):
 
 
 def offene_punkte(daten):
-    """Was heute ansteht: (Gießen, Wasserwechsel, sonstige Aufgaben)."""
+    """Was heute ansteht: (Gießen, Wasserwechsel, Nachfüllen, Aufgaben)."""
     einstellungen = daten.get("settings") or {}
     heute = date.today()
-    giessen, wechseln, aufgaben = [], [], []
+    giessen, wechseln, nachfuellen, aufgaben = [], [], [], []
 
     for p in daten.get("plants") or []:
         if p.get("archiviert"):
@@ -87,8 +96,12 @@ def offene_punkte(daten):
 
         letzt = als_datum(p.get("letzt"))
         if letzt and letzt + timedelta(days=eff_intervall(p, einstellungen)) <= heute:
-            # Ein Ableger im Glas wird nicht gegossen, sein Wasser gewechselt
-            ziel = wechseln if p.get("imWasser") else giessen
+            # Jede Haltung hat ihre eigene Handlung: Ableger bekommen
+            # frisches Wasser, Semi-Hydro wird nachgefüllt, Erde gegossen.
+            haltung = haltung_von(p)
+            ziel = (wechseln if haltung == "wasser"
+                    else nachfuellen if haltung == "hydro"
+                    else giessen)
             ziel.append(p.get("name") or "Pflanze")
 
         for a in AUFGABEN:
@@ -104,7 +117,7 @@ def offene_punkte(daten):
             if faellig <= heute:
                 aufgaben.append((p.get("name") or "Pflanze", a["verb"]))
 
-    return giessen, wechseln, aufgaben
+    return giessen, wechseln, nachfuellen, aufgaben
 
 
 def aufzaehlung(namen, einzahl, mehrzahl, gekuerzt):
@@ -117,7 +130,7 @@ def aufzaehlung(namen, einzahl, mehrzahl, gekuerzt):
     return gekuerzt.format(namen[0], namen[1], anzahl - 2)
 
 
-def nachricht(giessen, wechseln, aufgaben):
+def nachricht(giessen, wechseln, nachfuellen, aufgaben):
     """Titel und Text. Gießen steht vorne, weil es das Dringendere ist."""
     teile = []
 
@@ -132,6 +145,12 @@ def nachricht(giessen, wechseln, aufgaben):
                                  "Bei {} das Wasser wechseln.",
                                  "Bei {} das Wasser wechseln.",
                                  "Bei {}, {} und {} weiteren das Wasser wechseln."))
+
+    if nachfuellen:
+        teile.append(aufzaehlung(nachfuellen,
+                                 "{} braucht Wasser mit Dünger.",
+                                 "{} brauchen Wasser mit Dünger.",
+                                 "{}, {} und {} weitere brauchen Wasser mit Dünger."))
 
     if aufgaben:
         # Nach Tätigkeit bündeln: "Orchidee und Monstera düngen"
@@ -151,6 +170,7 @@ def nachricht(giessen, wechseln, aufgaben):
 
     titel = ("Zeit zum Gießen" if giessen
              else "Frisches Wasser" if wechseln
+             else "Wasserstand prüfen" if nachfuellen
              else "Pflanzenpflege")
     return titel, " ".join(teile)
 
@@ -188,14 +208,14 @@ def main_lauf():
             uebersprungen += 1
             continue
 
-        giessen, wechseln, aufgaben = offene_punkte(json.loads(datensatz.inhalt))
-        if not giessen and not wechseln and not aufgaben:
+        giessen, wechseln, nachfuellen, aufgaben = offene_punkte(json.loads(datensatz.inhalt))
+        if not giessen and not wechseln and not nachfuellen and not aufgaben:
             # Nichts zu tun – Tag abhaken, damit nicht alle 15 Minuten gerechnet wird
             abo.zuletzt = heute_iso
             uebersprungen += 1
             continue
 
-        titel, text = nachricht(giessen, wechseln, aufgaben)
+        titel, text = nachricht(giessen, wechseln, nachfuellen, aufgaben)
         if TROCKEN:
             benutzer = s.get(main.User, abo.user_id)
             print(f"  [trocken] an {benutzer.name if benutzer else abo.user_id}: {titel} – {text}")

@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=2.4.0">
+<link rel="stylesheet" href="style.css?v=2.5.0">
 </head>
 <body>
 
@@ -231,6 +231,7 @@
         <label>Haltung</label>
         <select id="f-haltung">
           <option value="erde">in Erde</option>
+          <option value="hydro">Semi-Hydro (Blähton, Pon)</option>
           <option value="wasser">Ableger im Wasser</option>
         </select>
       </div>
@@ -263,6 +264,13 @@
       <div class="field" id="feld-wasser-seit" hidden>
         <label>Im Wasser seit</label><input type="date" id="f-wasser-seit">
       </div>
+      <div class="field" id="feld-spuelen" hidden>
+        <label>Substrat spülen alle … Tage</label>
+        <input type="number" id="f-spuelen-int" min="0" max="365" value="42" inputmode="numeric">
+      </div>
+      <div class="field" id="feld-spuelen-letzt" hidden>
+        <label>Zuletzt gespült</label><input type="date" id="f-spuelen-letzt">
+      </div>
       <div class="field"><label>Topf-Durchmesser</label>
         <input type="number" id="f-topfgroesse" min="0" max="120" inputmode="numeric" placeholder="cm, optional"></div>
       <div class="field"><label>Wassermenge</label><input id="f-menge" placeholder="z.B. 200 ml" autocomplete="off"></div>
@@ -279,6 +287,7 @@
     </div>
 
     <div class="vorschlag" id="topf-menge-hinweis" hidden></div>
+    <div class="vorschlag" id="hydro-hinweis" hidden></div>
 
     <div class="section-title">Düngen (optional)</div>
     <div class="group">
@@ -447,8 +456,14 @@
   <div class="panel" id="detail-body"></div>
 </div>
 
+<div id="update-banner" hidden>
+  <span>Neue Version verfügbar</span>
+  <button id="btn-update">Jetzt laden</button>
+  <button id="btn-update-spaeter" title="Später">✕</button>
+</div>
+
 <div id="toast"></div>
 
-<script src="app.js?v=2.4.0"></script>
+<script src="app.js?v=2.5.0"></script>
 </body>
 </html>

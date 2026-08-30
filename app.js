@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '2.4.0';
+const VERSION = '2.5.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -348,6 +348,34 @@ function zeichnePersoenlich() {
     : '');
 }
 
+/* ---------- Bilder ----------
+   Fotos landen als Base64 im localStorage und werden mitsynchronisiert.
+   Daraus folgt der Spagat: groß genug, damit auf Handydisplays nichts
+   ausfranst, klein genug, dass der Speicher reicht.
+
+   Ein Handy hat zwei bis drei Gerätepixel je CSS-Pixel. Ein Bild, das über
+   die volle Breite läuft, braucht deshalb ein Vielfaches der 390 Punkte,
+   die das Layout dafür vorsieht – sonst wird es hochgerechnet und wirkt
+   grob. Bei mehr als 2,5 hört der sichtbare Gewinn auf, dort deckeln wir. */
+const PIXELDICHTE = Math.min(window.devicePixelRatio || 1, 2.5);
+
+/** Kantenlänge für ein Bild, das über breiteCss Punkte dargestellt wird. */
+function zielKante(breiteCss, obergrenze) {
+  return Math.min(Math.round(breiteCss * PIXELDICHTE), obergrenze);
+}
+
+/** Zeichnet die Quelle auf eine Leinwand der gewünschten Größe. */
+function aufLeinwand(quelle, breite, hoehe) {
+  const c = document.createElement('canvas');
+  c.width = breite;
+  c.height = hoehe;
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(quelle, 0, 0, breite, hoehe);
+  return c;
+}
+
 /** Bild verkleinern und als JPEG zurückgeben. */
 function bildVerkleinern(datei, maxKante, guete) {
   return new Promise((fertig, fehler) => {
@@ -358,16 +386,35 @@ function bildVerkleinern(datei, maxKante, guete) {
       bild.onerror = () => fehler(new Error('Kein gültiges Bild'));
       bild.onload = () => {
         const f = Math.min(maxKante / bild.width, maxKante / bild.height, 1);
-        const c = document.createElement('canvas');
-        c.width = Math.round(bild.width * f);
-        c.height = Math.round(bild.height * f);
-        c.getContext('2d').drawImage(bild, 0, 0, c.width, c.height);
-        fertig(c.toDataURL('image/jpeg', guete));
+        const zielB = Math.max(1, Math.round(bild.width * f));
+        const zielH = Math.max(1, Math.round(bild.height * f));
+
+        // In Halbierungsschritten verkleinern. Wer ein 4000er Foto in einem
+        // Rutsch auf 1000 zieht, verwirft drei von vier Pixeln ungefragt –
+        // feine Blattstrukturen werden dabei zu Krisseln.
+        let quelle = bild, b = bild.width, h = bild.height;
+        while (b > zielB * 2) {
+          b = Math.round(b / 2);
+          h = Math.round(h / 2);
+          quelle = aufLeinwand(quelle, b, h);
+        }
+        fertig(aufLeinwand(quelle, zielB, zielH).toDataURL('image/jpeg', guete));
       };
       bild.src = e.target.result;
     };
     leser.readAsDataURL(datei);
   });
+}
+
+/** Belegter Platz im localStorage in Byte (grob, zwei Byte je Zeichen). */
+function speicherBytes() {
+  try { return (localStorage.getItem(KEY) || '').length; }
+  catch (e) { return 0; }
+}
+
+function speicherText() {
+  const mb = speicherBytes() / 1048576;
+  return mb < 1 ? Math.round(mb * 1024) + ' KB' : mb.toFixed(1) + ' MB';
 }
 
 function bindePersoenlich() {
@@ -387,7 +434,7 @@ function bindePersoenlich() {
   $('#ps-foto').onchange = async e => {
     if (!e.target.files[0]) return;
     try {
-      DB.settings.avatarFoto = await bildVerkleinern(e.target.files[0], 200, 0.8);
+      DB.settings.avatarFoto = await bildVerkleinern(e.target.files[0], zielKante(130, 340), 0.82);
       save(); applyPersonalisierung(); zeichnePersoenlich();
       $('#ps-foto-weg').style.display = 'block';
       toast('Symbol übernommen');
@@ -404,7 +451,8 @@ function bindePersoenlich() {
   $('#ps-hgfoto').onchange = async e => {
     if (!e.target.files[0]) return;
     try {
-      DB.settings.hintergrundFoto = await bildVerkleinern(e.target.files[0], 1200, 0.72);
+      DB.settings.hintergrundFoto = await bildVerkleinern(
+        e.target.files[0], zielKante(Math.max(screen.width, 800), 1600), 0.7);
       DB.settings.hintergrund = 'foto';
       save(); applyPersonalisierung(); zeichnePersoenlich();
       $('#ps-hgfoto-weg').style.display = 'block';
@@ -426,6 +474,13 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '2.5.0', datum: '30.08.2026', punkte: [
+    'Die App meldet jetzt selbst, wenn eine neue Fassung bereitliegt.',
+    'Semi-Hydrokultur als eigene Haltung – Blähton, Pon, Seramis.',
+    'Dort wird bei jeder Wassergabe gedüngt, ein eigenes Düngeintervall entfällt.',
+    'Neue Aufgabe „Substrat spülen“ gegen Salzablagerungen, voreingestellt alle sechs Wochen.',
+    'Fotos werden deutlich höher aufgelöst gespeichert – auf Handydisplays wirkten sie vorher grob.'
+  ]},
   { v: '2.4.0', datum: '30.08.2026', punkte: [
     'Zwölf Kakteen ergänzt, getrennt nach Wüsten- und Regenwaldarten – die brauchen sehr unterschiedlich viel Wasser.',
     'Die Artenliste kennt jetzt die passende Winterruhe und trägt sie beim Übernehmen mit ein.'
@@ -1186,7 +1241,10 @@ const AUFGABEN = [
   { schluessel: 'umtopfen', name: 'Umtopfen', partizip: 'umgetopft',   emoji: '🪴',
     feldInt: 'umtopfenMon', feldLetzt: 'umtopfenLetzt', einheit: 'monate' },
   { schluessel: 'schneiden', name: 'Schneiden', partizip: 'geschnitten', emoji: '✂️',
-    feldInt: 'schneidenMon', feldLetzt: 'schneidenLetzt', einheit: 'monate' }
+    feldInt: 'schneidenMon', feldLetzt: 'schneidenLetzt', einheit: 'monate' },
+  // Nur bei Semi-Hydro: Düngesalze sammeln sich im Substrat und müssen raus
+  { schluessel: 'spuelen', name: 'Substrat spülen', partizip: 'gespült', emoji: '🚿',
+    feldInt: 'spuelenTage', feldLetzt: 'spuelenLetzt', einheit: 'tage' }
 ];
 
 /** Tage bis zur nächsten Fälligkeit einer Aufgabe, null wenn abgeschaltet. */
@@ -1631,8 +1689,9 @@ function artUebernehmen(a) {
 /* ---------- Fotoverlauf ----------
    Mehrere Fotos je Pflanze mit Datum. Die Bilder liegen als JPEG im
    localStorage und werden mitsynchronisiert, deshalb die Begrenzung auf
-   sechs Stück und 500 px Kantenlänge. */
+   sechs Stück je Pflanze. */
 const FOTOS_MAX = 6;
+const FOTO_KANTE = 900;      // Vollansicht läuft über die ganze Breite
 
 function fotosVon(p) {
   return Array.isArray(p.fotos) ? p.fotos : [];
@@ -1657,8 +1716,14 @@ async function fotoHinzufuegen(pid, datei) {
   if (!p) return;
   const liste = fotosVon(p);
   if (liste.length >= FOTOS_MAX) { toast('Mehr als ' + FOTOS_MAX + ' Fotos gehen nicht'); return; }
+  // Der Browser gibt rund 5 MB je Seite frei. Kurz vorher lieber warnen,
+  // als die Speicherung fehlschlagen zu lassen.
+  if (speicherBytes() > 4 * 1048576) {
+    toast('Speicher fast voll (' + speicherText() + ') – erst alte Fotos löschen');
+    return;
+  }
   try {
-    const bild = await bildVerkleinern(datei, 500, 0.7);
+    const bild = await bildVerkleinern(datei, zielKante(560, FOTO_KANTE), 0.7);
     p.fotos = liste.concat([{ id: uid(), bild, ts: Date.now() }]);
     save();
     openDetail(pid);
@@ -2073,24 +2138,46 @@ function problemZeigen(id) {
     `<button class="btn sec" data-problem-zurueck>Zurück zur Übersicht</button>`;
 }
 
-/* ---------- Ableger im Wasser ----------
-   Ein Steckling im Glas wird nicht gegossen – das Wasser wird gewechselt,
-   sonst kippt es und die Wurzeln faulen. Sonst verhält er sich wie jede
-   andere Pflanze: Intervall, Fälligkeit, Erinnerung.
-   Sobald er bewurzelt ist, wird er eingetopft und damit zur normalen Pflanze. */
+/* ---------- Haltungsarten ----------
+   Erde, Ableger im Wasserglas und Semi-Hydrokultur unterscheiden sich in
+   fast allem: was zu tun ist, wie oft, und was daneben noch anfällt.
 
-function istAbleger(p) {
-  return !!p.imWasser;
+   Semi-Hydro (Blähton, Pon, Seramis) ist der Sonderfall: Das Substrat ist
+   inert und liefert keine Nährstoffe. Gedüngt wird deshalb nicht gelegentlich,
+   sondern bei jeder Wassergabe – schwach dosiert. Dafür sammeln sich Salze im
+   Substrat, die regelmäßig ausgespült werden müssen. */
+
+function haltungVon(p) {
+  if (p.haltung) return p.haltung;
+  return p.imWasser ? 'wasser' : 'erde';   // Altbestand vor v2.5.0
 }
 
-/** Wortwahl für die Hauptaufgabe – gießen oder Wasser wechseln. */
+function istAbleger(p) { return haltungVon(p) === 'wasser'; }
+function istHydro(p) { return haltungVon(p) === 'hydro'; }
+
+/** Wortwahl für die Hauptaufgabe der jeweiligen Haltung. */
 function wasserWorte(p) {
-  return istAbleger(p)
-    ? { titel: 'Wasser wechseln', kurz: 'wechseln', partizip: 'Wasser gewechselt',
-        emoji: '🫙', heute: 'Heute wechseln' }
-    : { titel: 'Gießen', kurz: 'gießen', partizip: 'gegossen',
-        emoji: '💧', heute: 'Heute gießen' };
+  switch (haltungVon(p)) {
+    case 'wasser':
+      return { titel: 'Wasser wechseln', partizip: 'Wasser gewechselt',
+               emoji: '🫙', heute: 'Heute wechseln' };
+    case 'hydro':
+      return { titel: 'Nachfüllen', partizip: 'nachgefüllt',
+               emoji: '💧', heute: 'Heute nachfüllen' };
+    default:
+      return { titel: 'Gießen', partizip: 'gegossen',
+               emoji: '💧', heute: 'Heute gießen' };
+  }
 }
+
+/** Kurzer Zusatz zur Aufgabe, der die Besonderheit der Haltung nennt. */
+function wasserZusatz(p) {
+  if (istHydro(p)) return 'mit Dünger';
+  return p.menge ? esc(p.menge) : '';
+}
+
+const HALTUNG_NAME = { erde: 'in Erde', wasser: 'Ableger im Wasser',
+                       hydro: 'Semi-Hydro' };
 
 /** Wie lange steht der Ableger schon im Wasser? */
 function abegerSeit(p) {
@@ -2110,12 +2197,14 @@ function abelegerEintopfen(id) {
                'Ab dann erinnert die App ans Gießen statt ans Wasserwechseln.')) return;
 
   const art = artFinden(p.name) || artFinden(p.art);
-  p.imWasser = false;
+  p.haltung = 'erde';
+  delete p.imWasser;
   delete p.imWasserSeit;
   p.intervall = art ? art.iv : 7;
   p.letzt = toISO(new Date());
   if (art && !p.menge) p.menge = art.menge;
   if (art && !p.licht) p.licht = art.licht;
+  if (art && art.w && !p.winterFaktor) p.winterFaktor = art.w;
   if (art && !Number(p.duengerInt)) {
     p.duengerInt = art.d;
     p.duengerLetzt = toISO(new Date());
@@ -2388,26 +2477,53 @@ function hashOeffnen(endgueltig) {
   }
 }
 
+/** Blendet ein Formularfeld samt Zeile aus oder ein. */
+function feldZeigen(wahl, zeigen) {
+  const feld = $(wahl);
+  const zeile = feld && feld.closest('.field');
+  if (zeile) zeile.hidden = !zeigen;
+}
+
 /** Passt das Formular an die gewählte Haltung an. */
 function haltungAnzeigen() {
-  const wasser = $('#f-haltung').value === 'wasser';
-  $('#titel-giessen').textContent = wasser ? 'Wasser wechseln' : 'Gießen';
-  $('#label-intervall').textContent = 'Alle … Tage';
-  $('#label-letzt').textContent = wasser ? 'Zuletzt gewechselt' : 'Zuletzt gegossen';
+  const art = $('#f-haltung').value;
+  const wasser = art === 'wasser';
+  const hydro = art === 'hydro';
+  const erde = art === 'erde';
+
+  $('#titel-giessen').textContent = wasser ? 'Wasser wechseln'
+    : hydro ? 'Nachfüllen und düngen' : 'Gießen';
+  $('#label-letzt').textContent = wasser ? 'Zuletzt gewechselt'
+    : hydro ? 'Zuletzt nachgefüllt' : 'Zuletzt gegossen';
+
   $('#feld-wasser-seit').hidden = !wasser;
-  // Erde-Themen ergeben im Glas keinen Sinn
-  for (const wahl of ['#f-topfgroesse', '#f-winter', '#f-umtopfen-int', '#f-schneiden-int']) {
-    const feld = $(wahl);
-    if (feld && feld.closest('.field')) feld.closest('.field').hidden = wasser;
+  $('#feld-spuelen').hidden = !hydro;
+  $('#feld-spuelen-letzt').hidden = !hydro;
+
+  // Erde-Themen: nur in Erde
+  feldZeigen('#f-topfgroesse', erde);
+  feldZeigen('#f-umtopfen-int', erde);
+  feldZeigen('#f-umtopfen-letzt', erde);
+  feldZeigen('#f-menge', !wasser);
+  feldZeigen('#f-schneiden-int', !wasser);
+  feldZeigen('#f-schneiden-letzt', !wasser);
+  feldZeigen('#f-winter', !wasser);
+
+  // In Semi-Hydro wird bei jeder Gabe gedüngt – ein eigenes Intervall wäre falsch
+  feldZeigen('#f-duenger-int', erde);
+  feldZeigen('#f-duenger-letzt', erde);
+
+  const hinweis = $('#hydro-hinweis');
+  if (hydro) {
+    hinweis.innerHTML = '<p>Blähton, Pon und Seramis enthalten keine Nährstoffe. ' +
+      'Gedüngt wird deshalb bei <b>jeder</b> Wassergabe, dafür schwach dosiert – ' +
+      'ein eigenes Düngeintervall gibt es hier nicht.</p>' +
+      '<p>Weil sich dabei Salze im Substrat sammeln, sollte es alle paar Wochen ' +
+      'unter fließendem Wasser durchgespült werden.</p>';
+    hinweis.hidden = false;
+  } else {
+    hinweis.hidden = true;
   }
-  const duenger = $('#f-duenger-int');
-  if (duenger && duenger.closest('.field')) duenger.closest('.field').hidden = wasser;
-  const duengerLetzt = $('#f-duenger-letzt');
-  if (duengerLetzt && duengerLetzt.closest('.field')) duengerLetzt.closest('.field').hidden = wasser;
-  const umtopfenLetzt = $('#f-umtopfen-letzt');
-  if (umtopfenLetzt && umtopfenLetzt.closest('.field')) umtopfenLetzt.closest('.field').hidden = wasser;
-  const schneidenLetzt = $('#f-schneiden-letzt');
-  if (schneidenLetzt && schneidenLetzt.closest('.field')) schneidenLetzt.closest('.field').hidden = wasser;
 }
 
 /* ---------- Sheets ---------- */
@@ -2442,8 +2558,10 @@ function openEdit(id) {
   $('#f-letzt').value = p ? (p.letzt || toISO(new Date())) : toISO(new Date());
   $('#f-menge').value = p ? (p.menge || '') : '';
   $('#f-topfgroesse').value = p ? (p.topfGroesse || '') : '';
-  $('#f-haltung').value = p && istAbleger(p) ? 'wasser' : 'erde';
+  $('#f-haltung').value = p ? haltungVon(p) : 'erde';
   $('#f-wasser-seit').value = p ? (p.imWasserSeit || '') : toISO(new Date());
+  $('#f-spuelen-int').value = p ? (p.spuelenTage || 42) : 42;
+  $('#f-spuelen-letzt').value = p ? (p.spuelenLetzt || '') : toISO(new Date());
   haltungAnzeigen();
   topfListe = p ? mitbewohner(p).map(m => ({ ...m })) : [];
   $('#topf-menge-hinweis').hidden = true;
@@ -2488,9 +2606,13 @@ function speichern() {
     letzt: $('#f-letzt').value || toISO(new Date()),
     menge: $('#f-menge').value.trim(),
     topfGroesse: Number($('#f-topfgroesse').value) || 0,
-    imWasser: $('#f-haltung').value === 'wasser',
+    haltung: $('#f-haltung').value,
     imWasserSeit: $('#f-haltung').value === 'wasser'
       ? ($('#f-wasser-seit').value || toISO(new Date())) : '',
+    spuelenTage: $('#f-haltung').value === 'hydro'
+      ? Math.max(0, Number($('#f-spuelen-int').value) || 0) : 0,
+    spuelenLetzt: $('#f-haltung').value === 'hydro'
+      ? ($('#f-spuelen-letzt').value || toISO(new Date())) : '',
     mitbewohner: topfListe.filter(m => m.name.trim()).map(m => ({
       name: m.name.trim(), art: m.art || ''
     })),
@@ -2569,7 +2691,7 @@ function openDetail(id) {
   const w0 = wasserWorte(p);
   const offen = [];
   if (t <= 0) offen.push({ art: 'wasser', titel: w0.titel, tage: t,
-                           zusatz: !istAbleger(p) && p.menge ? esc(p.menge) : '' });
+                           zusatz: istAbleger(p) ? '' : wasserZusatz(p) });
   for (const a of AUFGABEN) {
     const at = aufgabeTageBis(p, a);
     if (at !== null && at <= 0) offen.push({ art: a.schluessel, titel: a.name, tage: at, zusatz: '' });
@@ -2602,6 +2724,10 @@ function openDetail(id) {
       <span class="topf-art">🫙 Ableger im Wasser</span>
       ${abegerSeit(p) ? `<span class="topf-art">${esc(abegerSeit(p))}</span>` : ''}
     </div>` : ''}
+    ${istHydro(p) ? `<div class="topf-arten">
+      <span class="topf-art">🪨 Semi-Hydro</span>
+      <span class="topf-art">Dünger bei jeder Gabe</span>
+    </div>` : ''}
     ${mitbewohner(p).length ? `<div class="topf-arten">
       <span class="topf-art">im selben Topf:</span>
       ${mitbewohner(p).map(m => `<span class="topf-art">${esc(m.name)}</span>`).join('')}
@@ -2633,7 +2759,8 @@ function openDetail(id) {
 
     <div class="section-title">Pflege</div>
     <div class="group">
-      <div class="field"><label>${istAbleger(p) ? 'Wasserwechsel' : 'Gießintervall'}</label><span class="hint">alle ${p.intervall} Tage${
+      <div class="field"><label>${istAbleger(p) ? 'Wasserwechsel'
+        : istHydro(p) ? 'Nachfüllen' : 'Gießintervall'}</label><span class="hint">alle ${p.intervall} Tage${
         winterAktiv() && effIntervall(p) !== Number(p.intervall) ? ' · Winter: ' + effIntervall(p) : ''}</span></div>
       ${p.winterFaktor ? `<div class="field"><label>Winterruhe</label><span class="hint">×${
         String(p.winterFaktor).replace('.', ',')}</span></div>` : ''}
@@ -2722,13 +2849,16 @@ function fotoVerarbeiten(file) {
   reader.onload = e => {
     const img = new Image();
     img.onload = () => {
-      const max = 400;
-      const s = Math.min(max / img.width, max / img.height, 1);
-      const c = document.createElement('canvas');
-      c.width = Math.round(img.width * s);
-      c.height = Math.round(img.height * s);
-      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-      editFoto = c.toDataURL('image/jpeg', 0.72);
+      const max = zielKante(560, 1100);
+      const f = Math.min(max / img.width, max / img.height, 1);
+      let quelle = img, b = img.width, h = img.height;
+      const zielB = Math.max(1, Math.round(img.width * f));
+      const zielH = Math.max(1, Math.round(img.height * f));
+      while (b > zielB * 2) {
+        b = Math.round(b / 2); h = Math.round(h / 2);
+        quelle = aufLeinwand(quelle, b, h);
+      }
+      editFoto = aufLeinwand(quelle, zielB, zielH).toDataURL('image/jpeg', 0.74);
       $('#btn-foto-del').style.display = 'block';
       renderEmojiPick();
       toast('Foto übernommen');
@@ -3005,6 +3135,70 @@ async function pushTesten() {
   }
 }
 
+/* ---------- Neue Fassung ----------
+   Der Service Worker liefert die App aus dem Zwischenspeicher, damit sie
+   offline läuft. Eine neue Fassung liegt deshalb still im Hintergrund, bis
+   sie übernommen wird – ohne Hinweis merkt davon niemand etwas. */
+const VERSION_KEY = 'pg_version';
+let neueFassung = null;   // wartender Service Worker
+
+function updateBannerZeigen(reg) {
+  neueFassung = reg.waiting;
+  const banner = $('#update-banner');
+  banner.hidden = false;
+  requestAnimationFrame(() => banner.classList.add('show'));
+}
+
+function updateUebernehmen() {
+  if (!neueFassung) { location.reload(); return; }
+  // Nach dem Wechsel lädt die Seite neu und zeigt dann, was neu ist
+  navigator.serviceWorker.addEventListener('controllerchange', () => location.reload(),
+                                           { once: true });
+  neueFassung.postMessage('jetzt-aktualisieren');
+  $('#btn-update').textContent = 'Lädt …';
+}
+
+/** Nach dem Update einmal zeigen, was sich geändert hat. */
+function neuerungenZeigen() {
+  let vorher;
+  try { vorher = localStorage.getItem(VERSION_KEY); } catch (e) { return; }
+  try { localStorage.setItem(VERSION_KEY, VERSION); } catch (e) { /* egal */ }
+
+  if (!vorher || vorher === VERSION) return;   // erster Start oder unverändert
+
+  const eintrag = HISTORIE.find(h => h.v === VERSION);
+  const erste = eintrag && eintrag.punkte[0];
+  setTimeout(() => {
+    toast('Version ' + VERSION + (erste ? ': ' + erste.replace(/\.$/, '') : ' installiert'),
+          'Was ist neu?', zeigeHistorie);
+  }, 900);
+}
+
+/** Prüft beim Start und danach stündlich, ob eine neue Fassung bereitliegt. */
+function updatePruefungStarten() {
+  if (!('serviceWorker' in navigator)) return;
+
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    if (reg.waiting && navigator.serviceWorker.controller) updateBannerZeigen(reg);
+
+    reg.addEventListener('updatefound', () => {
+      const neu = reg.installing;
+      if (!neu) return;
+      neu.addEventListener('statechange', () => {
+        // controller fehlt beim allerersten Besuch – dann ist es kein Update
+        if (neu.state === 'installed' && navigator.serviceWorker.controller) {
+          updateBannerZeigen(reg);
+        }
+      });
+    });
+
+    setInterval(() => reg.update().catch(() => {}), 60 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) reg.update().catch(() => {});
+    });
+  }).catch(e => console.warn('SW:', e));
+}
+
 /* ---------- Tabs ---------- */
 function tab(name) {
   $$('.view').forEach(v => v.classList.remove('active'));
@@ -3020,9 +3214,12 @@ function bind() {
   bindeTopf();
   $('#f-haltung').onchange = () => {
     haltungAnzeigen();
+    const art = $('#f-haltung').value;
     // Ein Glas will alle paar Tage frisches Wasser, unabhängig von der Art
-    if ($('#f-haltung').value === 'wasser' && $('#f-intervall').value === '7') {
-      $('#f-intervall').value = 5;
+    if (art === 'wasser' && $('#f-intervall').value === '7') $('#f-intervall').value = 5;
+    // In Semi-Hydro hält der Vorrat im Übertopf länger als Erde
+    if (art === 'hydro' && !$('#f-spuelen-letzt').value) {
+      $('#f-spuelen-letzt').value = toISO(new Date());
     }
   };
   $('#sortierung').onchange = e => { sortierung = e.target.value; renderPflanzen(); };
@@ -3113,6 +3310,11 @@ function bind() {
   /* Nicht hochgeladene Änderungen nachholen, sobald es wieder geht */
   window.addEventListener('online', () => { if (SYNC.dirty) schiebeHoch(); });
 
+  $('#btn-update').onclick = updateUebernehmen;
+  $('#btn-update-spaeter').onclick = () => {
+    $('#update-banner').classList.remove('show');
+    setTimeout(() => { $('#update-banner').hidden = true; }, 250);
+  };
   $('#btn-push-toggle').onclick = pushToggle;
   $('#set-theme').onchange = e => { DB.settings.theme = e.target.value; save(); applyTheme(); };
   $('#set-winter').onchange = e => { DB.settings.winter = e.target.value; save(); renderAll(); };
@@ -3216,8 +3418,5 @@ starte();
 window.matchMedia('(prefers-color-scheme: dark)')
   .addEventListener('change', () => { if ((DB.settings.theme || 'auto') === 'auto') applyTheme(); });
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW:', e));
-  });
-}
+window.addEventListener('load', updatePruefungStarten);
+neuerungenZeigen();

@@ -1,11 +1,11 @@
 /* Grünzeug Service Worker
    © 2026 Torsten Michaely – Alle Rechte vorbehalten */
-const CACHE = 'gruenzeug-v2.4.0';
+const CACHE = 'gruenzeug-v2.5.0';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=2.4.0',
-  './app.js?v=2.4.0',
+  './style.css?v=2.5.0',
+  './app.js?v=2.5.0',
   './manifest.json',
   './favicon.svg',
   './icon-192.png',
@@ -13,11 +13,16 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', e => {
+  // Kein skipWaiting hier: Die neue Fassung wartet, bis der Nutzer im Banner
+  // zustimmt. Sonst wechselt der Unterbau unter einer offenen Ansicht.
   e.waitUntil(
     caches.open(CACHE)
       .then(c => Promise.allSettled(ASSETS.map(a => c.add(a))))
-      .then(() => self.skipWaiting())
   );
+});
+
+self.addEventListener('message', e => {
+  if (e.data === 'jetzt-aktualisieren') self.skipWaiting();
 });
 
 self.addEventListener('activate', e => {

@@ -1,5 +1,60 @@
 # Changelog
 
+## v2.5.0 - 2026-08-30
+
+### Semi-Hydrokultur
+
+- **Haltung** ist jetzt ein eigenes Feld mit drei Werten: Erde, Semi-Hydro
+  (Blähton, Pon, Seramis) und Ableger im Wasser. Das bisherige Kennzeichen
+  `imWasser` wird beim Laden automatisch übersetzt, bestehende Pflanzen müssen
+  nicht angefasst werden.
+- Semi-Hydro folgt anderen Regeln als Erde, deshalb ändert sich mit der Haltung
+  auch die Maske:
+  - Aus „Gießen" wird **Nachfüllen** – es geht um den Wasserstand im
+    Übertopf, nicht um durchdringendes Wässern.
+  - Ein **eigenes Düngeintervall entfällt.** Blähton und Pon liefern keine
+    Nährstoffe, gedüngt wird deshalb bei jeder Wassergabe, schwach dosiert.
+    Die App schreibt das als Zusatz „mit Dünger" an die Aufgabe.
+  - **Umtopfen und Topfgröße** fallen weg: Das Substrat verrottet nicht, es
+    wird gewechselt statt turnusmäßig vergrößert.
+- Neue Aufgabe **Substrat spülen**, voreingestellt alle sechs Wochen. Ohne das
+  reichern sich Düngesalze im inerten Substrat an – der häufigste Grund, warum
+  Pflanzen in Semi-Hydro nach einem halben Jahr nachlassen.
+- Keine Winterruhe bei Semi-Hydro und Ablegern: Der Wasserstand sinkt im Januar
+  genauso wie im Juli.
+- Der Push-Versand rechnet mit denselben Regeln und meldet „braucht Wasser mit
+  Dünger" statt „braucht Wasser".
+
+### Hinweis auf neue Fassungen
+
+- Die App liegt im Zwischenspeicher des Service Workers, damit sie offline
+  läuft. Eine neue Fassung blieb dadurch unbemerkt im Hintergrund liegen, bis
+  der Browser irgendwann von selbst wechselte.
+- Jetzt meldet sich eine Leiste **„Neue Version verfügbar"**, sobald etwas
+  bereitliegt. Der Wechsel passiert erst auf Knopfdruck, damit er nicht mitten
+  in einer offenen Ansicht stattfindet. Wer ihn wegklickt, arbeitet
+  unverändert weiter.
+- Geprüft wird beim Start, stündlich und immer dann, wenn die App wieder in den
+  Vordergrund kommt.
+- Nach dem Neuladen erscheint einmalig, was sich geändert hat, mit einem Weg
+  zur vollständigen Versionshistorie.
+
+### Bilder
+
+- Fotos wurden auf 400 px (Pflanzenbild) beziehungsweise 500 px
+  (Fotoverlauf) verkleinert. Auf einem Handydisplay mit zwei bis drei
+  Gerätepixeln je Bildpunkt läuft das Pflanzenbild über rund 1100 Pixel – es
+  wurde also fast dreifach hochgerechnet und sah entsprechend grob aus.
+- Die Zielgröße richtet sich jetzt nach der Pixeldichte des Geräts
+  (bis 1100 px Pflanzenbild, 900 px Fotoverlauf, 1600 px Hintergrund). Auf dem
+  Desktop bleibt es klein, auf dem Handy wird es scharf.
+- Verkleinert wird in Halbierungsschritten statt in einem Rutsch. Wer ein
+  4000er Foto direkt auf 1000 zieht, verwirft drei von vier Pixeln ungefragt;
+  feine Blattstrukturen wurden dabei zu Krisseln.
+- Ein typisches Handyfoto wächst dadurch von etwa 25 KB auf 60 bis 150 KB.
+  Vor dem Hinzufügen eines Bildes warnt die App, wenn der Browserspeicher über
+  4 MB voll ist, statt das Speichern scheitern zu lassen.
+
 ## v2.4.0 - 2026-08-30
 
 - Zwölf Kakteen ergänzt, bewusst nach zwei Gruppen getrennt:
