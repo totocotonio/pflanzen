@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '2.3.0';
+const VERSION = '2.3.1';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -426,6 +426,9 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '2.3.1', datum: '30.08.2026', punkte: [
+    '„war gestern" gibt es jetzt auch nach „Alle gießen“ und nach einer Gieß-Runde.'
+  ]},
   { v: '2.3.0', datum: '30.08.2026', punkte: [
     'Erledigtes nachtragen: „war gestern" in der Meldung, oder ein beliebiges Datum in der Aufgabenkarte.',
     'Der Verlaufseintrag bekommt den richtigen Zeitpunkt, damit die Pünktlichkeit stimmt.'
@@ -1111,19 +1114,42 @@ function giessen(id, datum) {
   const meldung = w.emoji + ' ' + p.name + ': ' + w.partizip +
     (wann !== heute ? ' am ' + fromISO(wann).toLocaleDateString('de-DE',
       { day: 'numeric', month: 'short' }) : '');
-  const aktionen = [{ text: 'Rückgängig', fn: rueckgaengig }];
-  if (wann === heute) {
-    aktionen.push({ text: 'war gestern', fn: () => nachtragen(id, 'wasser') });
-  }
-  toast(meldung, aktionen);
+  toast(meldung, abhakAktionen(wann));
 }
 
-/** Korrigiert die zuletzt abgehakte Aufgabe auf gestern. */
-function nachtragen(id, art) {
-  rueckgaengig();
+/** Trägt alles, was zuletzt abgehakt wurde, auf gestern um.
+
+    Arbeitet auf `letzteAktion` und deckt damit jede Art von Abhaken ab –
+    einzeln, „Alle gießen", eine ganze Gieß-Runde oder „Alles erledigen“. */
+function letzteAufGestern() {
+  if (!letzteAktion || !letzteAktion.eintraege.length) return;
   const gestern = toISO(new Date(Date.now() - 86400000));
-  if (art === 'wasser') giessen(id, gestern);
-  else aufgabeErledigt(id, art, gestern);
+  const ts = zeitstempel(gestern);
+
+  for (const e of letzteAktion.eintraege) {
+    const p = DB.plants.find(x => x.id === e.plantId);
+    if (p) p[e.feld] = gestern;
+    const eintrag = DB.logs.find(l => l.id === e.logId);
+    if (eintrag) eintrag.ts = ts;
+  }
+  save();
+  renderAll();
+  if ($('#sheet-detail').classList.contains('open') && letzteAktion.eintraege[0]) {
+    openDetail(letzteAktion.eintraege[0].plantId);
+  }
+  const anzahl = letzteAktion.eintraege.length;
+  toast(anzahl === 1 ? 'Auf gestern umgetragen'
+                     : anzahl + ' Einträge auf gestern umgetragen',
+        'Rückgängig', rueckgaengig);
+}
+
+/** Aktionen für die Meldung nach dem Abhaken. */
+function abhakAktionen(wann) {
+  const aktionen = [{ text: 'Rückgängig', fn: rueckgaengig }];
+  if (wann === toISO(new Date())) {
+    aktionen.push({ text: 'war gestern', fn: letzteAufGestern });
+  }
+  return aktionen;
 }
 function duengen(id) { aufgabeErledigt(id, 'duenger'); }
 
@@ -1202,11 +1228,7 @@ function aufgabeErledigt(id, schluessel, datum) {
   const meldung = a.emoji + ' ' + p.name + ' ' + a.partizip +
     (wann !== heute ? ' am ' + fromISO(wann).toLocaleDateString('de-DE',
       { day: 'numeric', month: 'short' }) : '');
-  const aktionen = [{ text: 'Rückgängig', fn: rueckgaengig }];
-  if (wann === heute) {
-    aktionen.push({ text: 'war gestern', fn: () => nachtragen(id, schluessel) });
-  }
-  toast(meldung, aktionen);
+  toast(meldung, abhakAktionen(wann));
 }
 
 /* ---------- Alles auf einmal ---------- */
@@ -1216,19 +1238,19 @@ function alleGiessen() {
   const faellig = aktive().filter(p => tageBis(p) <= 0);
   if (!faellig.length) { toast('Gerade ist nichts fällig'); return; }
 
-  const heute = toISO(new Date());
+  const wann = erledigtAm || toISO(new Date());
   const eintraege = [];
   for (const p of faellig) {
     const logId = uid();
     eintraege.push({ feld: 'letzt', plantId: p.id, vorher: p.letzt, logId });
-    p.letzt = heute;
-    DB.logs.push({ id: logId, plantId: p.id, typ: 'wasser', ts: Date.now() });
+    p.letzt = wann;
+    DB.logs.push({ id: logId, plantId: p.id, typ: 'wasser', ts: zeitstempel(wann) });
   }
   letzteAktion = { eintraege };
   save();
   renderAll();
   if (navigator.vibrate) navigator.vibrate(18);
-  toast('💧 ' + faellig.length + ' Pflanzen gegossen', 'Rückgängig', rueckgaengig);
+  toast('💧 ' + faellig.length + ' Pflanzen gegossen', abhakAktionen(wann));
 }
 
 /* ---------- Urlaubsmodus ----------
@@ -1849,15 +1871,15 @@ function rundeAbschluss(box) {
 /** Übernimmt die Runde in die Daten – ein Eintrag, damit Rückgängig alles fasst. */
 function rundeSpeichern() {
   if (!runde || !runde.erledigt.size) { runde = null; closeSheets(); return; }
-  const heute = toISO(new Date());
+  const wann = erledigtAm || toISO(new Date());
   const eintraege = [];
   for (const id of runde.erledigt) {
     const p = DB.plants.find(x => x.id === id);
     if (!p) continue;
     const logId = uid();
     eintraege.push({ feld: 'letzt', plantId: id, vorher: p.letzt, logId });
-    p.letzt = heute;
-    DB.logs.push({ id: logId, plantId: id, typ: 'wasser', ts: Date.now() });
+    p.letzt = wann;
+    DB.logs.push({ id: logId, plantId: id, typ: 'wasser', ts: zeitstempel(wann) });
   }
   const anzahl = eintraege.length;
   letzteAktion = { eintraege };
@@ -1866,7 +1888,7 @@ function rundeSpeichern() {
   renderAll();
   closeSheets();
   toast('💧 ' + anzahl + (anzahl === 1 ? ' Pflanze' : ' Pflanzen') + ' gegossen',
-        'Rückgängig', rueckgaengig);
+        abhakAktionen(wann));
 }
 
 function rundeSchritt(was) {
@@ -2664,7 +2686,7 @@ function allesHier(pid) {
   renderAll();
   openDetail(pid);
   if (navigator.vibrate) navigator.vibrate(14);
-  toast(p.name + ': ' + eintraege.length + ' erledigt', 'Rückgängig', rueckgaengig);
+  toast(p.name + ': ' + eintraege.length + ' erledigt', abhakAktionen(heute));
 }
 
 /** Beschriftung eines Verlaufseintrags. */

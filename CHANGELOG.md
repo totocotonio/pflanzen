@@ -1,5 +1,16 @@
 # Changelog
 
+## v2.3.1 - 2026-08-30
+
+- „war gestern" fehlte noch bei den Sammelaktionen: nach „Alle gießen" und nach
+  einer beendeten Gieß-Runde ließ sich nichts nachtragen, obwohl gerade dort
+  mehrere Einträge auf einmal betroffen sind.
+- Statt für jede Aktion eine eigene Lösung arbeitet das Nachtragen jetzt auf der
+  zuletzt gemerkten Änderung. Damit greift es überall gleich – einzeln,
+  „Alle gießen", ganze Gieß-Runde oder „Alles erledigen" – und trägt auch
+  mehrere Einträge zusammen um, ohne Dubletten im Verlauf anzulegen.
+- Rückgängig bleibt danach möglich.
+
 ## v2.3.0 - 2026-08-30
 
 - Erledigtes lässt sich nachtragen. Bisher galt jedes Abhaken für den aktuellen
