@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=2.0.1">
+<link rel="stylesheet" href="style.css?v=2.2.0">
 </head>
 <body>
 
@@ -227,6 +227,13 @@
       <div class="field"><label>Standort</label>
         <select id="f-raum-wahl"></select>
       </div>
+      <div class="field">
+        <label>Haltung</label>
+        <select id="f-haltung">
+          <option value="erde">in Erde</option>
+          <option value="wasser">Ableger im Wasser</option>
+        </select>
+      </div>
       <div class="field" id="feld-raum-neu" hidden>
         <label>Name des Standorts</label>
         <input id="f-raum" placeholder="z.B. Dachterrasse" autocomplete="off" maxlength="30">
@@ -236,6 +243,11 @@
     <datalist id="art-liste"></datalist>
     <div class="vorschlag" id="art-vorschlag" hidden></div>
 
+    <div class="section-title">Im selben Topf</div>
+    <div class="group" id="topf-liste"></div>
+    <div class="vorschlag" id="topf-hinweis" hidden></div>
+    <button class="btn sec" id="btn-topf-neu" style="margin-top:0">＋ Weitere Pflanze im Topf</button>
+
     <div class="section-title">Symbol / Foto</div>
     <div class="card">
       <div class="emoji-pick" id="emoji-pick"></div>
@@ -244,10 +256,15 @@
       <button class="btn sec" id="btn-foto-del" style="display:none">Foto entfernen</button>
     </div>
 
-    <div class="section-title">Gießen</div>
+    <div class="section-title" id="titel-giessen">Gießen</div>
     <div class="group">
-      <div class="field"><label>Alle … Tage</label><input type="number" id="f-intervall" min="1" max="365" value="7" inputmode="numeric"></div>
-      <div class="field"><label>Zuletzt gegossen</label><input type="date" id="f-letzt"></div>
+      <div class="field"><label id="label-intervall">Alle … Tage</label><input type="number" id="f-intervall" min="1" max="365" value="7" inputmode="numeric"></div>
+      <div class="field"><label id="label-letzt">Zuletzt gegossen</label><input type="date" id="f-letzt"></div>
+      <div class="field" id="feld-wasser-seit" hidden>
+        <label>Im Wasser seit</label><input type="date" id="f-wasser-seit">
+      </div>
+      <div class="field"><label>Topf-Durchmesser</label>
+        <input type="number" id="f-topfgroesse" min="0" max="120" inputmode="numeric" placeholder="cm, optional"></div>
       <div class="field"><label>Wassermenge</label><input id="f-menge" placeholder="z.B. 200 ml" autocomplete="off"></div>
       <div class="field">
         <label>Winterruhe</label>
@@ -260,6 +277,8 @@
         </select>
       </div>
     </div>
+
+    <div class="vorschlag" id="topf-menge-hinweis" hidden></div>
 
     <div class="section-title">Düngen (optional)</div>
     <div class="group">
@@ -430,6 +449,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=2.0.1"></script>
+<script src="app.js?v=2.2.0"></script>
 </body>
 </html>

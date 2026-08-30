@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '2.0.1';
+const VERSION = '2.1.1';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -419,6 +419,14 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '2.1.1', datum: '30.08.2026', punkte: [
+    'Behoben: Pflanzen mit Verlaufseinträgen ließen sich seit v2.0.0 nicht mehr öffnen.'
+  ]},
+  { v: '2.1.0', datum: '30.08.2026', punkte: [
+    'Mehrere Pflanzen in einem Topf: Der Topf bleibt eine Einheit, die Arten darin stehen als Mitbewohner.',
+    'Die App prüft, ob die Arten zusammenpassen, und schlägt das Intervall der durstigsten vor.',
+    'Topf-Durchmesser eingebbar – daraus wird die Wassermenge geschätzt.'
+  ]},
   { v: '2.0.1', datum: '30.08.2026', punkte: [
     'Heller Modus deutlich grüner – vorher war der Farbton fast weiß und der Unterschied kaum zu sehen.',
     'Pflanzenliste zieht mit: Status farbig, Abhak-Kreis direkt auf der Kachel.'
@@ -916,6 +924,7 @@ function plantRow(p) {
 function passtZurSuche(p) {
   if (!suchText) return true;
   const heuhaufen = [p.name, p.art, p.raum, p.notiz, p.licht, p.menge]
+    .concat(mitbewohner(p).flatMap(m => [m.name, m.art]))
     .filter(Boolean).join(' ').toLowerCase();
   // Mehrere Wörter müssen alle vorkommen, Reihenfolge egal
   return suchText.split(/\s+/).every(wort => heuhaufen.includes(wort));
@@ -1921,6 +1930,9 @@ function pflanzenPruefung(p) {
       'braucht fast jede Zimmerpflanze alle zwei bis vier Wochen Nährstoffe.');
   }
 
+  const pruefung = topfPruefung(p);
+  if (pruefung && pruefung.hinweise.length) hinweise.push(...pruefung.hinweise);
+
   const t = tageBis(p);
   if (t < -7) hinweise.push(`Die Pflanze ist seit ${Math.abs(t)} Tagen überfällig.`);
   return hinweise;
@@ -1959,6 +1971,139 @@ function problemZeigen(id) {
         <span style="color:var(--text-2);font-size:15px;line-height:1.45">${esc(u.tun)}</span>
       </div>`).join('') +
     `<button class="btn sec" data-problem-zurueck>Zurück zur Übersicht</button>`;
+}
+
+/* ---------- Mehrere Pflanzen in einem Topf ----------
+   Eine Schale mit drei Arten wird einmal gegossen, nicht dreimal. Deshalb ist
+   der Topf die Einheit: ein Gießintervall, eine Wassermenge. Die Arten darin
+   stehen als Mitbewohner daneben – für Pflegehinweise und um zu prüfen, ob
+   sie überhaupt zusammenpassen. */
+
+function mitbewohner(p) {
+  return Array.isArray(p.mitbewohner) ? p.mitbewohner : [];
+}
+
+/** Alle Arten im Topf, die Hauptpflanze eingeschlossen. */
+function topfArten(p) {
+  const namen = [{ name: p.name, art: p.art }].concat(mitbewohner(p));
+  return namen.map(n => ({ ...n, treffer: artFinden(n.name) || artFinden(n.art) }))
+              .filter(x => x.treffer);
+}
+
+/** Prüft, ob die Arten im Topf zusammenpassen.
+    Zurück kommt ein Hinweis oder null. */
+function topfPruefung(p) {
+  const arten = topfArten(p);
+  if (arten.length < 2) return null;
+
+  const intervalle = arten.map(a => a.treffer.iv);
+  const kuerzestes = Math.min(...intervalle);
+  const laengstes = Math.max(...intervalle);
+  const durstig = arten.find(a => a.treffer.iv === kuerzestes);
+  const genuegsam = arten.find(a => a.treffer.iv === laengstes);
+
+  const hinweise = [];
+
+  if (laengstes >= kuerzestes * 3) {
+    hinweise.push(`${durstig.treffer.n} braucht alle ${kuerzestes} Tage Wasser, ` +
+      `${genuegsam.treffer.n} nur alle ${laengstes}. Das passt schlecht in einen Topf – ` +
+      `nach der durstigen zu gießen ersäuft die genügsame.`);
+  } else if (laengstes > kuerzestes) {
+    hinweise.push(`Richte dich nach ${durstig.treffer.n} (alle ${kuerzestes} Tage), ` +
+      `das ist die durstigste im Topf.`);
+  }
+
+  const lichter = Array.from(new Set(arten.map(a => a.treffer.licht)));
+  if (lichter.length > 1) {
+    hinweise.push('Unterschiedlicher Lichtbedarf: ' +
+      arten.map(a => `${a.treffer.n} braucht „${a.treffer.licht}“`).join(', ') + '.');
+  }
+
+  return { kuerzestes, hinweise, arten };
+}
+
+/** Wassermenge nach Topfdurchmesser schätzen.
+
+    Ein üblicher Topf fasst etwa 0,35 Liter je Kubik-Dezimeter Durchmesser
+    (konisch, Höhe ungefähr gleich dem Durchmesser). Davon sind rund 15 %
+    eine sinnvolle Gabe: genug, dass es unten ankommt, ohne zu schwemmen. */
+function mengeAusTopf(durchmesser) {
+  const d = Number(durchmesser) || 0;
+  if (d < 5) return null;
+  const ml = Math.round(0.0525 * d * d * d / 10) * 10;
+  return ml >= 1000 ? (ml / 1000).toFixed(1).replace('.', ',') + ' l' : ml + ' ml';
+}
+
+/* ---------- Formular ---------- */
+
+let topfListe = [];   // Mitbewohner im offenen Formular
+
+function zeichneTopf() {
+  const box = $('#topf-liste');
+  box.innerHTML = topfListe.map((m, i) => `
+    <div class="field">
+      <input class="topf-name" data-topf-i="${i}" value="${esc(m.name)}"
+             placeholder="Name der Pflanze" list="name-liste" autocomplete="off">
+      <button class="topf-weg" data-topf-weg="${i}" title="Entfernen">✕</button>
+    </div>`).join('');
+
+  const p = { name: $('#f-name').value, art: $('#f-art').value, mitbewohner: topfListe };
+  const pruefung = topfPruefung(p);
+  const hinweis = $('#topf-hinweis');
+  if (pruefung && pruefung.hinweise.length) {
+    hinweis.innerHTML = pruefung.hinweise.map(h => `<p>${esc(h)}</p>`).join('') +
+      `<button type="button" class="aktion" id="btn-topf-intervall">Auf ${
+        pruefung.kuerzestes} Tage stellen</button>`;
+    hinweis.hidden = false;
+    $('#btn-topf-intervall').onclick = () => {
+      $('#f-intervall').value = pruefung.kuerzestes;
+      toast('Intervall auf ' + pruefung.kuerzestes + ' Tage gesetzt');
+    };
+  } else {
+    hinweis.hidden = true;
+  }
+}
+
+function bindeTopf() {
+  $('#btn-topf-neu').onclick = () => {
+    if (topfListe.length >= 5) { toast('Mehr als sechs Pflanzen in einem Topf sind selten'); return; }
+    topfListe.push({ name: '', art: '' });
+    zeichneTopf();
+    const felder = $$('#topf-liste .topf-name');
+    if (felder.length) felder[felder.length - 1].focus();
+  };
+
+  $('#topf-liste').oninput = e => {
+    const i = e.target.dataset.topfI;
+    if (i === undefined) return;
+    topfListe[i].name = e.target.value;
+    const treffer = artFinden(e.target.value);
+    topfListe[i].art = treffer ? treffer.art : '';
+    clearTimeout(bindeTopf._t);
+    bindeTopf._t = setTimeout(() => {
+      const stelle = document.activeElement === e.target;
+      zeichneTopf();
+      if (stelle) {
+        const feld = $(`#topf-liste [data-topf-i="${i}"]`);
+        if (feld) { feld.focus(); feld.setSelectionRange(feld.value.length, feld.value.length); }
+      }
+    }, 600);
+  };
+
+  $('#f-topfgroesse').oninput = e => {
+    const vorschlag = mengeAusTopf(e.target.value);
+    const hinweis = $('#topf-menge-hinweis');
+    if (!vorschlag) { hinweis.hidden = true; return; }
+    hinweis.innerHTML = `<span>Für ${esc(e.target.value)} cm Durchmesser etwa ${vorschlag}` +
+      `${topfListe.length ? ' – unabhängig davon, wie viele Pflanzen darin stehen' : ''}.</span>` +
+      `<button type="button" class="aktion" id="btn-menge-uebernehmen">Übernehmen</button>`;
+    hinweis.hidden = false;
+    $('#btn-menge-uebernehmen').onclick = () => {
+      $('#f-menge').value = vorschlag;
+      hinweis.hidden = true;
+      toast('Wassermenge übernommen');
+    };
+  };
 }
 
 /* ---------- Frühere Stände ----------
@@ -2120,6 +2265,10 @@ function openEdit(id) {
   $('#f-intervall').value = p ? p.intervall : 7;
   $('#f-letzt').value = p ? (p.letzt || toISO(new Date())) : toISO(new Date());
   $('#f-menge').value = p ? (p.menge || '') : '';
+  $('#f-topfgroesse').value = p ? (p.topfGroesse || '') : '';
+  topfListe = p ? mitbewohner(p).map(m => ({ ...m })) : [];
+  $('#topf-menge-hinweis').hidden = true;
+  zeichneTopf();
   $('#f-winter').value = p ? String(p.winterFaktor || 0) : '0';
   $('#f-duenger-int').value = p ? (p.duengerInt || 0) : 0;
   $('#f-duenger-letzt').value = p ? (p.duengerLetzt || '') : '';
@@ -2159,6 +2308,10 @@ function speichern() {
     intervall: Math.max(1, Number($('#f-intervall').value) || 7),
     letzt: $('#f-letzt').value || toISO(new Date()),
     menge: $('#f-menge').value.trim(),
+    topfGroesse: Number($('#f-topfgroesse').value) || 0,
+    mitbewohner: topfListe.filter(m => m.name.trim()).map(m => ({
+      name: m.name.trim(), art: m.art || ''
+    })),
     winterFaktor: Number($('#f-winter').value) || 0,
     duengerInt: Math.max(0, Number($('#f-duenger-int').value) || 0),
     duengerLetzt: $('#f-duenger-letzt').value || '',
@@ -2260,6 +2413,10 @@ function openDetail(id) {
 
     <h2 class="detail-name">${esc(p.name)}</h2>
     ${p.art ? `<p class="detail-art">${esc(p.art)}</p>` : ''}
+    ${mitbewohner(p).length ? `<div class="topf-arten">
+      <span class="topf-art">im selben Topf:</span>
+      ${mitbewohner(p).map(m => `<span class="topf-art">${esc(m.name)}</span>`).join('')}
+    </div>` : ''}
 
     <div class="status-reihe">${kacheln}</div>
 
@@ -2346,6 +2503,14 @@ function allesHier(pid) {
   openDetail(pid);
   if (navigator.vibrate) navigator.vibrate(14);
   toast(p.name + ': ' + eintraege.length + ' erledigt', 'Rückgängig', rueckgaengig);
+}
+
+/** Beschriftung eines Verlaufseintrags. */
+function logText(typ) {
+  if (typ === 'wasser') return '💧 Gegossen';
+  if (typ === 'eingetopft') return '🪴 In Erde gepflanzt';
+  const a = AUFGABEN.find(x => x.schluessel === typ);
+  return a ? a.emoji + ' ' + a.partizip.charAt(0).toUpperCase() + a.partizip.slice(1) : typ;
 }
 
 /* ---------- Foto ---------- */
@@ -2649,6 +2814,7 @@ function tab(name) {
 function bind() {
   $$('.tabbar button').forEach(b => b.onclick = () => tab(b.dataset.tab));
   bindePersoenlich();
+  bindeTopf();
   $('#sortierung').onchange = e => { sortierung = e.target.value; renderPflanzen(); };
   $('#suchfeld').oninput = e => {
     suchText = e.target.value.trim().toLowerCase();
@@ -2746,7 +2912,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -2780,6 +2946,11 @@ function bind() {
     if (t.dataset.qr) { e.stopPropagation(); qrZeigen(t.dataset.qr); return; }
     if (t.dataset.tun) { e.stopPropagation(); tunErledigt(t.dataset.pid, t.dataset.tun); return; }
     if (t.dataset.allesHier) { e.stopPropagation(); allesHier(t.dataset.allesHier); return; }
+    if (t.dataset.topfWeg !== undefined) {
+      topfListe.splice(Number(t.dataset.topfWeg), 1);
+      zeichneTopf();
+      return;
+    }
     if (t.dataset.stand) {
       e.stopPropagation();
       standWiederherstellen(t.dataset.stand, Number(t.dataset.anzahl) || 0);

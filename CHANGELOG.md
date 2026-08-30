@@ -1,5 +1,28 @@
 # Changelog
 
+## v2.1.1 - 2026-08-30
+
+- Behoben: Seit v2.0.0 ließen sich Pflanzen mit Verlaufseinträgen nicht mehr
+  öffnen – ein Antippen blieb wirkungslos. Beim Umbau der Detailansicht war die
+  Funktion `logText` mit gelöscht worden, die den Verlauf beschriftet. Sie wird
+  nur aufgerufen, wenn es Einträge gibt, deshalb funktionierten frisch
+  angelegte Pflanzen weiterhin und der Fehler fiel beim Testen nicht auf.
+
+## v2.1.0 - 2026-08-30
+
+- Mehrere Pflanzen in einem Topf: Eine Schale mit drei Arten wird einmal
+  gegossen, nicht dreimal. Der Topf bleibt deshalb die Einheit mit einem
+  Intervall und einer Wassermenge; die Arten darin stehen als Mitbewohner
+  daneben und erscheinen in der Detailansicht.
+- Die App prüft, ob die Arten zusammenpassen: Unterscheiden sich die
+  Gießintervalle um mehr als das Dreifache, warnt sie ausdrücklich – nach der
+  durstigsten zu gießen ersäuft die genügsamste. Sonst schlägt sie das
+  Intervall der durstigsten vor.
+- Auch unterschiedlicher Lichtbedarf im selben Topf wird angezeigt.
+- Topf-Durchmesser eingebbar: Daraus schätzt die App die Wassermenge – die
+  hängt am Topfvolumen, nicht an der Zahl der Pflanzen darin.
+- Die Suche findet Pflanzen auch über ihre Mitbewohner.
+
 ## v2.0.1 - 2026-08-30
 
 - Der helle Modus war mit #F1F4EE praktisch weiß – der neue Grünton war kaum
