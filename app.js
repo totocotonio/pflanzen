@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.7.0';
+const VERSION = '3.8.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -714,6 +714,11 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.8.0', datum: '30.08.2026', punkte: [
+    'Lichtmessung am Standort, auf drei Wegen: Schattenprobe, Schätzung aus der Fensterlage, und Kameramessung wo das Gerät die Belichtungswerte herausgibt.',
+    'Das Ergebnis wird mit dem Bedarf der Art verglichen: passt, knapp oder zu dunkel.',
+    'Auf dem iPhone gibt Safari die Belichtungswerte nicht heraus – dort bleiben Schattenprobe und Fensterrechner, die ohnehin verlässlicher sind.'
+  ]},
   { v: '3.7.0', datum: '30.08.2026', punkte: [
     'Pflanzen lassen sich als „im Sommer draußen“ oder „ganzjährig draußen“ kennzeichnen, mit vier Kältestufen von sehr empfindlich bis frosthart.',
     'Sinkt die Nachttemperatur laut Vorhersage unter die Grenze, warnt die App – auf der Startseite und per Push, nachmittags statt morgens.',
@@ -3970,6 +3975,283 @@ function rundeWeiter(pid) {
   openSheet('#sheet-runde');
 }
 
+/* ---------- Lichtmessung ----------
+   Zu wenig Licht ist die häufigste Ursache dafür, dass eine Zimmerpflanze
+   nicht wächst, lange dünne Triebe bildet und irgendwann eingeht. Und es ist
+   die Ursache, die man am schlechtesten schätzt: Das Auge gleicht Helligkeit
+   so stark aus, dass ein Platz, der „hell genug“ aussieht, oft ein Zehntel
+   des Lichts hat, das die Pflanze bräuchte.
+
+   Drei Wege, je nachdem was das Gerät hergibt:
+
+   1. Kamera mit Belichtungsdaten. Aus Belichtungszeit und ISO lässt sich die
+      Beleuchtungsstärke rechnen – das machen Belichtungsmesser seit jeher so.
+      Nur: Diese Werte gibt die Kamera im Browser lange nicht überall heraus.
+      Auf dem iPhone gibt Safari sie gar nicht heraus, deshalb kann eine
+      Web-App dort nicht messen, was eine native App misst.
+
+   2. Schattenprobe. Die Methode, die Gärtner benutzen, seit es Gärtner gibt,
+      und die erstaunlich zuverlässig ist.
+
+   3. Fensterrechner aus Himmelsrichtung, Abstand und Verschattung.
+
+   Alle drei liefern einen Bereich, keine Zahl auf die Stelle genau. Das ist
+   Absicht: Eine Scheingenauigkeit wäre schlechter als eine ehrliche Spanne. */
+
+const LICHT_STUFEN = [
+  { k: 'Vollsonne', von: 10000, bis: 60000,
+    text: 'Direkte Sonne für mehrere Stunden am Tag.' },
+  { k: 'Hell, ohne direkte Sonne', von: 2000, bis: 10000,
+    text: 'Heller Platz mit viel Himmelslicht, aber ohne Sonne auf den Blättern.' },
+  { k: 'Halbschatten', von: 800, bis: 2000,
+    text: 'Deutlich vom Fenster entfernt oder nach Norden.' },
+  { k: 'Schatten', von: 200, bis: 800,
+    text: 'Wenig Tageslicht. Nur Arten, die das ausdrücklich vertragen.' }
+];
+
+/* Unterhalb davon wächst praktisch nichts mehr – die Pflanze zehrt dann von
+   ihren Reserven und wird über Monate immer dünner. */
+const LICHT_MINIMUM = 500;
+
+function stufeZuLux(lux) {
+  return LICHT_STUFEN.find(s => lux >= s.von) || LICHT_STUFEN[LICHT_STUFEN.length - 1];
+}
+
+function luxText(lux) {
+  // Auf sinnvolle Stellen runden – eine Lux-Zahl auf die Einer genau wäre
+  // Scheingenauigkeit, egal aus welchem der drei Verfahren sie kommt
+  const gerundet = lux >= 10000 ? Math.round(lux / 1000) * 1000
+    : lux >= 1000 ? Math.round(lux / 100) * 100
+    : Math.round(lux / 10) * 10;
+  return gerundet.toLocaleString('de-DE') + ' lx';
+}
+
+/* ---------- 1. Kamera ---------- */
+let lichtStream = null;
+
+/** Kann dieses Gerät die Belichtung auslesen? Erst nach dem Start klar. */
+function kameraMoeglich() {
+  return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+}
+
+/** Beleuchtungsstärke aus Belichtungszeit und ISO.
+
+    Die Formel der Belichtungsmessung: EV = log2(Blende² / Zeit), umgerechnet
+    auf ISO 100, daraus Lux = 2,5 · 2^EV. Die Blende gibt keine Browser-API
+    heraus – f/2,0 ist bei Handykameras der übliche Wert und die Annahme hier.
+    Ein Objektiv mit f/1,6 liefert dadurch etwa 60 % zu wenig, was für die
+    Einordnung in vier Stufen verschmerzbar ist. */
+function luxAusBelichtung(zeitEinheiten, iso) {
+  // exposureTime kommt laut Spezifikation in Einheiten von 100 Mikrosekunden
+  const zeit = Number(zeitEinheiten) / 10000;
+  const empfindlichkeit = Number(iso) || 100;
+  if (!isFinite(zeit) || zeit <= 0) return null;
+
+  const blende = 2.0;
+  const ev = Math.log2((blende * blende) / zeit) - Math.log2(empfindlichkeit / 100);
+  return Math.round(2.5 * Math.pow(2, ev));
+}
+
+async function kameraStarten() {
+  const box = $('#licht-kamera');
+  box.innerHTML = `<div class="karte karte-ruhig" style="color:var(--text-2)">Kamera wird geöffnet …</div>`;
+  try {
+    lichtStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' }
+    });
+  } catch (e) {
+    box.innerHTML = `<div class="karte karte-ruhig" style="color:var(--text-2)">
+      Kein Zugriff auf die Kamera (${esc(e.name)}). Nimm die Schattenprobe.</div>`;
+    return;
+  }
+
+  const spur = lichtStream.getVideoTracks()[0];
+  // Der Belichtungsautomatik einen Moment Zeit geben, sich einzupendeln
+  await new Promise(r => setTimeout(r, 1200));
+  const werte = spur.getSettings ? spur.getSettings() : {};
+  lichtStream.getTracks().forEach(t => t.stop());
+  lichtStream = null;
+
+  const lux = ('exposureTime' in werte)
+    ? luxAusBelichtung(werte.exposureTime, werte.iso) : null;
+
+  if (lux === null) {
+    box.innerHTML = `<div class="karte karte-ruhig" style="color:var(--text-2)">
+      <b>Dieses Gerät gibt die Belichtungswerte nicht heraus.</b><br>
+      Auf dem iPhone ist das immer so – Safari reicht sie nicht an Web-Apps
+      weiter, anders als bei einer aus dem App Store installierten App.
+      Nimm die Schattenprobe, sie ist ohnehin verlässlicher.</div>`;
+    return;
+  }
+  lichtErgebnis(lux, 'Kameramessung');
+}
+
+/* ---------- 2. Schattenprobe ---------- */
+const SCHATTEN = [
+  { lux: 20000, name: 'Scharfer Schatten mit klaren Kanten',
+    hilfe: 'Der Umriss der Hand ist scharf, fast wie ausgeschnitten.' },
+  { lux: 5000, name: 'Deutlicher Schatten mit weichen Rändern',
+    hilfe: 'Der Umriss ist klar zu erkennen, die Kanten laufen aus.' },
+  { lux: 1200, name: 'Schwacher, verwaschener Schatten',
+    hilfe: 'Man ahnt einen dunkleren Fleck, mehr nicht.' },
+  { lux: 400, name: 'Gar kein Schatten',
+    hilfe: 'Das Papier bleibt gleichmäßig hell, egal wo die Hand ist.' }
+];
+
+/* ---------- 3. Fensterrechner ---------- */
+const HIMMELSRICHTUNG = {
+  sued: { name: 'Süden', lux: 12000 },
+  westost: { name: 'Westen oder Osten', lux: 5000 },
+  nord: { name: 'Norden', lux: 2000 }
+};
+
+/* Licht nimmt mit dem Quadrat des Abstands ab – deshalb der starke Abfall
+   schon nach einem Meter. Das unterschätzen fast alle. */
+const ABSTAND = {
+  '0': { name: 'Direkt am Fenster', faktor: 1 },
+  '1': { name: 'Etwa 1 Meter entfernt', faktor: 0.45 },
+  '2': { name: '2 bis 3 Meter entfernt', faktor: 0.18 },
+  '4': { name: 'Weiter als 3 Meter', faktor: 0.07 }
+};
+
+const VERSCHATTUNG = {
+  keine: { name: 'Freier Blick zum Himmel', faktor: 1 },
+  gardine: { name: 'Gardine oder Store', faktor: 0.5 },
+  baum: { name: 'Baum, Balkon oder Nachbarhaus davor', faktor: 0.4 },
+  beides: { name: 'Gardine und Verschattung', faktor: 0.22 }
+};
+
+function fensterRechnen() {
+  const r = HIMMELSRICHTUNG[$('#licht-richtung').value] || HIMMELSRICHTUNG.westost;
+  const a = ABSTAND[$('#licht-abstand').value] || ABSTAND['1'];
+  const v = VERSCHATTUNG[$('#licht-schatten').value] || VERSCHATTUNG.keine;
+  // Zwischen November und Februar kommt draußen deutlich weniger an
+  const winter = winterAktiv() ? 0.45 : 1;
+  return Math.round(r.lux * a.faktor * v.faktor * winter);
+}
+
+/* ---------- Ergebnis ---------- */
+let lichtZiel = null;      // Pflanze, für die gemessen wird
+
+function lichtOeffnen(pid) {
+  lichtZiel = pid || null;
+  const p = pid ? DB.plants.find(x => x.id === pid) : null;
+
+  $('#licht-inhalt').innerHTML = `
+    <div class="grabber"></div>
+    <h2>Wie hell ist es hier?</h2>
+    <p class="sheet-hinweis">Zu wenig Licht ist die häufigste Ursache dafür, dass eine
+      Pflanze nicht wächst – und die, die man am schlechtesten schätzt. Das Auge gleicht
+      Helligkeit so stark aus, dass ein Platz, der hell genug aussieht, oft ein Zehntel
+      des Lichts hat, das die Pflanze bräuchte.</p>
+
+    <div class="section-title">Schattenprobe</div>
+    <p class="sheet-hinweis">Leg ein weißes Blatt Papier an den Platz und halte die Hand
+      etwa 30 Zentimeter darüber. Am besten mittags. Wie sieht der Schatten aus?</p>
+    ${SCHATTEN.map((s, i) => `
+      <button class="problem" data-schatten="${i}">
+        <span class="problem-titel">${esc(s.name)}<span style="display:block;
+          color:var(--text-3);font-size:13px;font-weight:400">${esc(s.hilfe)}</span></span>
+        <span class="problem-pfeil">›</span>
+      </button>`).join('')}
+
+    <div class="section-title">Oder aus der Fensterlage schätzen</div>
+    <div class="group">
+      <div class="field"><label>Fenster zeigt nach</label>
+        <select id="licht-richtung">
+          ${Object.entries(HIMMELSRICHTUNG).map(([k, v]) =>
+            `<option value="${k}">${esc(v.name)}</option>`).join('')}
+        </select></div>
+      <div class="field"><label>Abstand</label>
+        <select id="licht-abstand">
+          ${Object.entries(ABSTAND).map(([k, v]) =>
+            `<option value="${k}">${esc(v.name)}</option>`).join('')}
+        </select></div>
+      <div class="field"><label>Davor</label>
+        <select id="licht-schatten">
+          ${Object.entries(VERSCHATTUNG).map(([k, v]) =>
+            `<option value="${k}">${esc(v.name)}</option>`).join('')}
+        </select></div>
+    </div>
+    <button class="btn sec" id="btn-licht-fenster">Daraus schätzen</button>
+
+    <div class="section-title">Oder mit der Kamera</div>
+    <div id="licht-kamera">
+      <p class="sheet-hinweis">Funktioniert nur, wenn das Gerät die Belichtungswerte
+        herausgibt. Auf dem iPhone tut Safari das nicht – dort bleibt die
+        Schattenprobe.</p>
+      ${kameraMoeglich()
+        ? `<button class="btn sec" id="btn-licht-kamera">Mit der Kamera messen</button>`
+        : `<div class="karte karte-ruhig" style="color:var(--text-2)">Keine Kamera verfügbar.</div>`}
+    </div>
+
+    <button class="btn sec" data-close>Schließen</button>`;
+
+  const knopf = $('#btn-licht-kamera');
+  if (knopf) knopf.onclick = kameraStarten;
+  $('#btn-licht-fenster').onclick = () => lichtErgebnis(fensterRechnen(), 'Fensterlage');
+  openSheet('#sheet-licht');
+}
+
+function lichtErgebnis(lux, herkunft) {
+  const stufe = stufeZuLux(lux);
+  const p = lichtZiel ? DB.plants.find(x => x.id === lichtZiel) : null;
+  const art = p ? (artFinden(p.name) || artFinden(p.art)) : null;
+
+  let urteil = '';
+  if (art && art.licht) {
+    const soll = LICHT_STUFEN.find(s => s.k === art.licht);
+    if (soll) {
+      if (lux >= soll.von) {
+        urteil = `<div class="karte" style="border-left:3px solid var(--accent)">
+          <b>Passt.</b> ${esc(art.n)} will „${esc(art.licht)}“ – das ist hier gegeben.</div>`;
+      } else if (lux >= soll.von / 3) {
+        urteil = `<div class="karte" style="border-left:3px solid var(--orange)">
+          <b>Knapp.</b> ${esc(art.n)} will „${esc(art.licht)}“, hier ist es merklich
+          dunkler. Sie überlebt, wächst aber langsam und bildet längere Triebe.</div>`;
+      } else {
+        urteil = `<div class="karte" style="border-left:3px solid var(--red)">
+          <b>Zu dunkel.</b> ${esc(art.n)} will „${esc(art.licht)}“ – hier bekommt sie
+          einen Bruchteil davon. Auf Dauer geht das nicht gut.</div>`;
+      }
+    }
+  }
+  if (lux < LICHT_MINIMUM) {
+    urteil += `<div class="karte" style="border-left:3px solid var(--red)">
+      Unter ${LICHT_MINIMUM} Lux wächst praktisch keine Zimmerpflanze mehr. Sie zehrt
+      dann von ihren Reserven und wird über Monate immer dünner.</div>`;
+  }
+
+  $('#licht-inhalt').innerHTML = `
+    <div class="grabber"></div>
+    <h2>${esc(stufe.k)}</h2>
+    <div class="karte">
+      <div class="lux-zahl">etwa ${luxText(lux)}</div>
+      <div class="lux-quelle">${esc(herkunft)} · ${esc(stufe.text)}</div>
+      <div class="lux-skala">
+        ${LICHT_STUFEN.slice().reverse().map(s => `<span class="${
+          s.k === stufe.k ? 'on' : ''}">${esc(s.k.split(',')[0])}</span>`).join('')}
+      </div>
+    </div>
+    ${urteil}
+    ${p ? `<button class="btn" data-licht-uebernehmen="${p.id}" data-stufe="${esc(stufe.k)}">
+      Für ${esc(p.name)} übernehmen</button>` : ''}
+    <button class="btn sec" data-licht-neu="${lichtZiel || ''}">Nochmal messen</button>
+    <button class="btn sec" data-close>Schließen</button>`;
+}
+
+function lichtUebernehmen(pid, stufe) {
+  const p = DB.plants.find(x => x.id === pid);
+  if (!p) return;
+  p.licht = stufe;
+  DB.logs.push({ id: uid(), plantId: pid, typ: 'licht', text: stufe, ts: Date.now() });
+  save();
+  renderAll();
+  closeSheets();
+  setTimeout(() => openDetail(pid), 180);
+  toast('Licht übernommen: ' + stufe);
+}
+
 /* ---------- Pflanzen im Freien ----------
    Eine verpasste Frostnacht kostet die Pflanze. Nicht „schadet ihr“ – kostet
    sie. Bei einer Zitrone auf dem Balkon reicht eine einzige Nacht mit vier
@@ -5350,6 +5632,7 @@ function openDetail(id) {
       ${istAbleger(p) && !istSteckling(p) ? `<button class="btn sec" data-eintopfen="${p.id}">🪴 Ist bewurzelt, kommt in Erde</button>` : ''}
       <button class="btn sec" data-hilfe="${p.id}">${
         behandlungVon(p) ? 'Weiteres Problem?' : 'Problem mit dieser Pflanze?'}</button>
+      <button class="btn sec" data-licht="${p.id}">💡 Licht am Standort messen</button>
       <button class="btn sec" data-anleitung="umtopfen" data-pid="${p.id}">🪴 Anleitung zum Umtopfen</button>
       <button class="btn sec" data-qr="${p.id}">QR-Code für den Topf</button>
       ${p.archiviert
@@ -5411,6 +5694,7 @@ function allesHier(pid) {
 function logText(typ, text) {
   if (typ === 'notiz') return '📝 ' + (text || 'Notiz');
   if (String(typ).startsWith('eigen:')) return '📌 ' + eigenName(typ);
+  if (typ === 'licht') return '💡 Licht gemessen';
   if (typ === 'rausgestellt') return '🌤 Nach draußen gestellt';
   if (typ === 'reingeholt') return '🏠 Reingeholt';
   if (typ === 'zustand') return '🩺 Zustand: ' + (text || 'geändert');
@@ -6075,6 +6359,11 @@ function bind() {
   /* Nicht hochgeladene Änderungen nachholen, sobald es wieder geht */
   window.addEventListener('online', () => { if (SYNC.dirty) schiebeHoch(); });
 
+  $('#btn-licht-messen').onclick = () => {
+    // Aus dem Formular heraus ohne Bezug zur Pflanze: nur messen, nicht setzen
+    closeSheets();
+    setTimeout(() => lichtOeffnen(editId), 180);
+  };
   $('#f-freiland').onchange = freilandAnzeigen;
   $('#f-mintemp').onchange = freilandAnzeigen;
   $('#f-phase').onchange = phaseAnzeigen;
@@ -6103,7 +6392,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen],[data-draussen],[data-reinholen]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen],[data-draussen],[data-reinholen],[data-licht],[data-schatten],[data-licht-uebernehmen],[data-licht-neu]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -6130,6 +6419,27 @@ function bind() {
       return;
     }
     if (t.dataset.ort) { e.stopPropagation(); ortWaehlen(t.dataset.ort); return; }
+    if (t.dataset.licht) {
+      e.stopPropagation();
+      closeSheets();
+      setTimeout(() => lichtOeffnen(t.dataset.licht), 180);
+      return;
+    }
+    if (t.dataset.schatten !== undefined) {
+      e.stopPropagation();
+      lichtErgebnis(SCHATTEN[Number(t.dataset.schatten)].lux, 'Schattenprobe');
+      return;
+    }
+    if (t.dataset.lichtUebernehmen) {
+      e.stopPropagation();
+      lichtUebernehmen(t.dataset.lichtUebernehmen, t.dataset.stufe);
+      return;
+    }
+    if (t.dataset.lichtNeu !== undefined) {
+      e.stopPropagation();
+      lichtOeffnen(t.dataset.lichtNeu || null);
+      return;
+    }
     if (t.dataset.draussen) { e.stopPropagation(); draussenUmschalten(t.dataset.draussen); return; }
     if (t.dataset.reinholen !== undefined) { e.stopPropagation(); alleReinholen(); return; }
     if (t.dataset.sorgen !== undefined) {

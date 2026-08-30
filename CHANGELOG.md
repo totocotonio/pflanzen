@@ -1,5 +1,43 @@
 # Changelog
 
+## v3.8.0 - 2026-08-30
+
+### Lichtmessung
+
+Zu wenig Licht ist die häufigste Ursache dafür, dass eine Zimmerpflanze nicht
+wächst, lange dünne Triebe bildet und irgendwann eingeht – und die Ursache, die
+man am schlechtesten schätzt. Das Auge gleicht Helligkeit so stark aus, dass
+ein Platz, der „hell genug" aussieht, oft ein Zehntel des Lichts hat, das die
+Pflanze bräuchte.
+
+Drei Wege, je nachdem was das Gerät hergibt:
+
+- **Schattenprobe.** Weißes Blatt an den Platz, Hand 30 cm darüber, mittags.
+  Scharfer Schatten mit klaren Kanten, deutlicher Schatten mit weichen Rändern,
+  schwacher verwaschener Schatten, gar keiner – vier Stufen. Die Methode, die
+  Gärtner benutzen, seit es Gärtner gibt, und die erstaunlich zuverlässig ist.
+- **Fensterrechner** aus Himmelsrichtung, Abstand und Verschattung. Licht nimmt
+  mit dem Quadrat des Abstands ab – dass ein Meter vom Fenster schon die Hälfte
+  kostet und drei Meter über 90 %, unterschätzen fast alle. Zwischen November
+  und Februar rechnet die App zusätzlich mit 45 %.
+- **Kameramessung**, wo das Gerät die Belichtungswerte herausgibt. Aus
+  Belichtungszeit und ISO lässt sich die Beleuchtungsstärke rechnen, so wie es
+  Belichtungsmesser seit jeher tun.
+
+**Auf dem iPhone geht der dritte Weg nicht.** Safari reicht Belichtungszeit und
+ISO nicht an Web-Apps weiter – anders als bei einer nativ installierten App,
+die direkt an die Kamera-API kommt. Die App sagt das an Ort und Stelle, statt
+eine Zahl anzuzeigen, die nicht stimmt.
+
+Alle drei liefern einen **Bereich, keine Zahl auf die Stelle genau.** Das ist
+Absicht: Scheingenauigkeit wäre schlechter als eine ehrliche Spanne.
+
+- Das Ergebnis wird mit dem Bedarf der Art verglichen: **passt**, **knapp**
+  („Sie überlebt, wächst aber langsam und bildet längere Triebe") oder **zu
+  dunkel**. Unter 500 Lux kommt der Hinweis, dass dort praktisch keine
+  Zimmerpflanze mehr wächst.
+- Der gemessene Wert lässt sich direkt als Lichtangabe der Pflanze übernehmen.
+
 ## v3.7.0 - 2026-08-30
 
 ### Pflanzen im Freien mit Frostwarnung

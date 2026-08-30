@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=3.7.0">
+<link rel="stylesheet" href="style.css?v=3.8.0">
 </head>
 <body>
 
@@ -386,7 +386,7 @@
     <div class="section-title">Pflege</div>
     <div class="group">
       <div class="field">
-        <label>Licht</label>
+        <label>Licht <button type="button" class="mini-aktion" id="btn-licht-messen">messen</button></label>
         <select id="f-licht">
           <option value="">–</option>
           <option>Vollsonne</option>
@@ -539,6 +539,11 @@
   <div class="panel" id="sicherung-inhalt"></div>
 </div>
 
+<div class="sheet" id="sheet-licht">
+  <div class="backdrop" data-close></div>
+  <div class="panel" id="licht-inhalt"></div>
+</div>
+
 <div class="sheet" id="sheet-loeschen">
   <div class="backdrop" data-close></div>
   <div class="panel" id="loeschen-inhalt"></div>
@@ -582,6 +587,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=3.7.0"></script>
+<script src="app.js?v=3.8.0"></script>
 </body>
 </html>
