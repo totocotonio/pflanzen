@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '2.6.0';
+const VERSION = '2.7.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -94,7 +94,8 @@ function effIntervall(p) {
   // Eigener Winterwert der Pflanze schlägt die allgemeine Einstellung
   const eigen = Number(p.winterFaktor) || 0;
   const f = winterAktiv() ? (eigen || 1.5) : 1;
-  return Math.max(1, Math.round((Number(p.intervall) || 7) * f));
+  // Das Wetter wirkt nur verkürzend (Hitze); verlängern macht der Winter-Modus
+  return Math.max(1, Math.round((Number(p.intervall) || 7) * f * wetterFaktor(p)));
 }
 /** Tage bis zum nächsten Gießen. Negativ = überfällig. */
 function tageBis(p) {
@@ -474,6 +475,12 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '2.7.0', datum: '30.08.2026', punkte: [
+    'Jede Pflanze bekommt Merkmale ihres Platzes: Heizung, Klimaanlage, Mittagssonne, Zugluft, kalter Boden, feuchter Raum, wenig Licht.',
+    'Wetter vom eigenen Server: läuft die Heizung, ist es zu heiß, droht Frost, ist es zu trüb.',
+    'Bei Hitze werden alle Pflanzen 20 % früher fällig, am Sonnenfenster 30 %.',
+    'In der Problem-Hilfe stehen die Ursachen oben, die zur Lage passen – im Januar über der Heizung ist „trockene Luft“ meist schon die Antwort.'
+  ]},
   { v: '2.6.0', datum: '30.08.2026', punkte: [
     'Steht die Ursache fest, lässt sie sich jetzt auswählen: „Das ist es“ öffnet den passenden Behandlungsplan.',
     'Der Plan hat Schritte mit Abstand in Tagen und läuft als eigene Aufgabe mit – in der Tagesansicht, in der Pflanze und per Push.',
@@ -921,6 +928,11 @@ function renderHeute() {
 
   $$('.stat').forEach(k => k.classList.toggle('on', k.dataset.filter === heuteFilter));
 
+  const wz = wetterZeile();
+  const wbox = $('#wetter-hinweis');
+  wbox.hidden = !wz;
+  if (wz) wbox.innerHTML = `<span class="wetter-emoji">${wz.emoji}</span><span>${wz.text}</span>`;
+
   const box = $('#heute-liste');
   if (!liste.length) {
     box.innerHTML = `<div class="empty"><div class="big">🌱</div>
@@ -1147,6 +1159,9 @@ function renderPlan() {
 
 function renderMore() {
   $('#version-sub').textContent = 'Version ' + VERSION;
+  $('#ort-name').textContent = (DB.settings.ort ? DB.settings.ort.name : 'nicht gesetzt') + ' ›';
+  $('#set-wetter').value = DB.settings.wetterAn === false ? '0' : '1';
+  $('#wetter-lage').textContent = wetterLageText();
   $('#konto-name').textContent = SYNC.user || 'nicht angemeldet';
   $('#sync-status').textContent = syncText();
   $('#btn-logout').style.display = SYNC.user ? 'block' : 'none';
@@ -2028,7 +2043,7 @@ const PROBLEME = [
   {
     id: 'gelbe-blaetter', emoji: '🟡', titel: 'Gelbe Blätter',
     ursachen: [
-      { was: 'Zu viel Wasser', tun: 'Häufigste Ursache. Erde antrocknen lassen, Untersetzer leeren, Intervall verlängern. Riecht die Erde faulig, umtopfen und faule Wurzeln abschneiden.',
+      { was: 'Zu viel Wasser', wenn: ['feucht', 'dunkel', 'trueb', 'kalt'], tun: 'Häufigste Ursache. Erde antrocknen lassen, Untersetzer leeren, Intervall verlängern. Riecht die Erde faulig, umtopfen und faule Wurzeln abschneiden.',
         plan: [
           { tag: 0, text: 'Untersetzer leeren. Erde zwei Zentimeter tief mit dem Finger prüfen – nass, feucht oder trocken?' },
           { tag: 0, text: 'Nicht gießen. Blätter, die schon weich und gelb sind, werden nicht mehr grün: abschneiden.' },
@@ -2036,7 +2051,7 @@ const PROBLEME = [
           { tag: 7, text: 'Erst gießen, wenn die oberen zwei Zentimeter trocken sind.' },
           { tag: 14, text: 'Bilanz: Keine neuen gelben Blätter? Dann das Gießintervall dauerhaft um etwa ein Drittel verlängern.' }
         ] },
-      { was: 'Zu wenig Wasser', tun: 'Ist die Erde staubtrocken und der Ballen von der Topfwand abgelöst: durchdringend wässern oder eine halbe Stunde tauchen.',
+      { was: 'Zu wenig Wasser', wenn: ['hitze', 'sonne', 'heizung'], tun: 'Ist die Erde staubtrocken und der Ballen von der Topfwand abgelöst: durchdringend wässern oder eine halbe Stunde tauchen.',
         plan: [
           { tag: 0, text: 'Topf 20 bis 30 Minuten in lauwarmes Wasser stellen, bis keine Blasen mehr aufsteigen.' },
           { tag: 0, text: 'Gut abtropfen lassen, danach den Untersetzer leeren.' },
@@ -2056,7 +2071,7 @@ const PROBLEME = [
   {
     id: 'braune-spitzen', emoji: '🟤', titel: 'Braune Blattspitzen',
     ursachen: [
-      { was: 'Trockene Luft', tun: 'Typisch im Winter über der Heizung. Luftfeuchte erhöhen, Pflanze umstellen, Blätter besprühen (nicht bei samtigen Blättern).',
+      { was: 'Trockene Luft', wenn: ['heizung', 'klima', 'heizperiode', 'trockene-luft'], tun: 'Typisch im Winter über der Heizung. Luftfeuchte erhöhen, Pflanze umstellen, Blätter besprühen (nicht bei samtigen Blättern).',
         plan: [
           { tag: 0, text: 'Braune Spitzen mit einer sauberen Schere abschneiden, einen schmalen braunen Rand stehen lassen.' },
           { tag: 0, text: 'Von der Heizung wegstellen oder eine Schale mit Wasser und Blähton danebenstellen.' },
@@ -2082,13 +2097,13 @@ const PROBLEME = [
   {
     id: 'haengende-blaetter', emoji: '🥀', titel: 'Blätter hängen',
     ursachen: [
-      { was: 'Durst', tun: 'Erde trocken? Dann gründlich gießen, die meisten Pflanzen erholen sich in wenigen Stunden.',
+      { was: 'Durst', wenn: ['hitze', 'sonne'], tun: 'Erde trocken? Dann gründlich gießen, die meisten Pflanzen erholen sich in wenigen Stunden.',
         plan: [
           { tag: 0, text: 'Durchdringend gießen, bis unten Wasser austritt. Nach 20 Minuten den Untersetzer leeren.' },
           { tag: 1, text: 'Steht sie wieder aufrecht? Dann war es nur Durst.' },
           { tag: 7, text: 'Gießintervall dauerhaft verkürzen.' }
         ] },
-      { was: 'Wurzelfäule', tun: 'Hängende Blätter bei nasser Erde sind ein Alarmzeichen: Die Wurzeln nehmen kein Wasser mehr auf. Austopfen, faule braune Wurzeln entfernen, in frische Erde setzen und erst mal sparsam gießen.',
+      { was: 'Wurzelfäule', wenn: ['feucht', 'kalt', 'dunkel'], tun: 'Hängende Blätter bei nasser Erde sind ein Alarmzeichen: Die Wurzeln nehmen kein Wasser mehr auf. Austopfen, faule braune Wurzeln entfernen, in frische Erde setzen und erst mal sparsam gießen.',
         plan: [
           { tag: 0, text: 'Austopfen und die Wurzeln unter lauwarmem Wasser abspülen.' },
           { tag: 0, text: 'Alle braunen, matschigen oder faulig riechenden Wurzeln bis ins Gesunde abschneiden. Gesunde Wurzeln sind hell und fest.' },
@@ -2098,7 +2113,7 @@ const PROBLEME = [
           { tag: 7, text: 'Erste kleine Wassergabe – nur wenn die Erde oben trocken ist.' },
           { tag: 21, text: 'Neuer Austrieb? Dann ist es überstanden. Erst jetzt wieder düngen.' }
         ] },
-      { was: 'Zugluft oder Kälte', tun: 'Standort neben offenem Fenster oder Tür prüfen, besonders im Winter.',
+      { was: 'Zugluft oder Kälte', wenn: ['zugluft', 'kalt', 'frost'], tun: 'Standort neben offenem Fenster oder Tür prüfen, besonders im Winter.',
         plan: [
           { tag: 0, text: 'Standort prüfen: Fenster, Türen, Klimaanlage, Lüftungsauslass. Pflanze umstellen.' },
           { tag: 0, text: 'Topf von kalten Fliesen oder dem Fensterbrett auf eine Unterlage stellen.' },
@@ -2119,7 +2134,7 @@ const PROBLEME = [
           { tag: 14, text: 'Zweite Nematoden-Gabe. Der Entwicklungszyklus dauert rund drei Wochen – ohne den zweiten Durchgang beginnt alles von vorn.' },
           { tag: 28, text: 'Gelbtafeln kontrollieren. Kaum noch Tiere? Dann ist es überstanden.' }
         ] },
-      { was: 'Zu feuchte Haltung', tun: 'Gießintervall verlängern – die Mücken verschwinden mit der Feuchtigkeit.',
+      { was: 'Zu feuchte Haltung', wenn: ['feucht', 'dunkel', 'trueb'], tun: 'Gießintervall verlängern – die Mücken verschwinden mit der Feuchtigkeit.',
         plan: [
           { tag: 0, text: 'Gießintervall verlängern, Untersetzer nach jedem Gießen leeren.' },
           { tag: 0, text: 'Die obersten zwei Zentimeter zwischen den Gaben trocken werden lassen.' },
@@ -2130,7 +2145,7 @@ const PROBLEME = [
   {
     id: 'schimmel', emoji: '⚪', titel: 'Weißer Belag auf der Erde',
     ursachen: [
-      { was: 'Schimmel', tun: 'Meist harmlos. Belag abtragen, Erde lockern, weniger gießen und für Luftbewegung sorgen.',
+      { was: 'Schimmel', wenn: ['feucht', 'dunkel', 'kalt'], tun: 'Meist harmlos. Belag abtragen, Erde lockern, weniger gießen und für Luftbewegung sorgen.',
         plan: [
           { tag: 0, text: 'Belag mit einem Löffel abtragen und wegwerfen – nicht untermischen.' },
           { tag: 0, text: 'Erde vorsichtig lockern, damit Luft hineinkommt.' },
@@ -2183,7 +2198,7 @@ const PROBLEME = [
   {
     id: 'spinnmilben', emoji: '🕸', titel: 'Feine Gespinste, gesprenkelte Blätter',
     ursachen: [
-      { was: 'Spinnmilben', tun: 'Kommen bei trockener Heizungsluft. Pflanze kräftig abbrausen, Luftfeuchte erhöhen, notfalls mit Rapsöl-Präparat behandeln. Befallene Pflanzen von anderen trennen.',
+      { was: 'Spinnmilben', wenn: ['heizung', 'klima', 'heizperiode', 'trockene-luft'], tun: 'Kommen bei trockener Heizungsluft. Pflanze kräftig abbrausen, Luftfeuchte erhöhen, notfalls mit Rapsöl-Präparat behandeln. Befallene Pflanzen von anderen trennen.',
         plan: [
           { tag: 0, text: 'Pflanze von den anderen trennen. Spinnmilben wandern über sich berührende Blätter.' },
           { tag: 0, text: 'Kräftig abbrausen, besonders die Blattunterseiten.' },
@@ -2198,7 +2213,7 @@ const PROBLEME = [
   {
     id: 'kein-wachstum', emoji: '🌱', titel: 'Wächst nicht, wird lang und dünn',
     ursachen: [
-      { was: 'Zu wenig Licht', tun: 'Lange dünne Triebe mit weiten Abständen zwischen den Blättern: heller stellen. Im Winter reicht vielen Zimmerpflanzen das Licht am Fenster kaum.',
+      { was: 'Zu wenig Licht', wenn: ['dunkel', 'trueb'], tun: 'Lange dünne Triebe mit weiten Abständen zwischen den Blättern: heller stellen. Im Winter reicht vielen Zimmerpflanzen das Licht am Fenster kaum.',
         plan: [
           { tag: 0, text: 'Näher ans Fenster. Nach Süden mit etwas Abstand, nach Norden so nah wie möglich.' },
           { tag: 0, text: 'Lange vergeilte Triebe zurückschneiden, damit sie buschig neu austreibt.' },
@@ -2225,7 +2240,7 @@ const PROBLEME = [
   {
     id: 'blattfall', emoji: '🍂', titel: 'Plötzlicher Blattfall',
     ursachen: [
-      { was: 'Standortwechsel', tun: 'Besonders Ficus reagiert empfindlich. Zurückstellen oder Geduld: Nach der Umgewöhnung treibt er neu aus.',
+      { was: 'Standortwechsel', wenn: ['zugluft'], tun: 'Besonders Ficus reagiert empfindlich. Zurückstellen oder Geduld: Nach der Umgewöhnung treibt er neu aus.',
         plan: [
           { tag: 0, text: 'Stehen lassen, wo sie steht. Jeder weitere Wechsel kostet zusätzlich Blätter.' },
           { tag: 0, text: 'Gleichmäßig, aber weniger gießen – ohne Blätter verbraucht sie deutlich weniger.' },
@@ -2233,13 +2248,13 @@ const PROBLEME = [
           { tag: 21, text: 'An den Trieben nach neuen Knospen suchen.' },
           { tag: 42, text: 'Treibt sie aus? Dann wieder normal gießen und düngen.' }
         ] },
-      { was: 'Kalte Füße', tun: 'Topf auf kaltem Steinboden oder Fensterbrett. Untersetzer aus Kork oder Filz darunter legen.',
+      { was: 'Kalte Füße', wenn: ['kalt', 'frost', 'zugluft'], tun: 'Topf auf kaltem Steinboden oder Fensterbrett. Untersetzer aus Kork oder Filz darunter legen.',
         plan: [
           { tag: 0, text: 'Topf auf eine Unterlage aus Kork, Filz oder Styropor stellen.' },
           { tag: 0, text: 'Weniger gießen: In kalter Erde nehmen die Wurzeln kaum Wasser auf.' },
           { tag: 14, text: 'Kontrolle, ob der Blattfall aufhört.' }
         ] },
-      { was: 'Trockenstress', tun: 'Einmal komplett ausgetrocknet? Dann wirft die Pflanze Blätter ab, um zu überleben.',
+      { was: 'Trockenstress', wenn: ['hitze', 'sonne'], tun: 'Einmal komplett ausgetrocknet? Dann wirft die Pflanze Blätter ab, um zu überleben.',
         plan: [
           { tag: 0, text: 'Ballen tauchen, bis keine Blasen mehr aufsteigen, danach gut abtropfen lassen.' },
           { tag: 0, text: 'Kahle Triebe noch nicht abschneiden. Erst mit dem Fingernagel an der Rinde prüfen, was darunter noch grün ist.' },
@@ -2251,7 +2266,7 @@ const PROBLEME = [
   {
     id: 'keine-blueten', emoji: '🌸', titel: 'Blüht nicht',
     ursachen: [
-      { was: 'Zu wenig Licht', tun: 'Blühpflanzen brauchen deutlich mehr Licht als Grünpflanzen.',
+      { was: 'Zu wenig Licht', wenn: ['dunkel', 'trueb'], tun: 'Blühpflanzen brauchen deutlich mehr Licht als Grünpflanzen.',
         plan: [
           { tag: 0, text: 'An den hellsten Platz stellen, den die Wohnung hergibt.' },
           { tag: 0, text: 'Verblühtes und Samenstände entfernen – die kosten Kraft, die für neue Knospen fehlt.' },
@@ -2305,6 +2320,8 @@ function pflanzenPruefung(p) {
   const pruefung = topfPruefung(p);
   if (pruefung && pruefung.hinweise.length) hinweise.push(...pruefung.hinweise);
 
+  hinweise.push(...umgebungsHinweise(p));
+
   const t = tageBis(p);
   if (t < -7) hinweise.push(`Die Pflanze ist seit ${Math.abs(t)} Tagen überfällig.`);
   return hinweise;
@@ -2340,17 +2357,305 @@ function hilfeOeffnen(pid) {
 function problemZeigen(id) {
   const pr = PROBLEME.find(x => x.id === id);
   if (!pr) return;
+  const p = hilfePflanze ? DB.plants.find(x => x.id === hilfePflanze) : null;
+  const lage = p ? lageJetzt(p) : new Set();
+
+  // Ursachen, die zur Umgebung oder zum Wetter passen, kommen nach oben.
+  // Bei „Braune Blattspitzen“ im Januar über der Heizung ist die Antwort
+  // meistens schon gefunden, bevor man den Rest gelesen hat.
+  const passt = u => (u.wenn || []).some(k => lage.has(k));
+  const reihe = pr.ursachen.map((u, i) => ({ u, i, passt: passt(u) }))
+    .sort((a, b) => (b.passt - a.passt) || (a.i - b.i));
+
   $('#hilfe-titel').textContent = pr.emoji + ' ' + pr.titel;
   $('#hilfe-inhalt').innerHTML =
     `<div class="section-title">Mögliche Ursachen</div>` +
-    pr.ursachen.map((u, i) => `
-      <div class="card">
+    reihe.map(({ u, i, passt: ja }) => `
+      <div class="card${ja ? ' passt' : ''}">
+        ${ja ? `<div class="passt-marke">Passt zu ${esc(p.name)}: ${
+          esc(lageWorte(u, lage))}</div>` : ''}
         <b style="display:block;margin-bottom:5px">${esc(u.was)}</b>
         <span style="color:var(--text-2);font-size:15px;line-height:1.45">${esc(u.tun)}</span>
         ${u.plan ? `<button class="aktion-knopf" data-plan="${pr.id}" data-idx="${i}">
           Das ist es → Behandlungsplan (${u.plan.length} Schritte)</button>` : ''}
       </div>`).join('') +
     `<button class="btn sec" data-problem-zurueck>Zurück zur Übersicht</button>`;
+}
+
+/** Klartext zu den Merkmalen, wegen derer eine Ursache oben steht. */
+const LAGE_WORTE = {
+  heizung: 'steht an der Heizung', klima: 'Klimaanlage im Raum',
+  sonne: 'direkte Mittagssonne', zugluft: 'Zugluft', kalt: 'kalt',
+  feucht: 'feuchter Raum', dunkel: 'wenig Tageslicht',
+  heizperiode: 'Heizperiode', hitze: 'Hitze', frost: 'Frost angekündigt',
+  trueb: 'trübe Tage', 'trockene-luft': 'trockene Luft'
+};
+
+function lageWorte(u, lage) {
+  return (u.wenn || []).filter(k => lage.has(k))
+    .map(k => LAGE_WORTE[k] || k).join(', ');
+}
+
+/* ---------- Umgebung und Wetter ----------
+   Zwei Pflanzen derselben Art brauchen völlig Unterschiedliches, je nachdem,
+   wo sie stehen. Über der Heizung trocknet die Luft aus und Spinnmilben
+   kommen; unter der Klimaanlage passiert genau dasselbe, nur im Sommer. Am
+   Südfenster verdunstet im August das Doppelte, im dunklen Flur fast nichts.
+
+   Deshalb bekommt jede Pflanze Merkmale ihres Platzes. Sie wirken an drei
+   Stellen: im Gießrhythmus, in den Hinweisen, und in der Problem-Hilfe – dort
+   werden die Ursachen nach oben gestellt, die zur Lage passen.
+
+   Das Wetter kommt vom eigenen Server (Open-Meteo). Für Zimmerpflanzen zählt
+   davon nicht der Regen, sondern: läuft die Heizung, ist es zu heiß, droht
+   Frost am Fensterbrett, ist es zu trüb zum Wachsen. */
+const UMGEBUNG = [
+  { k: 'heizung', emoji: '🔥', name: 'Über oder neben der Heizung',
+    hinweis: 'Trockene Heizungsluft ist die häufigste Ursache für braune Blattspitzen und Spinnmilben.' },
+  { k: 'klima', emoji: '❄️', name: 'Klimaanlage im Raum',
+    hinweis: 'Klimaanlagen entziehen der Luft Feuchtigkeit – im Sommer derselbe Effekt wie eine Heizung im Winter.' },
+  { k: 'sonne', emoji: '☀️', name: 'Direkte Mittagssonne',
+    hinweis: 'Am Süd- oder Westfenster verdunstet im Sommer deutlich mehr, und empfindliche Blätter verbrennen.' },
+  { k: 'zugluft', emoji: '🌬', name: 'Zugluft von Fenster oder Tür',
+    hinweis: 'Zugluft ist einer der häufigsten Gründe für plötzlichen Blattfall.' },
+  { k: 'kalt', emoji: '🧊', name: 'Kalter Boden oder kühler Raum',
+    hinweis: 'In kalter Erde nehmen Wurzeln kaum Wasser auf – dann schadet die gewohnte Menge.' },
+  { k: 'feucht', emoji: '💦', name: 'Feuchter Raum (Bad, Küche)',
+    hinweis: 'Hohe Luftfeuchte ist gut fürs Blattwerk, begünstigt aber Schimmel auf der Erde.' },
+  { k: 'dunkel', emoji: '🌑', name: 'Wenig Tageslicht',
+    hinweis: 'Wenig Licht heißt wenig Wachstum – und damit deutlich weniger Wasserbedarf.' }
+];
+
+function umgebungVon(p) {
+  return Array.isArray(p && p.umgebung) ? p.umgebung : [];
+}
+
+function hatUmgebung(p, k) {
+  return umgebungVon(p).includes(k);
+}
+
+/* Wetterlage. Wird beim Start geholt und im localStorage zwischengelagert,
+   damit die App offline nicht ohne dasteht. Nicht Teil von DB: Der Sync
+   soll keine Wetterdaten zwischen Geräten hin- und herschieben. */
+const WETTER_KEY = 'pg_wetter';
+let WETTER = null;
+
+function wetterLaden() {
+  try {
+    const roh = localStorage.getItem(WETTER_KEY);
+    if (roh) WETTER = JSON.parse(roh);
+  } catch (e) { WETTER = null; }
+}
+
+/** Ist die gespeicherte Lage noch brauchbar? Drei Stunden sind die Grenze. */
+function wetterFrisch() {
+  return WETTER && WETTER.stand && (Date.now() / 1000 - WETTER.stand) < 3 * 3600;
+}
+
+async function wetterHolen(erzwingen) {
+  const ort = DB.settings.ort;
+  if (!ort || DB.settings.wetterAn === false || !SYNC.user) return;
+  if (!erzwingen && wetterFrisch()) return;
+  try {
+    const r = await api(`/wetter?lat=${ort.lat}&lon=${ort.lon}`);
+    if (!r.ok) return;
+    WETTER = await r.json();
+    try { localStorage.setItem(WETTER_KEY, JSON.stringify(WETTER)); } catch (e) { /* egal */ }
+    renderAll();
+  } catch (e) { /* ohne Wetter läuft alles weiter */ }
+}
+
+/** Gilt die Wetterlage gerade? Ohne Ort oder abgeschaltet: nein. */
+function wetterAktiv() {
+  return !!(WETTER && DB.settings.ort && DB.settings.wetterAn !== false);
+}
+
+/** Faktor aufs Gießintervall aus der Wetterlage.
+
+    Bewusst nur in eine Richtung: Hitze lässt früher gießen. Das Verlängern im
+    Winter macht weiterhin der Winter-Modus – sonst zählt beides doppelt und
+    die Pflanze steht im Januar sechs Wochen trocken. */
+function wetterFaktor(p) {
+  if (!wetterAktiv() || !WETTER.hitze) return 1;
+  return hatUmgebung(p, 'sonne') ? 0.7 : 0.8;
+}
+
+/** Kurzer Text für die Kopfzeile der Tagesansicht. */
+function wetterZeile() {
+  if (!wetterAktiv()) return '';
+  const grad = WETTER.tmax !== null && WETTER.tmax !== undefined
+    ? Math.round(WETTER.tmax) + ' °C' : '';
+  if (WETTER.hitze) {
+    return { emoji: '🔥', text: `Hitze, ${grad} – Töpfe trocknen schneller, ` +
+      `alle Pflanzen werden 20 % früher fällig.` };
+  }
+  if (WETTER.frost) {
+    return { emoji: '🧊', text: 'Frost in den nächsten Tagen – Pflanzen abends vom ' +
+      'Fensterbrett nehmen und beim Lüften nicht daneben stehen lassen.' };
+  }
+  if (WETTER.heizperiode) {
+    return { emoji: '🔥', text: `Heizperiode bei ${grad} – die Luft wird trocken. ` +
+      'Auf braune Spitzen und Spinnmilben achten.' };
+  }
+  if (WETTER.trueb) {
+    return { emoji: '☁️', text: 'Trübe Tage – wenig Licht heißt wenig Wachstum. ' +
+      'Lieber einmal zu wenig gießen als einmal zu viel.' };
+  }
+  return '';
+}
+
+/** Merkmale, die gerade zutreffen: Pflanze plus Wetterlage. */
+function lageJetzt(p) {
+  const raus = new Set(umgebungVon(p));
+  if (wetterAktiv()) {
+    if (WETTER.heizperiode) raus.add('heizperiode');
+    if (WETTER.hitze) raus.add('hitze');
+    if (WETTER.frost) raus.add('frost');
+    if (WETTER.trueb) raus.add('trueb');
+  }
+  // Heizperiode plus Heizung ist die eigentlich kritische Kombination
+  if (raus.has('heizperiode') && raus.has('heizung')) raus.add('trockene-luft');
+  if (raus.has('hitze') && raus.has('klima')) raus.add('trockene-luft');
+  return raus;
+}
+
+/** Hinweise aus Umgebung und Wetter, für „Aufgefallen“ in der Hilfe. */
+function umgebungsHinweise(p) {
+  if (!p) return [];
+  const lage = lageJetzt(p);
+  const raus = [];
+
+  if (lage.has('trockene-luft')) {
+    raus.push(lage.has('heizung')
+      ? 'Die Heizung läuft und die Pflanze steht direkt daran. Das ist die Kombination, ' +
+        'bei der braune Spitzen und Spinnmilben zuerst auftreten.'
+      : 'Klimaanlage bei Hitze: Die Luft ist so trocken wie im Winter über der Heizung.');
+  }
+  if (lage.has('hitze') && lage.has('sonne')) {
+    raus.push('Hitze und direkte Mittagssonne: Der Topf trocknet jetzt fast doppelt so ' +
+      'schnell aus wie sonst. Notfalls für ein paar Tage etwas weiter vom Fenster weg.');
+  }
+  if (lage.has('frost') && (lage.has('zugluft') || lage.has('kalt'))) {
+    raus.push('Frost angekündigt und die Pflanze steht kalt oder zugig. Beim Lüften ' +
+      'wegstellen – kalte Zugluft kostet innerhalb eines Tages Blätter.');
+  }
+  if (lage.has('trueb') && lage.has('dunkel')) {
+    raus.push('Trübe Tage und ohnehin wenig Licht: Der Wasserbedarf ist jetzt am ' +
+      'niedrigsten. Vor jedem Gießen die Erde prüfen.');
+  }
+  if (lage.has('feucht') && !lage.has('trockene-luft')) {
+    raus.push('Feuchter Raum: gut fürs Blattwerk, aber die Erde trocknet langsamer. ' +
+      'Weißer Belag darauf ist meist harmloser Schimmel.');
+  }
+  return raus;
+}
+
+/** Chips für die Detailansicht. */
+function umgebungChipsHTML(p) {
+  const liste = umgebungVon(p);
+  if (!liste.length) return '';
+  return `<div class="topf-arten">` + liste.map(k => {
+    const u = UMGEBUNG.find(x => x.k === k);
+    return u ? `<span class="topf-art">${u.emoji} ${esc(u.name)}</span>` : '';
+  }).join('') + `</div>`;
+}
+
+/** Einzeiler für die Einstellungen. */
+function wetterLageText() {
+  if (!DB.settings.ort) return 'ohne Ort kein Wetter';
+  if (DB.settings.wetterAn === false) return 'abgeschaltet';
+  if (!WETTER) return 'noch nicht abgerufen';
+  const teile = [];
+  if (WETTER.tmax !== null && WETTER.tmax !== undefined) teile.push(Math.round(WETTER.tmax) + ' °C');
+  if (WETTER.hitze) teile.push('Hitze');
+  if (WETTER.heizperiode) teile.push('Heizperiode');
+  if (WETTER.frost) teile.push('Frost');
+  if (WETTER.trueb) teile.push('trüb');
+  if (teile.length < 2) teile.push('unauffällig');
+  return teile.join(' · ');
+}
+
+/* ---------- Ort ---------- */
+let ortTreffer = [];
+
+function ortOeffnen() {
+  const ort = DB.settings.ort;
+  $('#ort-inhalt').innerHTML = `
+    <div class="grabber"></div>
+    <h2 class="sheet-titel">Ort fürs Wetter</h2>
+    <p class="sheet-text">Zimmerpflanzen stehen drinnen – trotzdem entscheidet das Wetter
+      draußen, ob die Heizung läuft, wie schnell die Töpfe austrocknen und wie viel Licht
+      ankommt. Der Ort wird nur dafür verwendet.</p>
+    <p class="sheet-text">Die Wetterdaten holt der Grünzeug-Server bei Open-Meteo. Dein
+      Gerät baut dafür keine Verbindung nach außen auf.</p>
+
+    ${ort ? `<div class="karte">
+        <div class="karte-kopf">${esc(ort.name)}</div>
+        <div style="color:var(--text-2);font-size:14px">${esc(ort.region || '')}</div>
+      </div>` : ''}
+
+    <div class="field col" style="margin-bottom:12px">
+      <label>Ort suchen</label>
+      <input id="ort-suche" placeholder="z.B. Hannover" autocomplete="off">
+    </div>
+    <div id="ort-liste"></div>
+    ${ort ? `<button class="btn sec" id="btn-ort-weg">Ort entfernen</button>` : ''}
+    <button class="btn sec" data-close>Schließen</button>`;
+
+  const feld = $('#ort-suche');
+  let timer = null;
+  feld.oninput = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => ortSuchen(feld.value), 400);
+  };
+  const weg = $('#btn-ort-weg');
+  if (weg) weg.onclick = () => {
+    delete DB.settings.ort;
+    WETTER = null;
+    try { localStorage.removeItem(WETTER_KEY); } catch (e) { /* egal */ }
+    save(); renderAll(); closeSheets();
+    toast('Ort entfernt');
+  };
+  openSheet('#sheet-ort');
+  setTimeout(() => feld.focus(), 300);
+}
+
+async function ortSuchen(begriff) {
+  const box = $('#ort-liste');
+  if (!box) return;
+  if ((begriff || '').trim().length < 2) { box.innerHTML = ''; return; }
+  if (!SYNC.user) {
+    box.innerHTML = `<div class="karte karte-ruhig" style="color:var(--text-2)">
+      Dafür musst du angemeldet sein – die Suche läuft über den Server.</div>`;
+    return;
+  }
+  box.innerHTML = `<div class="karte karte-ruhig" style="color:var(--text-2)">Suche …</div>`;
+  try {
+    const r = await api('/orte?q=' + encodeURIComponent(begriff));
+    ortTreffer = r.ok ? (await r.json()).orte || [] : [];
+  } catch (e) { ortTreffer = []; }
+
+  box.innerHTML = ortTreffer.length
+    ? ortTreffer.map((o, i) => `
+        <button class="problem" data-ort="${i}">
+          <span class="problem-emoji">📍</span>
+          <span class="problem-titel">${esc(o.name)}<span style="color:var(--text-3)">${
+            o.region ? ' · ' + esc(o.region) : ''}</span></span>
+          <span class="problem-pfeil">›</span>
+        </button>`).join('')
+    : `<div class="karte karte-ruhig" style="color:var(--text-2)">Nichts gefunden.</div>`;
+}
+
+function ortWaehlen(i) {
+  const o = ortTreffer[Number(i)];
+  if (!o) return;
+  DB.settings.ort = o;
+  if (DB.settings.wetterAn === undefined) DB.settings.wetterAn = true;
+  save();
+  closeSheets();
+  toast('Ort gesetzt: ' + o.name);
+  wetterHolen(true);
+  renderAll();
 }
 
 /* ---------- Behandlungen ----------
@@ -3018,6 +3323,8 @@ function openEdit(id) {
   $('#f-notiz').value = p ? (p.notiz || '') : '';
   editEmoji = p ? (p.emoji || '🪴') : '🪴';
   editFoto = p ? (p.foto || null) : null;
+  editUmgebung = p ? umgebungVon(p).slice() : [];
+  zeichneUmgebung();
   $('#btn-delete').style.display = p ? 'block' : 'none';
   $('#btn-foto-del').style.display = editFoto ? 'block' : 'none';
   renderEmojiPick();
@@ -3026,6 +3333,16 @@ function openEdit(id) {
   if (p) artVorschlagPruefen();
   openSheet('#sheet-edit');
   if (!p) setTimeout(() => $('#f-name').focus(), 300);
+}
+
+/* Auswahl der Umgebungsmerkmale im Formular. Bewusst Chips statt
+   Kontrollkästchen: Es sind sieben Stück, und mehrere treffen fast immer zu. */
+let editUmgebung = [];
+
+function zeichneUmgebung() {
+  $('#umgebung-wahl').innerHTML = UMGEBUNG.map(u => `
+    <button type="button" class="chip ${editUmgebung.includes(u.k) ? 'on' : ''}"
+            data-umgebung="${u.k}">${u.emoji} ${esc(u.name)}</button>`).join('');
 }
 
 function renderEmojiPick() {
@@ -3049,6 +3366,7 @@ function speichern() {
     haltung: $('#f-haltung').value,
     imWasserSeit: $('#f-haltung').value === 'wasser'
       ? ($('#f-wasser-seit').value || toISO(new Date())) : '',
+    umgebung: editUmgebung.slice(),
     spuelenTage: $('#f-haltung').value === 'hydro'
       ? Math.max(0, Number($('#f-spuelen-int').value) || 0) : 0,
     spuelenLetzt: $('#f-haltung').value === 'hydro'
@@ -3168,6 +3486,7 @@ function openDetail(id) {
       <span class="topf-art">🪨 Semi-Hydro</span>
       <span class="topf-art">Dünger bei jeder Gabe</span>
     </div>` : ''}
+    ${umgebungChipsHTML(p)}
     ${mitbewohner(p).length ? `<div class="topf-arten">
       <span class="topf-art">im selben Topf:</span>
       ${mitbewohner(p).map(m => `<span class="topf-art">${esc(m.name)}</span>`).join('')}
@@ -3755,6 +4074,12 @@ function bind() {
   /* Nicht hochgeladene Änderungen nachholen, sobald es wieder geht */
   window.addEventListener('online', () => { if (SYNC.dirty) schiebeHoch(); });
 
+  $('#zeile-ort').onclick = ortOeffnen;
+  $('#set-wetter').onchange = e => {
+    DB.settings.wetterAn = e.target.value === '1';
+    save(); renderAll();
+    if (DB.settings.wetterAn) wetterHolen(true);
+  };
   $('#btn-update').onclick = updateUebernehmen;
   $('#btn-update-spaeter').onclick = () => {
     $('#update-banner').classList.remove('show');
@@ -3769,7 +4094,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -3787,6 +4112,15 @@ function bind() {
     if (t.dataset.rundeStart !== undefined) { e.stopPropagation(); rundeStarten(); return; }
     if (t.dataset.runde) { e.stopPropagation(); rundeSchritt(t.dataset.runde); return; }
     if (t.dataset.hilfe) { e.stopPropagation(); closeSheets(); setTimeout(() => hilfeOeffnen(t.dataset.hilfe), 180); return; }
+    if (t.dataset.umgebung) {
+      e.stopPropagation();
+      const k = t.dataset.umgebung;
+      editUmgebung = editUmgebung.includes(k)
+        ? editUmgebung.filter(x => x !== k) : editUmgebung.concat([k]);
+      zeichneUmgebung();
+      return;
+    }
+    if (t.dataset.ort) { e.stopPropagation(); ortWaehlen(t.dataset.ort); return; }
     if (t.dataset.plan) { e.stopPropagation(); planZeigen(t.dataset.plan, t.dataset.idx); return; }
     if (t.dataset.behStart) {
       e.stopPropagation();
@@ -3881,5 +4215,7 @@ starte();
 window.matchMedia('(prefers-color-scheme: dark)')
   .addEventListener('change', () => { if ((DB.settings.theme || 'auto') === 'auto') applyTheme(); });
 
-window.addEventListener('load', updatePruefungStarten);
+wetterLaden();
+window.addEventListener('load', () => { updatePruefungStarten(); wetterHolen(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) wetterHolen(); });
 neuerungenZeigen();

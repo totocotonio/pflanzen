@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=2.6.0">
+<link rel="stylesheet" href="style.css?v=2.7.0">
 </head>
 <body>
 
@@ -56,6 +56,7 @@
       <button class="stat" data-filter="alle"><b id="st-gesamt">0</b><span>Pflanzen</span></button>
     </div>
 
+    <div id="wetter-hinweis" hidden></div>
     <div id="heute-liste"></div>
   </section>
 
@@ -142,6 +143,21 @@
           <option value="dark">Dunkel</option>
         </select>
       </div>
+    </div>
+
+    <div class="section-title">Wetter</div>
+    <div class="group">
+      <div class="field" id="zeile-ort" style="cursor:pointer">
+        <label>Ort</label><span class="hint" id="ort-name">nicht gesetzt ›</span>
+      </div>
+      <div class="field">
+        <label>Wetter einbeziehen</label>
+        <select id="set-wetter">
+          <option value="1">an</option>
+          <option value="0">aus</option>
+        </select>
+      </div>
+      <div class="field"><label>Aktuelle Lage</label><span class="hint" id="wetter-lage">–</span></div>
     </div>
 
     <div class="section-title">Gießverhalten</div>
@@ -239,6 +255,10 @@
         <label>Name des Standorts</label>
         <input id="f-raum" placeholder="z.B. Dachterrasse" autocomplete="off" maxlength="30">
       </div>
+    </div>
+    <div class="field col" id="feld-umgebung">
+      <label>Was gilt an diesem Platz?</label>
+      <div class="chip-wahl" id="umgebung-wahl"></div>
     </div>
     <datalist id="name-liste"></datalist>
     <datalist id="art-liste"></datalist>
@@ -456,6 +476,8 @@
   <div class="panel" id="detail-body"></div>
 </div>
 
+<div class="sheet" id="sheet-ort"><div class="sheet-inhalt" id="ort-inhalt"></div></div>
+
 <div id="update-banner" hidden>
   <span>Neue Version verfügbar</span>
   <button id="btn-update">Jetzt laden</button>
@@ -464,6 +486,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=2.6.0"></script>
+<script src="app.js?v=2.7.0"></script>
 </body>
 </html>

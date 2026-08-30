@@ -1,5 +1,52 @@
 # Changelog
 
+## v2.7.0 - 2026-08-30
+
+### Umgebung der Pflanze
+
+Zwei Pflanzen derselben Art brauchen völlig Unterschiedliches, je nachdem, wo
+sie stehen. Über der Heizung trocknet die Luft aus und Spinnmilben kommen;
+unter der Klimaanlage passiert dasselbe, nur im Sommer. Am Südfenster
+verdunstet im August das Doppelte, im dunklen Flur fast nichts.
+
+- Jede Pflanze bekommt deshalb Merkmale ihres Platzes, als Mehrfachauswahl in
+  der Bearbeiten-Maske: **Heizung, Klimaanlage, direkte Mittagssonne, Zugluft,
+  kalter Boden, feuchter Raum, wenig Tageslicht.**
+- Die Merkmale stehen als Chips in der Detailansicht.
+
+### Wetter
+
+Zimmerpflanzen stehen drinnen – trotzdem entscheidet das Wetter draußen, ob die
+Heizung läuft, wie schnell die Töpfe austrocknen und wie viel Licht ankommt.
+
+- Neue Einstellung **Ort**, per Suchfeld gesetzt. Die Daten kommen von
+  Open-Meteo, abgerufen **vom Grünzeug-Server**: Kein Gerät baut dafür eine
+  Verbindung nach außen auf, Open-Meteo sieht nur die Server-IP.
+- Abgeleitet wird nicht das Wetter, sondern was für Pflanzen zählt:
+  **Heizperiode** (Tagesmittel unter 15 °C), **Hitze** (zweimal über 28 °C in
+  drei Tagen), **Frost** (Nachtminimum unter 1 °C in den nächsten Tagen),
+  **trüb** (unter zwei Sonnenstunden am Tag). Gerechnet über drei vergangene
+  und drei kommende Tage, damit ein einzelner warmer Nachmittag die Lage nicht
+  kippt.
+- Bei Hitze werden alle Pflanzen **20 % früher fällig**, mit dem Merkmal
+  „direkte Mittagssonne" **30 %**. Eine Zeile über der Tagesliste sagt, warum.
+- Bewusst nur in eine Richtung: Verlängert wird weiter über den Winter-Modus.
+  Beides zusammen würde doppelt zählen und die Pflanze stünde im Januar sechs
+  Wochen trocken.
+- Der Push-Versand rechnet mit denselben Regeln (`wetter.py` liegt auch auf
+  dem Server, Ergebnisse werden zwei Stunden zwischengespeichert).
+
+### Problem-Hilfe kennt die Lage
+
+- 14 Ursachen sind mit den Merkmalen verknüpft, bei denen sie wahrscheinlich
+  sind. Passende Ursachen stehen jetzt **oben**, mit einer Marke „Passt zu
+  <Pflanze>: steht an der Heizung".
+- Bei „Braune Blattspitzen" im Januar über der Heizung ist die Antwort damit
+  gefunden, bevor man den Rest gelesen hat.
+- „Aufgefallen" nennt zusätzlich die kritischen Kombinationen: Heizperiode plus
+  Heizung, Hitze plus Mittagssonne, Frost plus Zugluft, trübe Tage plus
+  Dunkelheit.
+
 ## v2.6.0 - 2026-08-30
 
 ### Behandlungspläne

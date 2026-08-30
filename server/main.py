@@ -79,6 +79,7 @@ class Version(Base):
 
 
 import push  # noqa: E402  (braucht Base, deshalb hier)
+import wetter  # noqa: E402
 
 PushAbo = push.modell_anlegen(Base)
 
@@ -392,6 +393,25 @@ def qr_code(p: str = "", name: str = ""):
 @app.get("/api/health")
 def health():
     return {"ok": True}
+
+
+# --------------------------------------------------------------- Wetter
+# Die Geräte fragen nie selbst bei Open-Meteo an: Der Server holt die Daten
+# und gibt nur die abgeleitete Lage weiter. Anmeldung ist Pflicht, damit der
+# Server nicht als offener Wetter-Proxy im Netz steht.
+@app.get("/api/wetter")
+def wetter_lage(lat: float, lon: float, user: User = Depends(aktueller_user)):
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        raise HTTPException(400, "Koordinaten unplausibel")
+    ergebnis = wetter.lage_sicher(lat, lon)
+    if not ergebnis:
+        raise HTTPException(503, "Wetterdienst nicht erreichbar")
+    return ergebnis
+
+
+@app.get("/api/orte")
+def orte(q: str = "", user: User = Depends(aktueller_user)):
+    return {"orte": wetter.orte_suchen(q[:60])}
 
 
 # --------------------------------------------------------------- Push

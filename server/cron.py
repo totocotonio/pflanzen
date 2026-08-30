@@ -20,6 +20,7 @@ from datetime import date, datetime, timedelta
 
 import main
 import push
+import wetter as wetterdienst
 
 TROCKEN = "--trocken" in sys.argv
 PushAbo = main.PushAbo
@@ -66,7 +67,19 @@ def ist_winter(einstellungen):
     return datetime.now().month in (11, 12, 1, 2)
 
 
-def eff_intervall(pflanze, einstellungen):
+def wetter_faktor(pflanze, lage):
+    """Verkürzung durch Hitze – dieselbe Regel wie im Frontend.
+
+    Nur in eine Richtung: Hitze lässt früher gießen. Das Verlängern im Winter
+    macht der Winter-Modus, sonst zählt beides doppelt.
+    """
+    if not lage or not lage.get("hitze"):
+        return 1.0
+    umgebung = pflanze.get("umgebung") or []
+    return 0.7 if "sonne" in umgebung else 0.8
+
+
+def eff_intervall(pflanze, einstellungen, lage=None):
     """Gießintervall inklusive Winterruhe – dieselbe Regel wie im Frontend.
 
     Ein eigener Winterwert der Pflanze schlägt die allgemeine Einstellung.
@@ -77,10 +90,10 @@ def eff_intervall(pflanze, einstellungen):
     intervall = int(pflanze.get("intervall") or 7)
     if haltung_von(pflanze) in ("wasser", "hydro"):
         return max(1, intervall)
-    if not ist_winter(einstellungen):
-        return max(1, intervall)
-    eigen = float(pflanze.get("winterFaktor") or 0)
-    faktor = eigen if eigen else 1.5
+    faktor = wetter_faktor(pflanze, lage)
+    if ist_winter(einstellungen):
+        eigen = float(pflanze.get("winterFaktor") or 0)
+        faktor *= eigen if eigen else 1.5
     return max(1, round(intervall * faktor))
 
 
@@ -114,6 +127,13 @@ def offene_punkte(daten):
     heute = date.today()
     giessen, wechseln, nachfuellen, aufgaben, behandlung = [], [], [], [], []
 
+    # Wetterlage einmal je Nutzer. Ohne Ort oder abgeschaltet bleibt sie leer,
+    # dann rechnet alles wie vorher.
+    lage = None
+    ort = einstellungen.get("ort") or {}
+    if ort.get("lat") is not None and einstellungen.get("wetterAn") is not False:
+        lage = wetterdienst.lage_sicher(ort.get("lat"), ort.get("lon"))
+
     for p in daten.get("plants") or []:
         if p.get("archiviert"):
             continue                      # archivierte zählen nirgends mit
@@ -123,7 +143,7 @@ def offene_punkte(daten):
             behandlung.append((p.get("name") or "Pflanze", b.get("was") or "Behandlung"))
 
         letzt = als_datum(p.get("letzt"))
-        if letzt and letzt + timedelta(days=eff_intervall(p, einstellungen)) <= heute:
+        if letzt and letzt + timedelta(days=eff_intervall(p, einstellungen, lage)) <= heute:
             # Jede Haltung hat ihre eigene Handlung: Ableger bekommen
             # frisches Wasser, Semi-Hydro wird nachgefüllt, Erde gegossen.
             haltung = haltung_von(p)
