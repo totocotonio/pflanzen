@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.12.0';
+const VERSION = '3.13.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -714,6 +714,11 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.13.0', datum: '01.09.2026', punkte: [
+    'Düngerrechner: welcher Dünger zur Art passt und wie viele Milliliter auf deine Gießmenge kommen.',
+    'Die Dosis halbiert sich bei Jungpflanzen, im Winter und in kühlen Räumen – und fällt ganz weg, wenn es der Pflanze schlecht geht.',
+    'Die Gieß-Runde nennt jetzt die Gesamtmenge Wasser, und während der Runde, wie viel noch fehlt.'
+  ]},
   { v: '3.12.0', datum: '01.09.2026', punkte: [
     'Schädlings-Frühwarnung: Spinnmilben ab Oktober, Trauermücken im Winter, Blattläuse im Frühjahr, Schildläuse im Winterquartier.',
     'Die App nennt die Pflanzen, bei denen es zuerst losgeht – die an der Heizung, im feuchten Raum, im Dunkeln.',
@@ -1328,7 +1333,9 @@ function renderHeute() {
             (faellig.length > 1 ? `<span class="aktion" data-alle-giessen>Alle ${faellig.length} gießen</span>` : '') +
             `</div>`;
     if (faellig.length > 2) {
-      html += `<button class="btn" data-runde-start style="margin:0 0 12px">🚿 Gieß-Runde starten</button>`;
+      const wasser = rundeWassermenge(faellig);
+      html += `<button class="btn" data-runde-start style="margin:0 0 12px">🚿 Gieß-Runde starten${
+        wasser ? ` · ${wasser.text}` : ''}</button>`;
     }
     html += faellig.sort((a, b) => tageBis(a) - tageBis(b)).map(plantRow).join('');
   }
@@ -2339,7 +2346,10 @@ function rundeZeichnen() {
   box.innerHTML = `
     <div class="runde-fortschritt">
       <div class="bar"><i style="width:${anteil}%"></i></div>
-      <div class="runde-zaehler">${nummer} von ${gesamt}</div>
+      <div class="runde-zaehler">${nummer} von ${gesamt}${(() => {
+        const rest = rundeWassermenge(runde.pflanzen.slice(runde.index));
+        return rest ? ' · noch ' + rest.text : '';
+      })()}</div>
     </div>
 
     <div class="runde-karte">
@@ -4008,6 +4018,157 @@ function rundeWeiter(pid) {
   runde.index++;
   rundeZeichnen();
   openSheet('#sheet-runde');
+}
+
+/* ---------- Düngerrechner ----------
+   Die App sagte „düngen", aber nicht womit und wie viel. Auf der Flasche steht
+   dann „5–10 ml auf 1 Liter" – für welche Pflanze, in welcher Jahreszeit, in
+   welchem Substrat? Zu viel Dünger verbrennt die Wurzeln, zu wenig bringt
+   nichts, und beides sieht am Anfang gleich aus.
+
+   Gerechnet wird auf die Wassermenge, die ohnehin an der Pflanze steht. */
+const DUENGER_TYPEN = {
+  gruen: { name: 'Grünpflanzendünger', ml: 2.0,
+    text: 'Stickstoffbetont, für alles mit Blättern und ohne Blüten.' },
+  blueh: { name: 'Blühpflanzendünger', ml: 2.0,
+    text: 'Mehr Phosphor, weniger Stickstoff – sonst gibt es Blätter statt Blüten.' },
+  kaktus: { name: 'Kakteendünger', ml: 1.0,
+    text: 'Schwach dosiert und kaliumbetont. Normaler Dünger treibt Kakteen ins Vergeilen.' },
+  orchidee: { name: 'Orchideendünger', ml: 1.0,
+    text: 'Sehr schwach. Orchideenwurzeln haben keine Erde als Puffer.' },
+  kraeuter: { name: 'Kräuterdünger', ml: 1.5,
+    text: 'Ohne Schadstoffe, weil mitgegessen wird. Notfalls halbierter Grünpflanzendünger.' },
+  hydro: { name: 'Hydrodünger', ml: 1.0,
+    text: 'Vollständiger Nährstoffsatz – in Blähton und Pon steckt keiner.' }
+};
+
+/** Welcher Dünger zu dieser Pflanze passt. */
+function duengerTyp(p) {
+  if (istHydro(p)) return 'hydro';
+  const art = artFinden(p.name) || artFinden(p.art);
+  const name = ((art && art.n) || p.name || '').toLowerCase();
+  const gattung = ((art && art.art) || p.art || '').toLowerCase();
+  const alles = name + ' ' + gattung;
+
+  if (/kaktus|kakteen|cereus|opuntia|mammillaria|echinocactus|astrophytum|rebutia|gymnocalycium|espostoa/.test(alles)) return 'kaktus';
+  if (/orchidee|phalaenopsis|orchid/.test(alles)) return 'orchidee';
+  if (/basilikum|petersilie|schnittlauch|thymian|rosmarin|minze|melisse|dill|oregano|salbei|kräuter/.test(alles)) return 'kraeuter';
+  if (art && art.licht === 'Vollsonne' && /sukkulent|aloe|echeveria|haworthia|geldbaum|christusdorn|agave/.test(alles)) return 'kaktus';
+  if (/orchidee|hibiskus|flamingo|anthurium|weihnachtskaktus|schlumbergera|usambara|alpenveilchen|amaryllis|azalee|kamelie|geranie|petunie|begonie|zitrone|citrus|olive|oleander/.test(alles)) return 'blueh';
+  return 'gruen';
+}
+
+/** Faktor auf die Dosis: Jahreszeit, Phase und Zustand zusammen. */
+function duengerFaktor(p) {
+  if (duengenPausiert(p)) return 0;
+  let f = 1;
+  if (istJung(p)) f *= 0.5;                       // kleines Wurzelwerk
+  if (winterAktiv()) f *= 0.5;                    // kaum Wachstum
+  const mittel = raumMittel(p && p.raum);
+  if (mittel !== null && mittel < 18) f *= 0.5;   // kühl heißt langsam
+  return f;
+}
+
+/** Die fertige Rechnung für eine Pflanze. */
+function duengerRechnung(p) {
+  const typ = DUENGER_TYPEN[duengerTyp(p)];
+  const faktor = duengerFaktor(p);
+  const wasser = mengeMl(p) || 200;
+  const proLiter = typ.ml * faktor;
+  const menge = proLiter * (wasser / 1000);
+
+  return {
+    typ, faktor, wasser, proLiter,
+    menge: Math.round(menge * 10) / 10,
+    // Unter einem Milliliter ist die Zahl nicht mehr dosierbar. Ein Tropfen
+    // aus einer üblichen Flasche sind rund 0,05 ml – das kann man zählen.
+    tropfen: Math.max(1, Math.round(menge / 0.05)),
+    grund: faktor === 0
+      ? (istSteckling(p) ? 'Stecklinge werden bis zur Bewurzelung nicht gedüngt.'
+        : zustandVon(p) === 'schlecht'
+          ? 'Solange es der Pflanze schlecht geht, wird nicht gedüngt – Salz verbrennt beschädigte Wurzeln.'
+          : 'Unter 15 Grad wächst nichts, was die Nährstoffe verbrauchen könnte.')
+      : [
+          istJung(p) ? 'Jungpflanze: halbe Dosis' : '',
+          winterAktiv() ? 'Winter: halbe Dosis' : '',
+          (raumMittel(p && p.raum) !== null && raumMittel(p.raum) < 18) ? 'kühler Raum: halbe Dosis' : ''
+        ].filter(Boolean).join(' · ')
+  };
+}
+
+function duengerOeffnen(pid) {
+  const p = DB.plants.find(x => x.id === pid);
+  if (!p) return;
+  const r = duengerRechnung(p);
+
+  $('#duenger-inhalt').innerHTML = `
+    <div class="grabber"></div>
+    <h2>Düngen: ${esc(p.name)}</h2>
+
+    ${r.faktor === 0
+      ? `<div class="karte" style="border-left:3px solid var(--orange)">
+           <b>Jetzt nicht düngen.</b><br>
+           <span style="color:var(--text-2)">${esc(r.grund)}</span></div>`
+      : `<div class="karte">
+           <div class="lux-zahl">${r.menge >= 1
+             ? String(r.menge).replace('.', ',') + ' ml'
+             : r.tropfen + (r.tropfen === 1 ? ' Tropfen' : ' Tropfen')}</div>
+           <div class="lux-quelle">auf ${r.wasser} ml Gießwasser${
+             r.menge < 1 ? ' · ' + String(r.menge).replace('.', ',') + ' ml' : ''}${
+             r.grund ? ' · ' + esc(r.grund) : ''}</div>
+         </div>
+         <div class="karte karte-ruhig" style="color:var(--text-2);line-height:1.5">
+           Einfacher ist eine ganze Kanne: <b>${
+             String(Math.round(r.proLiter * 10) / 10).replace('.', ',')} ml auf 1 Liter</b> –
+           das reicht für ${Math.max(1, Math.round(1000 / r.wasser))} Pflanzen dieser Größe.
+         </div>`}
+
+    <div class="section-title">Womit</div>
+    <div class="karte">
+      <b>${esc(r.typ.name)}</b><br>
+      <span style="color:var(--text-2);font-size:15px;line-height:1.45">${esc(r.typ.text)}</span>
+    </div>
+
+    ${r.faktor > 0 ? `
+      <div class="section-title">Umrechnung</div>
+      <div class="group">
+        <div class="field"><label>Auf 1 Liter</label><span class="hint">${
+          String(Math.round(r.proLiter * 10) / 10).replace('.', ',')} ml</span></div>
+        <div class="field"><label>Auf 500 ml</label><span class="hint">${
+          String(Math.round(r.proLiter * 5) / 10).replace('.', ',')} ml</span></div>
+        <div class="field"><label>Deine Gießmenge (${r.wasser} ml)</label><span class="hint">${
+          String(r.menge).replace('.', ',')} ml</span></div>
+      </div>` : ''}
+
+    <div class="section-title">Wichtig</div>
+    <div class="karte"><ul class="liste">
+      <li>Nie auf trockene Erde geben – erst angießen, dann düngen. Sonst verbrennen die Wurzeln.</li>
+      <li>Lieber zu schwach als zu stark. Zu wenig Dünger sieht man nach Wochen, zu viel nach Stunden.</li>
+      <li>Die Angabe auf der Flasche gilt für kräftig wachsende Pflanzen im Sommer. In der Wohnung ist die Hälfte meist richtig.</li>
+      ${istHydro(p) ? '<li>Bei Semi-Hydro bei <b>jeder</b> Wassergabe düngen, dafür schwach – das Substrat liefert nichts.</li>' : ''}
+    </ul></div>
+
+    ${r.faktor > 0 && Number(p.duengerInt) > 0
+      ? `<button class="btn" data-aufgabe="duenger" data-pid="${p.id}">Als gedüngt eintragen</button>` : ''}
+    <button class="btn sec" data-close>Schließen</button>`;
+
+  openSheet('#sheet-duenger');
+}
+
+/* ---------- Wassermenge für eine ganze Runde ---------- */
+/** Wie viel Wasser insgesamt gebraucht wird, wenn alles Fällige drankommt. */
+function rundeWassermenge(pflanzen) {
+  let summe = 0, ohneAngabe = 0;
+  for (const p of pflanzen) {
+    const ml = mengeMl(p);
+    if (ml) summe += ml; else ohneAngabe++;
+  }
+  if (!summe) return null;
+  const liter = summe / 1000;
+  return { summe, ohneAngabe,
+           text: summe >= 1000
+             ? (Number.isInteger(liter) ? liter : liter.toFixed(1).replace('.', ',')) + ' Liter'
+             : Math.round(summe) + ' ml' };
 }
 
 /* ---------- Schädlings-Frühwarnung ----------
@@ -6055,6 +6216,7 @@ function openDetail(id) {
       ${istAbleger(p) && !istSteckling(p) ? `<button class="btn sec" data-eintopfen="${p.id}">🪴 Ist bewurzelt, kommt in Erde</button>` : ''}
       <button class="btn sec" data-hilfe="${p.id}">${
         behandlungVon(p) ? 'Weiteres Problem?' : 'Problem mit dieser Pflanze?'}</button>
+      <button class="btn sec" data-duenger="${p.id}">🧪 Wie viel Dünger?</button>
       <button class="btn sec" data-licht="${p.id}">💡 Licht am Standort messen</button>
       <button class="btn sec" data-anleitung="umtopfen" data-pid="${p.id}">🪴 Anleitung zum Umtopfen</button>
       <button class="btn sec" data-qr="${p.id}">QR-Code für den Topf</button>
@@ -6859,7 +7021,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen],[data-draussen],[data-reinholen],[data-licht],[data-schatten],[data-licht-uebernehmen],[data-licht-neu],[data-plan],[data-monat],[data-etikett],[data-etikett-raum],[data-etikett-alle],[data-etikett-druck],[data-schaedling-hilfe],[data-schaedling-ok]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen],[data-draussen],[data-reinholen],[data-licht],[data-schatten],[data-licht-uebernehmen],[data-licht-neu],[data-plan],[data-monat],[data-etikett],[data-etikett-raum],[data-etikett-alle],[data-etikett-druck],[data-schaedling-hilfe],[data-schaedling-ok],[data-duenger]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -6886,6 +7048,12 @@ function bind() {
       return;
     }
     if (t.dataset.ort) { e.stopPropagation(); ortWaehlen(t.dataset.ort); return; }
+    if (t.dataset.duenger) {
+      e.stopPropagation();
+      closeSheets();
+      setTimeout(() => duengerOeffnen(t.dataset.duenger), 180);
+      return;
+    }
     if (t.dataset.schaedlingHilfe) {
       e.stopPropagation();
       hilfeOeffnen(null);

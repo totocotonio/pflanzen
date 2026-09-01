@@ -1,5 +1,35 @@
 # Changelog
 
+## v3.13.0 - 2026-09-01
+
+### Düngerrechner
+
+Die App sagte „düngen", aber nicht womit und wie viel. Auf der Flasche steht
+dann „5–10 ml auf 1 Liter" – für welche Pflanze, in welcher Jahreszeit, in
+welchem Substrat? Zu viel Dünger verbrennt die Wurzeln, zu wenig bringt nichts,
+und beides sieht am Anfang gleich aus.
+
+- **Sechs Düngertypen**, nach Art zugeordnet: Grünpflanzen, Blühpflanzen,
+  Kakteen, Orchideen, Kräuter, Hydro. Jeweils mit der Begründung – „Mehr
+  Phosphor, weniger Stickstoff, sonst gibt es Blätter statt Blüten."
+- Gerechnet wird auf **die Gießmenge, die ohnehin an der Pflanze steht.**
+- Die Dosis **halbiert sich** bei Jungpflanzen, im Winter und in Räumen unter
+  18 Grad – und **fällt ganz weg**, wenn es der Pflanze schlecht geht, sie ein
+  Steckling ist oder es unter 15 Grad hat. Der Grund steht dabei.
+
+Beim Testen korrigiert: Die Rechnung lieferte anfangs Werte wie „0,3 ml auf
+250 ml". Das kann niemand abmessen – eine Zahl, die praktisch nutzlos ist, ist
+schlimmer als keine. Jetzt steht dort **die Anzahl Tropfen** (rund 0,05 ml je
+Tropfen), und daneben der einfachere Weg: „2 ml auf 1 Liter – das reicht für
+drei Pflanzen dieser Größe."
+
+### Wassermenge für die Runde
+
+- Der Knopf „Gieß-Runde starten" nennt die **Gesamtmenge**: „🚿 Gieß-Runde
+  starten · 2,4 Liter". Eine Kanne fasst meist 1,5 – gut zu wissen, bevor man
+  loszieht.
+- Während der Runde steht dabei, wie viel noch fehlt.
+
 ## v3.12.0 - 2026-09-01
 
 ### Schädlings-Frühwarnung

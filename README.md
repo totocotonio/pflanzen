@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** ✅ Live (v3.12.0)
+**Status:** ✅ Live (v3.13.0)
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -51,6 +51,7 @@ Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in 
 ✅ **Alle auf einmal** – ein Knopf hakt alle fälligen Pflanzen ab, Rückgängig nimmt den ganzen Schwung zurück
 ✅ **Gieß-Runde** – führt nach Standort geordnet durch die Wohnung, eine Pflanze nach der anderen
 ✅ **Problem-Hilfe** – zehn typische Symptome mit Ursachen und Maßnahmen, abgeglichen mit den Werten der Pflanze
+✅ **Düngerrechner** – Typ nach Art, Dosis auf die Gießmenge, halbiert bei Jungpflanzen, Winter und Kälte
 ✅ **Gartenjahr** – zwölf Monate Saisonwissen, dazu die eigenen Termine je Monat
 ✅ **Lichtmessung** – Schattenprobe, Fensterrechner oder Kamera; Ergebnis wird mit dem Bedarf der Art verglichen
 ✅ **Im Freien** – vier Kältestufen je Pflanze; sinkt das Nachtminimum darunter, warnt die App nachmittags per Push
@@ -111,7 +112,7 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
 | Design | warme Grün- und Erdtöne, hell und dunkel, System-Schriften, `env(safe-area-inset-*)` |
 | Speicher | `localStorage`, Schlüssel `pg_data` |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v3.12.0` |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v3.13.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
 | Push | Web Push API + VAPID, pywebpush, systemd-Timer alle 15 Minuten |
 | Hosting | LXC Container auf Proxmox |
@@ -279,6 +280,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v3.13.0** | Düngerrechner, Wassermenge für die Gieß-Runde |
 | **v3.12.0** | Schädlings-Frühwarnung nach Saison und Standort |
 | **v3.11.0** | Wochenrückblick sonntags, abschaltbar |
 | **v3.10.0** | Etikettenbogen: alle QR-Codes auf einer Seite |
