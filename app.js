@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.9.0';
+const VERSION = '3.10.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -714,6 +714,11 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.10.0', datum: '01.09.2026', punkte: [
+    'Etikettenbogen: alle QR-Codes auf einer Seite, drei nebeneinander, zum Ausschneiden.',
+    'Auswahl je Pflanze oder ganzer Standort, wahlweise große Etiketten.',
+    'Auf dem Etikett stehen Name, Standort, Wassermenge und Intervall – das reicht oft schon, ohne zu scannen.'
+  ]},
   { v: '3.9.0', datum: '01.09.2026', punkte: [
     'Der Plan hat jetzt zwei Ansichten: die nächsten 14 Tage wie bisher, und das Gartenjahr.',
     'Zwölf Monate mit dem, was jeweils ansteht – Rückschnitt im Februar, Umtopfen ab März, raus im Mai, Winterquartier im Oktober, Spinnmilbenzeit ab November.',
@@ -3991,6 +3996,126 @@ function rundeWeiter(pid) {
   openSheet('#sheet-runde');
 }
 
+/* ---------- Etikettenbogen ----------
+   Den QR-Code gab es einzeln, für jede Pflanze eine eigene Ansicht und ein
+   eigener Druckvorgang. Wer zwanzig Töpfe beschriften will, klickt sich damit
+   einen Nachmittag lang durch.
+
+   Der Bogen legt alle auf eine Seite: drei Spalten, zum Ausschneiden. Gedruckt
+   wird über das Druckstylesheet – die App selbst bleibt dabei unsichtbar, nur
+   der Bogen kommt aufs Papier. */
+let etikettAuswahl = new Set();
+let etikettGross = false;
+
+function etikettenOeffnen() {
+  const liste = aktive();
+  if (!liste.length) { toast('Noch keine Pflanzen angelegt'); return; }
+  // Beim Öffnen sind alle dabei – das ist der übliche Fall
+  etikettAuswahl = new Set(liste.map(p => p.id));
+  etikettenZeichnen();
+  openSheet('#sheet-etiketten');
+}
+
+function etikettenZeichnen() {
+  const liste = aktive();
+  const raeume = Array.from(new Set(liste.map(p => p.raum).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b, 'de'));
+  const gewaehlt = liste.filter(p => etikettAuswahl.has(p.id));
+
+  $('#etiketten-inhalt').innerHTML = `
+    <div class="grabber"></div>
+    <h2>Etiketten drucken</h2>
+    <p class="sheet-hinweis">Alle QR-Codes auf einem Bogen, drei nebeneinander.
+      Ausschneiden und an den Topf – wer scannt, landet direkt bei der Pflanze.
+      Ohne Anmeldung sieht dort niemand etwas.</p>
+
+    <div class="section-title mit-aktion"><span>Auswahl</span>
+      <span class="aktion" data-etikett-alle>${
+        gewaehlt.length === liste.length ? 'Keine' : 'Alle'}</span></div>
+    ${raeume.length > 1 ? `<div class="chip-wahl" style="margin-bottom:12px">
+      ${raeume.map(r => `<button type="button" class="chip" data-etikett-raum="${esc(r)}">${
+        esc(r)}</button>`).join('')}
+    </div>` : ''}
+
+    <div class="group">
+      ${liste.map(p => `
+        <label class="field auswahl-zeile">
+          <span>${p.emoji || '🪴'} ${esc(p.name)}${
+            p.raum ? `<span style="color:var(--text-3)"> · ${esc(p.raum)}</span>` : ''}</span>
+          <input type="checkbox" class="schalter" data-etikett="${p.id}"
+                 ${etikettAuswahl.has(p.id) ? 'checked' : ''}>
+        </label>`).join('')}
+    </div>
+
+    <div class="field" style="margin:14px 0">
+      <label>Große Etiketten</label>
+      <span class="hint"><input type="checkbox" class="schalter" id="etikett-gross"
+        ${etikettGross ? 'checked' : ''}></span>
+    </div>
+
+    <button class="btn" data-etikett-druck>${gewaehlt.length === 1
+      ? 'Ein Etikett drucken' : gewaehlt.length + ' Etiketten drucken'}</button>
+    <button class="btn sec" data-close>Schließen</button>`;
+
+  $('#etikett-gross').onchange = e => { etikettGross = e.target.checked; };
+}
+
+function etikettUmschalten(id) {
+  if (etikettAuswahl.has(id)) etikettAuswahl.delete(id);
+  else etikettAuswahl.add(id);
+  etikettenZeichnen();
+}
+
+function etikettRaum(raum) {
+  const drin = aktive().filter(p => p.raum === raum);
+  const alleDrin = drin.every(p => etikettAuswahl.has(p.id));
+  for (const p of drin) {
+    if (alleDrin) etikettAuswahl.delete(p.id);
+    else etikettAuswahl.add(p.id);
+  }
+  etikettenZeichnen();
+}
+
+function etikettAlle() {
+  const liste = aktive();
+  etikettAuswahl = etikettAuswahl.size === liste.length
+    ? new Set() : new Set(liste.map(p => p.id));
+  etikettenZeichnen();
+}
+
+/** Baut den Bogen und ruft den Druckdialog auf. */
+function etikettenDrucken() {
+  const gewaehlt = aktive().filter(p => etikettAuswahl.has(p.id));
+  if (!gewaehlt.length) { toast('Nichts ausgewählt'); return; }
+
+  const bogen = $('#druckbogen');
+  bogen.className = 'druckbogen' + (etikettGross ? ' gross' : '');
+  bogen.innerHTML = gewaehlt.map(p => `
+    <div class="etikett">
+      <img src="${API}/qr?p=${encodeURIComponent(p.id)}" alt="">
+      <div class="etikett-name">${esc(p.name)}</div>
+      ${p.raum ? `<div class="etikett-ort">${esc(p.raum)}</div>` : ''}
+      ${p.menge && !istAbleger(p)
+        ? `<div class="etikett-ort">${esc(p.menge)} · alle ${p.intervall} Tage</div>`
+        : `<div class="etikett-ort">alle ${p.intervall} Tage</div>`}
+    </div>`).join('');
+
+  // Erst drucken, wenn die QR-Bilder wirklich da sind – sonst bleiben Lücken
+  const bilder = Array.from(bogen.querySelectorAll('img'));
+  const fertig = bilder.map(b => b.complete ? Promise.resolve()
+    : new Promise(r => { b.onload = r; b.onerror = r; }));
+
+  toast('Bogen wird vorbereitet …');
+  Promise.all(fertig).then(() => {
+    document.body.classList.add('druckt');
+    // Ein Bildaufbau braucht noch einen Moment nach dem Laden
+    setTimeout(() => {
+      window.print();
+      document.body.classList.remove('druckt');
+    }, 300);
+  });
+}
+
 /* ---------- Gartenjahr ----------
    Der Plan zeigt vierzehn Tage. Das reicht fürs Gießen und für nichts sonst:
    Umtopfen gehört ins Frühjahr, Rückschnitt vor den Austrieb, Stecklinge in
@@ -6555,6 +6680,7 @@ function bind() {
   $('#f-methode').onchange = phaseAnzeigen;
   $('#btn-eigen-neu').onclick = eigeneNeuOeffnen;
   $('#zeile-verwaist').onclick = verwaisteLoeschen;
+  $('#zeile-etiketten').onclick = etikettenOeffnen;
   $('#zeile-sicherungen').onclick = sicherungenOeffnen;
   $('#zeile-raeume').onclick = raeumeOeffnen;
   $('#zeile-ort').onclick = ortOeffnen;
@@ -6577,7 +6703,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen],[data-draussen],[data-reinholen],[data-licht],[data-schatten],[data-licht-uebernehmen],[data-licht-neu],[data-plan],[data-monat]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen],[data-draussen],[data-reinholen],[data-licht],[data-schatten],[data-licht-uebernehmen],[data-licht-neu],[data-plan],[data-monat],[data-etikett],[data-etikett-raum],[data-etikett-alle],[data-etikett-druck]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -6604,6 +6730,10 @@ function bind() {
       return;
     }
     if (t.dataset.ort) { e.stopPropagation(); ortWaehlen(t.dataset.ort); return; }
+    if (t.dataset.etikett) { etikettUmschalten(t.dataset.etikett); return; }
+    if (t.dataset.etikettRaum) { e.stopPropagation(); etikettRaum(t.dataset.etikettRaum); return; }
+    if (t.dataset.etikettAlle !== undefined) { e.stopPropagation(); etikettAlle(); return; }
+    if (t.dataset.etikettDruck !== undefined) { e.stopPropagation(); etikettenDrucken(); return; }
     if (t.dataset.plan) {
       e.stopPropagation();
       planJahr = t.dataset.plan === 'jahr';

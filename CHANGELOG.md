@@ -1,5 +1,23 @@
 # Changelog
 
+## v3.10.0 - 2026-09-01
+
+### Etikettenbogen
+
+Den QR-Code gab es einzeln – für jede Pflanze eine eigene Ansicht und ein
+eigener Druckvorgang. Wer zwanzig Töpfe beschriften will, klickt sich damit
+einen Nachmittag lang durch.
+
+- **Mehr → QR-Codes drucken** legt alle auf einen Bogen: drei nebeneinander,
+  gestrichelte Schnittkanten, ein Druckvorgang.
+- Auswahl je Pflanze oder gleich ein ganzer Standort. Große Etiketten (zwei
+  pro Reihe) für Kübel und Zimmerbäume.
+- Auf dem Etikett stehen **Name, Standort, Wassermenge und Intervall** – das
+  reicht oft schon, ohne überhaupt zu scannen.
+- Gedruckt wird über ein Druckstylesheet: Die App verschwindet dabei, nur der
+  Bogen kommt aufs Papier. Der Druckdialog öffnet erst, wenn alle QR-Bilder
+  wirklich geladen sind – sonst bleiben Lücken auf der Seite.
+
 ## v3.9.0 - 2026-09-01
 
 ### Gartenjahr

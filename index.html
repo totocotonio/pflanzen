@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=3.9.0">
+<link rel="stylesheet" href="style.css?v=3.10.0">
 </head>
 <body>
 
@@ -148,6 +148,13 @@
           <option value="light">Hell</option>
           <option value="dark">Dunkel</option>
         </select>
+      </div>
+    </div>
+
+    <div class="section-title">Etiketten</div>
+    <div class="group">
+      <div class="field" id="zeile-etiketten" style="cursor:pointer">
+        <label>QR-Codes drucken</label><span class="hint">alle auf einem Bogen ›</span>
       </div>
     </div>
 
@@ -543,6 +550,14 @@
   <div class="panel" id="sicherung-inhalt"></div>
 </div>
 
+<div class="sheet" id="sheet-etiketten">
+  <div class="backdrop" data-close></div>
+  <div class="panel" id="etiketten-inhalt"></div>
+</div>
+
+<!-- Nur beim Drucken sichtbar -->
+<div id="druckbogen" class="druckbogen"></div>
+
 <div class="sheet" id="sheet-licht">
   <div class="backdrop" data-close></div>
   <div class="panel" id="licht-inhalt"></div>
@@ -591,6 +606,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=3.9.0"></script>
+<script src="app.js?v=3.10.0"></script>
 </body>
 </html>

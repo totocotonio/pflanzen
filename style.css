@@ -498,6 +498,29 @@ a{color:var(--blue);text-decoration:none}
 
 .mini-aktion{color:var(--accent);font-size:12.5px;font-weight:600;padding:0 0 0 8px}
 
+/* Etikettenbogen – am Bildschirm unsichtbar, nur fürs Papier */
+.druckbogen{display:none}
+.auswahl-zeile{cursor:pointer}
+.auswahl-zeile span{flex:1}
+
+@media print {
+  /* Beim Drucken bleibt nur der Bogen übrig */
+  body.druckt > *:not(.druckbogen){display:none !important}
+  body.druckt{background:#fff}
+  .druckbogen{display:grid !important;grid-template-columns:repeat(3, 1fr);
+    gap:6mm;padding:8mm;background:#fff;color:#000}
+  .druckbogen.gross{grid-template-columns:repeat(2, 1fr);gap:10mm}
+  .etikett{border:1px dashed #999;border-radius:3mm;padding:4mm 2mm;text-align:center;
+    break-inside:avoid;page-break-inside:avoid}
+  .etikett img{width:100%;max-width:32mm;height:auto;display:block;margin:0 auto 2mm}
+  .druckbogen.gross .etikett img{max-width:48mm}
+  .etikett-name{font-size:11pt;font-weight:700;line-height:1.2;margin-bottom:1mm}
+  .druckbogen.gross .etikett-name{font-size:14pt}
+  .etikett-ort{font-size:8pt;color:#444;line-height:1.3}
+  .druckbogen.gross .etikett-ort{font-size:10pt}
+  @page{margin:8mm}
+}
+
 /* Gartenjahr */
 .monat-kurz{display:block;font-size:13px;font-weight:400;color:var(--text-3);margin-top:2px}
 .abschnitt.jetzt{border:1px solid color-mix(in srgb, var(--accent) 40%, transparent)}
