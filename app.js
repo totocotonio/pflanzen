@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.13.2';
+const VERSION = '3.13.3';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -714,6 +714,11 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.13.3', datum: '01.09.2026', punkte: [
+    '„Große Etiketten" stand als nackter Schalter ohne Erklärung da. Jetzt steht dabei, was er tut und wofür er gedacht ist.',
+    'Dazu die Angabe, wie viele Etiketten auf eine Seite passen.',
+    'Behoben: Ausgeschaltete Schieberegler waren unsichtbar – eine allgemeinere Regel zog sie auf volle Breite und machte sie durchsichtig.'
+  ]},
   { v: '3.13.2', datum: '01.09.2026', punkte: [
     'Behoben: Ein Klick auf einen Standort bei den Etiketten wählte das Falsche aus – er schaltete den Raum um, statt ihn auszuwählen.',
     'Jetzt wählt der Chip genau diesen Raum, ein zweiter Klick nimmt wieder alle. Der aktive Chip ist markiert, und die Anzahl steht dabei.'
@@ -4362,17 +4367,28 @@ function etikettenZeichnen() {
         </label>`).join('')}
     </div>
 
-    <div class="field" style="margin:14px 0">
-      <label>Große Etiketten</label>
-      <span class="hint"><input type="checkbox" class="schalter" id="etikett-gross"
-        ${etikettGross ? 'checked' : ''}></span>
+    <div class="section-title">Größe</div>
+    <div class="group">
+      <label class="field auswahl-zeile">
+        <span>Große Etiketten
+          <span style="display:block;color:var(--text-3);font-size:13px">
+            Zwei statt drei pro Reihe, mit größerem QR-Code – für Kübel und
+            Zimmerbäume, wo ein kleines Schild untergeht.</span></span>
+        <input type="checkbox" class="schalter" id="etikett-gross"
+          ${etikettGross ? 'checked' : ''}>
+      </label>
+      <div class="field"><label>Passt auf eine Seite</label>
+        <span class="hint">${etikettGross ? '8' : '15'} Etiketten</span></div>
     </div>
 
     <button class="btn" data-etikett-druck>${gewaehlt.length === 1
       ? 'Ein Etikett drucken' : gewaehlt.length + ' Etiketten drucken'}</button>
     <button class="btn sec" data-close>Schließen</button>`;
 
-  $('#etikett-gross').onchange = e => { etikettGross = e.target.checked; };
+  $('#etikett-gross').onchange = e => {
+    etikettGross = e.target.checked;
+    etikettenZeichnen();   // die Angabe „passt auf eine Seite" ändert sich mit
+  };
 }
 
 function etikettUmschalten(id) {

@@ -1,5 +1,31 @@
 # Changelog
 
+## v3.13.3 - 2026-09-01
+
+### „Große Etiketten" war nicht erklärt
+
+Der Schalter stand als nackte Beschriftung zwischen Pflanzenliste und
+Druckknopf. Was er tut, musste man raten.
+
+- Jetzt steht dabei: **zwei statt drei pro Reihe, mit größerem QR-Code – für
+  Kübel und Zimmerbäume, wo ein kleines Schild untergeht.**
+- Dazu die Angabe, wie viele Etiketten auf eine Seite passen (15 klein, 8 groß).
+- Der Schalter steht unter einer eigenen Überschrift „Größe" statt heimatlos
+  zwischen zwei Blöcken.
+
+### Behoben: Ausgeschaltete Schieberegler waren unsichtbar
+
+Beim Nachsehen aufgefallen: Der Schalter war gar nicht zu sehen.
+
+- `.field input` setzt Breite und Hintergrund für Formularfelder und ist
+  spezifischer als `.schalter`. Ein **ausgeschalteter** Schieberegler wurde
+  dadurch auf volle Breite gezogen und durchsichtig gemacht – also unsichtbar.
+- **Eingeschaltet fiel es nie auf**, weil `.schalter:checked` die allgemeine
+  Regel schlägt und den grünen Hintergrund setzt.
+- Das betraf alle Schieberegler der App: „steht gerade draußen",
+  „Wochenrückblick sonntags", „Schädlings-Hinweise" – immer nur im
+  ausgeschalteten Zustand.
+
 ## v3.13.2 - 2026-09-01
 
 ### Behoben: Standort-Chip bei den Etiketten wählte das Falsche
