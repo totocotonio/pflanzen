@@ -534,6 +534,11 @@ a{color:var(--blue);text-decoration:none}
   border-radius:9px;background:var(--surface-2);color:var(--text-3)}
 .lux-skala span.on{background:var(--accent);color:var(--on-accent);font-weight:600}
 
+/* Schädlingshinweis */
+.karte.schaedling{border:1px solid color-mix(in srgb, var(--orange) 45%, transparent);
+  background:color-mix(in srgb, var(--orange) 6%, var(--surface))}
+.karte.schaedling .btn{margin-top:10px}
+
 /* Frostwarnung */
 .karte.frostwarnung{border:1px solid color-mix(in srgb, var(--red) 50%, transparent);
   background:color-mix(in srgb, var(--red) 7%, var(--surface))}

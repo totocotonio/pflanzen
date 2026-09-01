@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.11.0';
+const VERSION = '3.12.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -714,6 +714,12 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.12.0', datum: '01.09.2026', punkte: [
+    'Schädlings-Frühwarnung: Spinnmilben ab Oktober, Trauermücken im Winter, Blattläuse im Frühjahr, Schildläuse im Winterquartier.',
+    'Die App nennt die Pflanzen, bei denen es zuerst losgeht – die an der Heizung, im feuchten Raum, im Dunkeln.',
+    'Dazu, woran man den Anfang erkennt, und der direkte Weg zum Behandlungsplan.',
+    'Ein Hinweis kommt höchstens einmal im Monat je Schädling, und lässt sich ganz abschalten.'
+  ]},
   { v: '3.11.0', datum: '01.09.2026', punkte: [
     'Wochenrückblick sonntags um 18 Uhr: was gegossen und erledigt wurde – und was liegengeblieben ist.',
     'Abschaltbar unter Mehr → Erinnerungen.',
@@ -1259,6 +1265,7 @@ function renderHeute() {
   $$('.stat').forEach(k => k.classList.toggle('on', k.dataset.filter === heuteFilter));
 
   $('#frost-warnung').innerHTML = frostKarteHTML();
+  $('#schaedling-warnung').innerHTML = schaedlingsKarteHTML();
 
   const sorgenkinder = liste.filter(p => zustandVon(p) !== 'gut' || behandlungVon(p));
   const sbox = $('#sorgen-hinweis');
@@ -1528,6 +1535,7 @@ function renderMore() {
     : 'nicht eingestellt') + ' ›';
   $('#anleitungen-liste').innerHTML = anleitungenListe();
   $('#ort-name').textContent = (DB.settings.ort ? DB.settings.ort.name : 'nicht gesetzt') + ' ›';
+  $('#set-schaedling').checked = DB.settings.schaedlingWarnung !== false;
   $('#set-rueckblick').checked = DB.settings.rueckblick !== false;
   $('#set-wetter').value = DB.settings.wetterAn === false ? '0' : '1';
   $('#wetter-lage').textContent = wetterLageText();
@@ -4002,6 +4010,135 @@ function rundeWeiter(pid) {
   openSheet('#sheet-runde');
 }
 
+/* ---------- Schädlings-Frühwarnung ----------
+   Schädlinge kommen nicht zufällig. Spinnmilben erscheinen, wenn die Heizung
+   angeht und die Luftfeuchte fällt – jedes Jahr, zuverlässig, und bei den
+   Pflanzen über dem Heizkörper zuerst. Trauermücken kommen im Winter, weil
+   dann langsamer verdunstet wird und die Erde dauerfeucht bleibt. Blattläuse
+   im Frühjahr mit dem frischen Austrieb.
+
+   Die App weiß inzwischen, wer wo steht, wie warm es dort ist und wann
+   geheizt wird. Damit lässt sich vorher warnen statt hinterher helfen – und
+   das macht bei Schädlingen den Unterschied zwischen zwei Wattestäbchen und
+   sechs Wochen Behandlung. */
+const SCHAEDLINGS_SAISON = [
+  {
+    id: 'spinnmilben', name: 'Spinnmilben', emoji: '🕸',
+    monate: [10, 11, 12, 1, 2, 3],
+    merkmale: ['heizung', 'klima'],
+    problem: 'spinnmilben',
+    warum: 'Trockene Heizungsluft ist ihr ideales Klima. Bei über 25 Grad und ' +
+      'unter 40 % Luftfeuchte verdoppelt sich ein Befall in einer Woche.',
+    pruefen: 'Blattunterseiten gegen das Licht halten. Feine Gespinste in den ' +
+      'Blattachseln und helle Sprenkel auf der Oberseite sind die ersten Zeichen.'
+  },
+  {
+    id: 'trauermuecken', name: 'Trauermücken', emoji: '🦟',
+    monate: [11, 12, 1, 2, 3],
+    merkmale: ['feucht', 'dunkel'],
+    problem: 'trauermuecken',
+    warum: 'Im Winter verdunstet weniger, die Erde bleibt oben dauerfeucht – ' +
+      'genau das brauchen die Larven.',
+    pruefen: 'Beim Gießen kurz über die Erde streichen. Fliegen kleine schwarze ' +
+      'Mücken auf, sind sie schon da.'
+  },
+  {
+    id: 'blattlaeuse', name: 'Blattläuse', emoji: '🐛',
+    monate: [3, 4, 5, 6],
+    merkmale: [],
+    problem: 'klebrig',
+    warum: 'Sie sitzen am weichen frischen Austrieb – im Frühjahr gibt es davon ' +
+      'am meisten.',
+    pruefen: 'Triebspitzen und junge Blätter ansehen, besonders die Unterseiten.'
+  },
+  {
+    id: 'schildlaeuse', name: 'Schildläuse', emoji: '🛡',
+    monate: [11, 12, 1, 2],
+    merkmale: ['heizung', 'klima'],
+    problem: 'klebrig',
+    warum: 'Im warmen, trockenen Winterquartier vermehren sie sich ungestört, ' +
+      'oft monatelang unbemerkt.',
+    pruefen: 'Mit dem Finger über Blattunterseiten und Stiele fahren. Kleine ' +
+      'braune Höcker, die sich abkratzen lassen – und klebrige Blätter darunter.'
+  }
+];
+
+/** Welche Schädlinge gerade Saison haben, und bei welchen Pflanzen zuerst. */
+function schaedlingsWarnungen() {
+  const monat = new Date().getMonth() + 1;
+  const raus = [];
+
+  for (const s of SCHAEDLINGS_SAISON) {
+    if (!s.monate.includes(monat)) continue;
+
+    /* Nur die Merkmale der Pflanze selbst zählen, nicht die Wetterlage:
+       „Heizperiode" trifft auf jede Pflanze in der Wohnung zu und würde damit
+       alle als gefährdet melden – womit die Aussage „bei diesen zuerst"
+       wertlos wäre. Die Jahreszeit steckt schon in `monate`. */
+    const uebrig = aktive().filter(p => !behandlungVon(p));
+    if (!uebrig.length) continue;
+
+    const mitMerkmal = s.merkmale.length
+      ? uebrig.filter(p => umgebungVon(p).some(m => s.merkmale.includes(m)))
+      : [];
+
+    // Ohne passende Merkmale bleibt der allgemeine Saisonhinweis
+    raus.push({ art: s, pflanzen: mitMerkmal.length ? mitMerkmal : uebrig,
+                dringend: mitMerkmal.length > 0 });
+  }
+  return raus;
+}
+
+/* Einmal im Monat je Schädling reicht. Wer wöchentlich dieselbe Warnung
+   bekommt, liest sie irgendwann nicht mehr. */
+function warnungGesehen(id) {
+  const gesehen = DB.settings.schaedlingGesehen || {};
+  const marke = new Date().getFullYear() + '-' + (new Date().getMonth() + 1);
+  return gesehen[id] === marke;
+}
+
+function warnungMerken(id) {
+  const marke = new Date().getFullYear() + '-' + (new Date().getMonth() + 1);
+  DB.settings.schaedlingGesehen = Object.assign(
+    {}, DB.settings.schaedlingGesehen, { [id]: marke });
+  save();
+  renderAll();
+}
+
+/** Die Karte auf der Startseite – immer nur eine, die dringendste. */
+function schaedlingsKarteHTML() {
+  if (DB.settings.schaedlingWarnung === false) return '';
+  const offen = schaedlingsWarnungen().filter(w => !warnungGesehen(w.art.id));
+  if (!offen.length) return '';
+
+  // Die mit konkretem Bezug zur Lage zuerst
+  offen.sort((a, b) => (b.dringend - a.dringend) || (a.pflanzen.length - b.pflanzen.length));
+  const w = offen[0];
+  const namen = w.pflanzen.slice(0, 3).map(p => esc(p.name)).join(', ');
+  const rest = w.pflanzen.length - 3;
+
+  return `
+    <div class="karte schaedling">
+      <div class="karte-kopf">${w.art.emoji} ${esc(w.art.name)} haben jetzt Saison</div>
+      <div class="beh-warten">${esc(w.art.warum)}</div>
+      <div class="beh-warten"><b>So prüfst du:</b> ${esc(w.art.pruefen)}</div>
+      ${w.dringend ? `<div class="beh-seit">Zuerst ansehen: ${namen}${
+        rest > 0 ? ` und ${rest} weitere` : ''}</div>` : ''}
+      <button class="btn sec" data-schaedling-hilfe="${w.art.problem}">Was tun, wenn es soweit ist?</button>
+      <button class="btn sec" data-schaedling-ok="${w.art.id}">Kontrolliert, alles sauber</button>
+    </div>`;
+}
+
+function schaedlingErledigt(id) {
+  const s = SCHAEDLINGS_SAISON.find(x => x.id === id);
+  warnungMerken(id);
+  DB.logs.push({ id: uid(), plantId: '', typ: 'kontrolle',
+                 text: s ? s.name : '', ts: Date.now() });
+  save();
+  renderAll();
+  toast('Notiert – diesen Monat kommt der Hinweis nicht wieder');
+}
+
 /* ---------- Etikettenbogen ----------
    Den QR-Code gab es einzeln, für jede Pflanze eine eigene Ansicht und ein
    eigener Druckvorgang. Wer zwanzig Töpfe beschriften will, klickt sich damit
@@ -5980,6 +6117,7 @@ function allesHier(pid) {
 function logText(typ, text) {
   if (typ === 'notiz') return '📝 ' + (text || 'Notiz');
   if (String(typ).startsWith('eigen:')) return '📌 ' + eigenName(typ);
+  if (typ === 'kontrolle') return '🔍 Kontrolliert: ' + (text || 'Schädlinge');
   if (typ === 'licht') return '💡 Licht gemessen';
   if (typ === 'rausgestellt') return '🌤 Nach draußen gestellt';
   if (typ === 'reingeholt') return '🏠 Reingeholt';
@@ -6690,6 +6828,12 @@ function bind() {
   $('#zeile-sicherungen').onclick = sicherungenOeffnen;
   $('#zeile-raeume').onclick = raeumeOeffnen;
   $('#zeile-ort').onclick = ortOeffnen;
+  $('#set-schaedling').onchange = e => {
+    DB.settings.schaedlingWarnung = e.target.checked;
+    save(); renderAll();
+    toast(e.target.checked ? 'Hinweise zur Schädlingssaison an'
+                           : 'Hinweise abgeschaltet');
+  };
   $('#set-rueckblick').onchange = e => {
     DB.settings.rueckblick = e.target.checked;
     save();
@@ -6715,7 +6859,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen],[data-draussen],[data-reinholen],[data-licht],[data-schatten],[data-licht-uebernehmen],[data-licht-neu],[data-plan],[data-monat],[data-etikett],[data-etikett-raum],[data-etikett-alle],[data-etikett-druck]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen],[data-draussen],[data-reinholen],[data-licht],[data-schatten],[data-licht-uebernehmen],[data-licht-neu],[data-plan],[data-monat],[data-etikett],[data-etikett-raum],[data-etikett-alle],[data-etikett-druck],[data-schaedling-hilfe],[data-schaedling-ok]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -6742,6 +6886,13 @@ function bind() {
       return;
     }
     if (t.dataset.ort) { e.stopPropagation(); ortWaehlen(t.dataset.ort); return; }
+    if (t.dataset.schaedlingHilfe) {
+      e.stopPropagation();
+      hilfeOeffnen(null);
+      problemZeigen(t.dataset.schaedlingHilfe);
+      return;
+    }
+    if (t.dataset.schaedlingOk) { e.stopPropagation(); schaedlingErledigt(t.dataset.schaedlingOk); return; }
     if (t.dataset.etikett) { etikettUmschalten(t.dataset.etikett); return; }
     if (t.dataset.etikettRaum) { e.stopPropagation(); etikettRaum(t.dataset.etikettRaum); return; }
     if (t.dataset.etikettAlle !== undefined) { e.stopPropagation(); etikettAlle(); return; }

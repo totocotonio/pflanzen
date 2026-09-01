@@ -1,5 +1,35 @@
 # Changelog
 
+## v3.12.0 - 2026-09-01
+
+### Schädlings-Frühwarnung
+
+Schädlinge kommen nicht zufällig. Spinnmilben erscheinen, wenn die Heizung
+angeht und die Luftfeuchte fällt – jedes Jahr, zuverlässig, und bei den
+Pflanzen über dem Heizkörper zuerst. Trauermücken kommen im Winter, weil dann
+langsamer verdunstet wird. Blattläuse im Frühjahr mit dem frischen Austrieb.
+
+Die App weiß inzwischen, wer wo steht und wann geheizt wird. Damit lässt sich
+vorher warnen statt hinterher helfen – und das ist bei Schädlingen der
+Unterschied zwischen zwei Wattestäbchen und sechs Wochen Behandlung.
+
+- **Vier Schädlinge mit ihrer Saison:** Spinnmilben (Oktober bis März),
+  Trauermücken (November bis März), Blattläuse (März bis Juni), Schildläuse
+  (November bis Februar).
+- Die App nennt **die Pflanzen, bei denen es zuerst losgeht** – die an der
+  Heizung, unter der Klimaanlage, im feuchten oder dunklen Raum.
+- Dazu **woran man den Anfang erkennt** („Blattunterseiten gegen das Licht
+  halten") und ein direkter Weg zum passenden Behandlungsplan.
+- Ein Hinweis kommt **höchstens einmal im Monat** je Schädling. „Kontrolliert,
+  alles sauber" legt ihn bis zum nächsten Monat weg und landet im Verlauf.
+- Abschaltbar unter Mehr → Erinnerungen.
+
+Beim Testen korrigiert: Die Auswahl der gefährdeten Pflanzen zählte anfangs
+auch die Wetterlage mit. „Heizperiode" trifft aber auf jede Pflanze in der
+Wohnung zu – damit wurden alle als gefährdet gemeldet und die Aussage „bei
+diesen zuerst" war wertlos. Jetzt zählen nur die Merkmale der Pflanze selbst;
+die Jahreszeit steckt ohnehin schon in der Saison.
+
 ## v3.11.0 - 2026-09-01
 
 ### Wochenrückblick
