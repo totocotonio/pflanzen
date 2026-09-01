@@ -1,5 +1,29 @@
 # Changelog
 
+## v3.13.1 - 2026-09-01
+
+### Behoben: Der Etikettendruck ergab ein weißes Blatt
+
+Zwei Ursachen, die erst zusammen das leere Blatt ergaben:
+
+- **Eine ältere Druckregel blendete den Bogen aus.** Für den Druck eines
+  einzelnen QR-Codes stand seit Langem `body > *:not(.sheet) { display: none }`
+  im Stylesheet – gedacht dafür, beim Drucken aus einem offenen Blatt heraus
+  alles andere wegzulassen. Beim Etikettenbogen ist kein Blatt offen, also traf
+  die Regel auch ihn. Sie nimmt ihn jetzt aus.
+- **Der Körper der Seite schneidet ab.** Die App scrollt in einem inneren
+  Container, `body` selbst ist genau eine Bildschirmhöhe hoch und hat
+  `overflow: hidden`. Beim Drucken wäre damit alles ab der ersten Reihe
+  verlorengegangen. Das Druckstylesheet hebt beides jetzt auf.
+
+Außerdem wird die Druckklasse erst nach `afterprint` entfernt, nicht nach einem
+festen Timeout: `window.print()` kehrt in manchen Browsern sofort zurück,
+während der Dialog noch offen ist – die Seite hätte sich mitten im Aufbau
+zurückgestellt.
+
+Geprüft mit den echten Druckregeln: Auf der Seite bleibt nur der Bogen, drei
+Spalten, acht Etiketten mit geladenen QR-Codes.
+
 ## v3.13.0 - 2026-09-01
 
 ### Düngerrechner

@@ -389,7 +389,11 @@ a{color:var(--blue);text-decoration:none}
 .qr-karte .qr-name{color:#000;font-weight:700;font-size:19px;margin-top:10px}
 .qr-karte .qr-ort{color:#555;font-size:14px;margin-top:2px}
 @media print{
-  body > *:not(.sheet){display:none !important}
+  /* Der Etikettenbogen muss hier ausgenommen sein: Diese Regel stammt vom
+     Druck eines einzelnen QR-Codes aus einem offenen Blatt heraus. Beim
+     Etikettenbogen ist kein Blatt offen – ohne die Ausnahme bliebe die Seite
+     vollständig leer. */
+  body > *:not(.sheet):not(.druckbogen){display:none !important}
   .sheet .backdrop,.sheet .grabber,.sheet h2,.sheet .btn{display:none !important}
   .sheet,.sheet .panel{position:static !important;max-height:none !important;
     background:#fff !important;box-shadow:none !important;padding:0 !important}
@@ -504,11 +508,15 @@ a{color:var(--blue);text-decoration:none}
 .auswahl-zeile span{flex:1}
 
 @media print {
-  /* Beim Drucken bleibt nur der Bogen übrig */
+  /* Der Körper scrollt in dieser App nie: er ist eine Bildschirmhöhe hoch und
+     schneidet den Rest ab. Ohne das hier bleibt vom Bogen nur die erste Reihe
+     übrig – oder gar nichts, wenn er weiter unten anfängt. */
+  html, body{height:auto !important;overflow:visible !important;
+    position:static !important;background:#fff}
   body.druckt > *:not(.druckbogen){display:none !important}
-  body.druckt{background:#fff}
+
   .druckbogen{display:grid !important;grid-template-columns:repeat(3, 1fr);
-    gap:6mm;padding:8mm;background:#fff;color:#000}
+    gap:6mm;background:#fff;color:#000}
   .druckbogen.gross{grid-template-columns:repeat(2, 1fr);gap:10mm}
   .etikett{border:1px dashed #999;border-radius:3mm;padding:4mm 2mm;text-align:center;
     break-inside:avoid;page-break-inside:avoid}
@@ -518,7 +526,7 @@ a{color:var(--blue);text-decoration:none}
   .druckbogen.gross .etikett-name{font-size:14pt}
   .etikett-ort{font-size:8pt;color:#444;line-height:1.3}
   .druckbogen.gross .etikett-ort{font-size:10pt}
-  @page{margin:8mm}
+  @page{margin:10mm}
 }
 
 /* Gartenjahr */

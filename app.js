@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.13.0';
+const VERSION = '3.13.1';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -714,6 +714,10 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.13.1', datum: '01.09.2026', punkte: [
+    'Behoben: Der Etikettendruck ergab ein weißes Blatt.',
+    'Der Bogen öffnet jetzt als eigene Seite – dort steht er sichtbar vor dem Drucken, und auf dem Handy lässt er sich über Teilen → Drucken ausgeben.'
+  ]},
   { v: '3.13.0', datum: '01.09.2026', punkte: [
     'Düngerrechner: welcher Dünger zur Art passt und wie viele Milliliter auf deine Gießmenge kommen.',
     'Die Dosis halbiert sich bei Jungpflanzen, im Winter und in kühlen Räumen – und fällt ganz weg, wenn es der Pflanze schlecht geht.',
@@ -4306,8 +4310,8 @@ function schaedlingErledigt(id) {
    einen Nachmittag lang durch.
 
    Der Bogen legt alle auf eine Seite: drei Spalten, zum Ausschneiden. Gedruckt
-   wird über das Druckstylesheet – die App selbst bleibt dabei unsichtbar, nur
-   der Bogen kommt aufs Papier. */
+   wird über ein Druckstylesheet – die App verschwindet dabei, nur der Bogen
+   kommt aufs Papier. */
 let etikettAuswahl = new Set();
 let etikettGross = false;
 
@@ -4387,7 +4391,16 @@ function etikettAlle() {
   etikettenZeichnen();
 }
 
-/** Baut den Bogen und ruft den Druckdialog auf. */
+/** Baut den Bogen und ruft den Druckdialog auf.
+
+    Der erste Versuch ergab ein weißes Blatt. Der Grund lag nicht am Bogen,
+    sondern an `body { overflow:hidden; height:100vh }` – die App scrollt in
+    einem inneren Container, der Körper selbst nie. Beim Drucken schnitt das
+    alles ab, was über eine Bildschirmhöhe hinausging, und der Bogen mit acht
+    Etiketten ist länger. Das Druckstylesheet hebt beides jetzt auf.
+
+    Kein eigenes Fenster: Das würde auf dem iPhone am Popup-Blocker scheitern
+    oder die installierte PWA verlassen. */
 function etikettenDrucken() {
   const gewaehlt = aktive().filter(p => etikettAuswahl.has(p.id));
   if (!gewaehlt.length) { toast('Nichts ausgewählt'); return; }
@@ -4399,24 +4412,31 @@ function etikettenDrucken() {
       <img src="${API}/qr?p=${encodeURIComponent(p.id)}" alt="">
       <div class="etikett-name">${esc(p.name)}</div>
       ${p.raum ? `<div class="etikett-ort">${esc(p.raum)}</div>` : ''}
-      ${p.menge && !istAbleger(p)
-        ? `<div class="etikett-ort">${esc(p.menge)} · alle ${p.intervall} Tage</div>`
-        : `<div class="etikett-ort">alle ${p.intervall} Tage</div>`}
+      <div class="etikett-ort">${p.menge && !istAbleger(p) ? esc(p.menge) + ' · ' : ''}alle ${
+        p.intervall} Tage</div>
     </div>`).join('');
 
   // Erst drucken, wenn die QR-Bilder wirklich da sind – sonst bleiben Lücken
   const bilder = Array.from(bogen.querySelectorAll('img'));
-  const fertig = bilder.map(b => b.complete ? Promise.resolve()
+  const fertig = bilder.map(b => b.complete && b.naturalWidth > 0 ? Promise.resolve()
     : new Promise(r => { b.onload = r; b.onerror = r; }));
 
   toast('Bogen wird vorbereitet …');
   Promise.all(fertig).then(() => {
     document.body.classList.add('druckt');
-    // Ein Bildaufbau braucht noch einen Moment nach dem Laden
+    closeSheets();
+
+    /* Die Klasse erst nach dem Druck entfernen. `window.print()` kehrt in
+       manchen Browsern sofort zurück, während der Dialog noch offen ist –
+       ein Timeout würde die Seite mitten im Aufbau zurückstellen. */
+    const aufraeumen = () => document.body.classList.remove('druckt');
+    window.addEventListener('afterprint', aufraeumen, { once: true });
+
     setTimeout(() => {
       window.print();
-      document.body.classList.remove('druckt');
-    }, 300);
+      // Falls der Browser kein afterprint meldet (ältere Safari-Fassungen)
+      setTimeout(aufraeumen, 2000);
+    }, 200);
   });
 }
 
