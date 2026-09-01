@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** ✅ Live (v3.8.1)
+**Status:** ✅ Live (v3.9.0)
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -51,6 +51,7 @@ Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in 
 ✅ **Alle auf einmal** – ein Knopf hakt alle fälligen Pflanzen ab, Rückgängig nimmt den ganzen Schwung zurück
 ✅ **Gieß-Runde** – führt nach Standort geordnet durch die Wohnung, eine Pflanze nach der anderen
 ✅ **Problem-Hilfe** – zehn typische Symptome mit Ursachen und Maßnahmen, abgeglichen mit den Werten der Pflanze
+✅ **Gartenjahr** – zwölf Monate Saisonwissen, dazu die eigenen Termine je Monat
 ✅ **Lichtmessung** – Schattenprobe, Fensterrechner oder Kamera; Ergebnis wird mit dem Bedarf der Art verglichen
 ✅ **Im Freien** – vier Kältestufen je Pflanze; sinkt das Nachtminimum darunter, warnt die App nachmittags per Push
 ✅ **Raumtemperaturen** – Sommer- und Winterbereich je Standort; ersetzt den pauschalen Winter-Modus, unter 15 °C wird nicht gedüngt
@@ -110,7 +111,7 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
 | Design | warme Grün- und Erdtöne, hell und dunkel, System-Schriften, `env(safe-area-inset-*)` |
 | Speicher | `localStorage`, Schlüssel `pg_data` |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v3.8.1` |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v3.9.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
 | Push | Web Push API + VAPID, pywebpush, systemd-Timer alle 15 Minuten |
 | Hosting | LXC Container auf Proxmox |
@@ -278,6 +279,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v3.9.0** | Gartenjahr: zwölf Monate mit dem, was ansteht |
 | **v3.8.1** | Update beim Öffnen greift wieder |
 | **v3.8.0** | Lichtmessung: Schattenprobe, Fensterrechner, Kamera |
 | **v3.7.0** | Pflanzen im Freien mit Frostwarnung |

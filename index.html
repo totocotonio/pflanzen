@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=3.8.1">
+<link rel="stylesheet" href="style.css?v=3.9.0">
 </head>
 <body>
 
@@ -88,8 +88,12 @@
   <!-- ===== KALENDER ===== -->
   <section id="view-plan" class="view">
     <div class="hd">
-      <div><h1>Plan</h1><div class="sub">Die nächsten 14 Tage</div></div>
+      <div><h1>Plan</h1><div class="sub" id="plan-sub">Die nächsten 14 Tage</div></div>
       <button class="hd-btn" id="btn-urlaub" title="Urlaub planen">🧳</button>
+    </div>
+    <div class="chips" id="plan-chips">
+      <button class="chip on" data-plan="tage">14 Tage</button>
+      <button class="chip" data-plan="jahr">Gartenjahr</button>
     </div>
     <div id="plan-liste"></div>
   </section>
@@ -587,6 +591,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=3.8.1"></script>
+<script src="app.js?v=3.9.0"></script>
 </body>
 </html>

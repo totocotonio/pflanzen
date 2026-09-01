@@ -1,5 +1,25 @@
 # Changelog
 
+## v3.9.0 - 2026-09-01
+
+### Gartenjahr
+
+Der Plan zeigte vierzehn Tage. Das reicht fürs Gießen und für nichts sonst:
+Umtopfen gehört ins Frühjahr, Rückschnitt vor den Austrieb, Stecklinge in den
+Sommer, Düngepause in den Herbst. Wer das verpasst, merkt es erst ein Jahr
+später.
+
+- Zwei Ansichten im Plan-Tab: **14 Tage** wie bisher und **Gartenjahr**.
+- Zwölf Monate mit dem, was jeweils ansteht – von „Sparsam gießen, die meisten
+  Winterverluste sind ertrunkene Wurzeln" im Januar über die Eisheiligen im Mai
+  bis zur Spinnmilbenzeit ab November.
+- Zu jedem Monat listet die App auf, **welche deiner Pflanzen dann dran sind**:
+  hochgerechnet aus den Intervallen für Düngen, Umtopfen, Schneiden und die
+  eigenen Aufgaben, plus „kann raus" im Mai und „muss rein" im Oktober für
+  Pflanzen, die im Sommer draußen stehen.
+- Der laufende Monat steht oben und ist aufgeklappt; rückwärts blättern gibt es
+  nicht, das bringt hier nichts.
+
 ## v3.8.1 - 2026-08-30
 
 ### Behoben: Das Handy aktualisierte sich beim Öffnen nicht

@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.8.1';
+const VERSION = '3.9.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -714,6 +714,12 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.9.0', datum: '01.09.2026', punkte: [
+    'Der Plan hat jetzt zwei Ansichten: die nächsten 14 Tage wie bisher, und das Gartenjahr.',
+    'Zwölf Monate mit dem, was jeweils ansteht – Rückschnitt im Februar, Umtopfen ab März, raus im Mai, Winterquartier im Oktober, Spinnmilbenzeit ab November.',
+    'Zu jedem Monat listet die App auf, welche deiner Pflanzen dann dran sind.',
+    'Der laufende Monat steht oben und ist aufgeklappt.'
+  ]},
   { v: '3.8.1', datum: '30.08.2026', punkte: [
     'Behoben: Die App aktualisierte sich beim Öffnen nicht. Lag eine neue Fassung schon bereit, gab es nur ein Banner – wer das übersah, blieb dauerhaft auf der alten.',
     'Beim Öffnen wird eine wartende Fassung jetzt ohne Nachfrage übernommen. Nur mitten in der Sitzung wird noch gefragt.',
@@ -1478,6 +1484,11 @@ function archivieren(id, zurueck) {
 
 function renderPlan() {
   const box = $('#plan-liste');
+  $$('#plan-chips .chip').forEach(c =>
+    c.classList.toggle('on', (c.dataset.plan === 'jahr') === planJahr));
+  $('#plan-sub').textContent = planJahr ? 'Was wann ansteht' : 'Die nächsten 14 Tage';
+  if (planJahr) { renderJahr(box); return; }
+
   if (!aktive().length) { box.innerHTML = `<div class="empty"><div class="big">🗓</div><p>Noch nichts geplant.</p></div>`; return; }
 
   let html = '';
@@ -3980,6 +3991,145 @@ function rundeWeiter(pid) {
   openSheet('#sheet-runde');
 }
 
+/* ---------- Gartenjahr ----------
+   Der Plan zeigt vierzehn Tage. Das reicht fürs Gießen und für nichts sonst:
+   Umtopfen gehört ins Frühjahr, Rückschnitt vor den Austrieb, Stecklinge in
+   den Sommer, Düngepause in den Herbst. Wer das verpasst, merkt es erst ein
+   Jahr später.
+
+   Die Monatstexte gelten für Mitteleuropa und für Zimmerpflanzen. Sie sind
+   bewusst kurz und handlungsorientiert – ein Kalender, den man nicht liest,
+   ist keiner. */
+const GARTENJAHR = [
+  { m: 1, name: 'Januar', kurz: 'Tiefste Ruhe', punkte: [
+    'Sparsam gießen. Die meisten Verluste im Winter sind ertrunkene Wurzeln, keine vertrockneten.',
+    'Nicht düngen – es wächst nichts, was die Nährstoffe verbrauchen könnte.',
+    'Licht ist jetzt der Engpass. Ein Meter näher ans Fenster bringt mehr als jede Pflege.',
+    'Heizungsluft: auf Spinnmilben achten, besonders bei Pflanzen über dem Heizkörper.'
+  ]},
+  { m: 2, name: 'Februar', kurz: 'Es geht wieder los', punkte: [
+    'Gegen Monatsende Rückschnitt – vor dem Austrieb, damit die Kraft in die neuen Triebe geht.',
+    'Vergeilte, lange Wintertriebe können weg.',
+    'Noch nicht düngen, aber das Gießintervall langsam verkürzen.',
+    'Jetzt Stecklinge planen: Ab März bewurzeln sie deutlich schneller.'
+  ]},
+  { m: 3, name: 'März', kurz: 'Umtopfzeit beginnt', punkte: [
+    'Die beste Zeit zum Umtopfen: kurz vor dem Austrieb, dann wächst die Pflanze sofort in die neue Erde.',
+    'Wieder anfangen zu düngen – erste Gabe in halber Dosis.',
+    'Gießintervall zurück auf den Sommerwert.',
+    'Winterruhe beenden: Kühl gestellte Pflanzen zurück an ihren Platz.'
+  ]},
+  { m: 4, name: 'April', kurz: 'Hauptzeit', punkte: [
+    'Umtopfen und Stecklinge – beides läuft jetzt am besten.',
+    'Volle Düngung.',
+    'Vorsicht mit der ersten kräftigen Sonne: Nach dem Winter sind die Blätter empfindlich und verbrennen leicht.'
+  ]},
+  { m: 5, name: 'Mai', kurz: 'Nach draußen', punkte: [
+    'Nach den Eisheiligen (Mitte Mai) dürfen Kübelpflanzen raus.',
+    'Über ein bis zwei Wochen an die Sonne gewöhnen, erst im Schatten. Sonst gibt es Verbrennungen.',
+    'Nachts noch die Vorhersage im Blick behalten.'
+  ]},
+  { m: 6, name: 'Juni', kurz: 'Volles Wachstum', punkte: [
+    'Höchster Wasserbedarf des Jahres.',
+    'Regelmäßig düngen, alle zwei bis vier Wochen.',
+    'Beste Zeit für Stecklinge: Sie bewurzeln in zwei bis drei Wochen.'
+  ]},
+  { m: 7, name: 'Juli', kurz: 'Hitze', punkte: [
+    'Töpfe trocknen schnell aus, besonders am Südfenster. Lieber morgens gießen.',
+    'Nicht in die pralle Mittagssonne gießen – Wassertropfen auf Blättern wirken wie Brenngläser.',
+    'Urlaub planen: Wer wässert, und wie lange halten die Pflanzen durch?'
+  ]},
+  { m: 8, name: 'August', kurz: 'Spätsommer', punkte: [
+    'Weiter viel gießen, die Verdunstung bleibt hoch.',
+    'Letzte Gelegenheit für Stecklinge, damit sie vor dem Winter noch anwachsen.',
+    'Ab Monatsende die Düngung zurückfahren.'
+  ]},
+  { m: 9, name: 'September', kurz: 'Der Sommer kippt', punkte: [
+    'Nächte werden kühl – Pflanzen im Freien im Blick behalten.',
+    'Düngung reduzieren, das Wachstum lässt nach.',
+    'Gießintervall langsam verlängern.'
+  ]},
+  { m: 10, name: 'Oktober', kurz: 'Winterquartier', punkte: [
+    'Alles Empfindliche muss rein. Vorher gründlich auf Schädlinge kontrollieren – im warmen Zimmer vermehren sie sich sonst explosionsartig.',
+    'Düngen einstellen.',
+    'Nicht mehr umtopfen: Die Pflanze durchwurzelt die frische Erde bis zum Frühjahr nicht.'
+  ]},
+  { m: 11, name: 'November', kurz: 'Heizung an', punkte: [
+    'Trockene Heizungsluft: Jetzt beginnt die Spinnmilbenzeit. Wöchentlich Blattunterseiten ansehen.',
+    'Gießintervall deutlich verlängern.',
+    'Luftfeuchte erhöhen, wo es geht – Schalen mit Wasser, Pflanzen zusammenstellen.'
+  ]},
+  { m: 12, name: 'Dezember', kurz: 'Ruhe', punkte: [
+    'Wenig Wasser, kein Dünger.',
+    'Weihnachtskaktus: Er setzt Knospen nur an, wenn er im Herbst kühl stand und zwölf Stunden Dunkelheit bekam.',
+    'Amaryllis nach der Ruhezeit wieder ins Warme holen.'
+  ]}
+];
+
+let planJahr = false;   // false = die nächsten 14 Tage
+
+/** Wann eine Aufgabe das nächste Mal fällig wird, als Monatszahl 1–12. */
+function faelligerMonat(a) {
+  const tage = tageBisAufgabe(a);
+  if (tage === null) return null;
+  const d = new Date();
+  d.setDate(d.getDate() + Math.max(0, tage));
+  return d.getMonth() + 1;
+}
+
+/** Was in diesem Monat aus den eigenen Daten ansteht. */
+function eigeneTermine(monat) {
+  const raus = [];
+  for (const p of aktive()) {
+    for (const a of aufgabenVon(p)) {
+      // Gießen bleibt außen vor – das steht in der Tagesansicht
+      if (faelligerMonat(a) === monat) {
+        raus.push({ pflanze: p.name, aufgabe: a.name, emoji: a.emoji });
+      }
+    }
+    if (freilandVon(p) === 'sommer') {
+      if (monat === 5 && !p.draussen) raus.push({ pflanze: p.name, aufgabe: 'kann raus', emoji: '🌤' });
+      if (monat === 10 && p.draussen) raus.push({ pflanze: p.name, aufgabe: 'muss rein', emoji: '🏠' });
+    }
+  }
+  return raus;
+}
+
+function renderJahr(box) {
+  const jetzt = new Date().getMonth() + 1;
+  // Beim laufenden Monat anfangen – rückwärts schauen bringt hier nichts
+  const reihe = GARTENJAHR.slice(jetzt - 1).concat(GARTENJAHR.slice(0, jetzt - 1));
+
+  box.innerHTML = reihe.map(m => {
+    const dran = m.m === jetzt;
+    const termine = eigeneTermine(m.m);
+    const offen = dran || jahrOffen.has(m.m);
+    return `
+      <button class="abschnitt ${offen ? 'offen' : ''} ${dran ? 'jetzt' : ''}" data-monat="${m.m}">
+        <span>${esc(m.name)}${dran ? ' · jetzt' : ''}
+          <span class="monat-kurz">${esc(m.kurz)}</span></span>
+        <span class="abschnitt-pfeil">›</span>
+      </button>
+      ${offen ? `<div class="abschnitt-inhalt">
+        <div class="karte"><ul class="liste">${
+          m.punkte.map(p => `<li>${esc(p)}</li>`).join('')}</ul></div>
+        ${termine.length ? `<div class="section-title">Bei deinen Pflanzen</div>
+          <div class="group">${termine.map(t => `
+            <div class="field"><label>${t.emoji} ${esc(t.pflanze)}</label>
+              <span class="hint">${esc(t.aufgabe)}</span></div>`).join('')}</div>` : ''}
+      </div>` : ''}`;
+  }).join('');
+}
+
+let jahrOffen = new Set();
+
+function monatUmschalten(m) {
+  const zahl = Number(m);
+  if (jahrOffen.has(zahl)) jahrOffen.delete(zahl);
+  else jahrOffen.add(zahl);
+  renderPlan();
+}
+
 /* ---------- Lichtmessung ----------
    Zu wenig Licht ist die häufigste Ursache dafür, dass eine Zimmerpflanze
    nicht wächst, lange dünne Triebe bildet und irgendwann eingeht. Und es ist
@@ -6427,7 +6577,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen],[data-draussen],[data-reinholen],[data-licht],[data-schatten],[data-licht-uebernehmen],[data-licht-neu]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen],[data-draussen],[data-reinholen],[data-licht],[data-schatten],[data-licht-uebernehmen],[data-licht-neu],[data-plan],[data-monat]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -6454,6 +6604,14 @@ function bind() {
       return;
     }
     if (t.dataset.ort) { e.stopPropagation(); ortWaehlen(t.dataset.ort); return; }
+    if (t.dataset.plan) {
+      e.stopPropagation();
+      planJahr = t.dataset.plan === 'jahr';
+      renderPlan();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (t.dataset.monat) { e.stopPropagation(); monatUmschalten(t.dataset.monat); return; }
     if (t.dataset.licht) {
       e.stopPropagation();
       closeSheets();

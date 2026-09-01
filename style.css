@@ -498,6 +498,11 @@ a{color:var(--blue);text-decoration:none}
 
 .mini-aktion{color:var(--accent);font-size:12.5px;font-weight:600;padding:0 0 0 8px}
 
+/* Gartenjahr */
+.monat-kurz{display:block;font-size:13px;font-weight:400;color:var(--text-3);margin-top:2px}
+.abschnitt.jetzt{border:1px solid color-mix(in srgb, var(--accent) 40%, transparent)}
+#plan-chips{margin-bottom:14px}
+
 /* Lichtmessung */
 .lux-zahl{font-size:32px;font-weight:650;letter-spacing:-.02em;margin-bottom:4px}
 .lux-quelle{color:var(--text-2);font-size:14px;line-height:1.45;margin-bottom:14px}
