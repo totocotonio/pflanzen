@@ -236,13 +236,83 @@ def frost_gefahr(daten, lage):
 def frost_nachricht(tmin, namen):
     grad = str(round(tmin, 1)).replace(".", ",")
     if len(namen) == 1:
-        text = f"{namen[0]} steht draussen und vertraegt das nicht."
+        text = f"{namen[0]} steht draußen und verträgt das nicht."
     elif len(namen) <= 3:
-        text = ", ".join(namen) + " stehen draussen und vertragen das nicht."
+        text = ", ".join(namen) + " stehen draußen und vertragen das nicht."
     else:
         text = (f"{namen[0]}, {namen[1]} und {len(namen) - 2} weitere stehen "
-                "draussen und vertragen das nicht.")
+                "draußen und vertragen das nicht.")
     return f"Heute Nacht nur {grad} Grad", text
+
+
+# Sonntagabend. Frueher am Tag waere der Rueckblick unvollstaendig, spaeter
+# liest ihn keiner mehr.
+RUECKBLICK_TAG = 6      # Montag = 0
+RUECKBLICK_STUNDE = 18
+
+
+def wochen_rueckblick(daten, heute):
+    """Was in den letzten sieben Tagen passiert ist.
+
+    Zurueck kommt (Titel, Text) oder None, wenn es nichts zu berichten gibt -
+    eine Nachricht "Diese Woche: nichts" braucht niemand.
+    """
+    einstellungen = daten.get("settings") or {}
+    if einstellungen.get("rueckblick") is False:
+        return None
+
+    grenze = (datetime.combine(heute, datetime.min.time())
+              - timedelta(days=7)).timestamp() * 1000
+
+    gegossen = aufgaben = notizen = 0
+    for eintrag in daten.get("logs") or []:
+        try:
+            wann = float(eintrag.get("ts") or 0)
+        except (TypeError, ValueError):
+            continue
+        if wann < grenze:
+            continue
+        typ = str(eintrag.get("typ") or "")
+        if typ == "wasser":
+            gegossen += 1
+        elif typ == "notiz":
+            notizen += 1
+        elif typ not in ("zustand", "licht"):
+            aufgaben += 1
+
+    # Was gerade liegen bleibt, zaehlt mit - der Rueckblick soll nicht nur
+    # loben, sondern zeigen, was noch offen ist.
+    ueberfaellig = 0
+    for pf in daten.get("plants") or []:
+        if pf.get("archiviert"):
+            continue
+        letzt = als_datum(pf.get("letzt"))
+        if not letzt:
+            continue
+        aufschub = als_datum(pf.get("aufschubBis"))
+        if aufschub and aufschub > heute:
+            continue
+        faellig = letzt + timedelta(days=eff_intervall(pf, einstellungen))
+        if faellig < heute:
+            ueberfaellig += 1
+
+    if not (gegossen or aufgaben or notizen or ueberfaellig):
+        return None
+
+    teile = []
+    if gegossen:
+        teile.append(f"{gegossen}-mal gegossen" if gegossen > 1 else "einmal gegossen")
+    if aufgaben:
+        teile.append(f"{aufgaben} Aufgaben erledigt" if aufgaben > 1
+                     else "eine Aufgabe erledigt")
+    if notizen:
+        teile.append(f"{notizen} Notizen" if notizen > 1 else "eine Notiz")
+
+    text = "Diese Woche: " + (", ".join(teile) if teile else "nichts eingetragen") + "."
+    if ueberfaellig:
+        text += (f" {ueberfaellig} Pflanzen sind überfällig."
+                 if ueberfaellig > 1 else " Eine Pflanze ist überfällig.")
+    return "Deine Woche", text
 
 
 def offene_punkte(daten):
@@ -421,6 +491,28 @@ def main_lauf():
                         s.delete(abo)
                         entfernt += 1
                         continue
+
+        # Der Rueckblick sonntags, ebenfalls neben der Tageserinnerung
+        if (datensatz and jetzt.weekday() == RUECKBLICK_TAG
+                and jetzt.hour >= RUECKBLICK_STUNDE
+                and getattr(abo, "rueckblick_zuletzt", "") != heute_iso):
+            rueck = wochen_rueckblick(json.loads(datensatz.inhalt), jetzt.date())
+            if rueck:
+                if TROCKEN:
+                    print(f"  [trocken/rueckblick] {rueck[0]} - {rueck[1]}")
+                    abo.rueckblick_zuletzt = heute_iso
+                    gesendet += 1
+                else:
+                    erfolg, hinweis = push.senden(abo, rueck[0], rueck[1])
+                    if erfolg:
+                        abo.rueckblick_zuletzt = heute_iso
+                        gesendet += 1
+                    elif hinweis == "abgemeldet":
+                        s.delete(abo)
+                        entfernt += 1
+                        continue
+            else:
+                abo.rueckblick_zuletzt = heute_iso
 
         if abo.zuletzt == heute_iso:
             uebersprungen += 1

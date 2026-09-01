@@ -1,5 +1,25 @@
 # Changelog
 
+## v3.11.0 - 2026-09-01
+
+### Wochenrückblick
+
+- Sonntags um 18 Uhr eine Zusammenfassung per Push: „Diese Woche: 12-mal
+  gegossen, 3 Aufgaben erledigt, eine Notiz. Eine Pflanze ist überfällig."
+- Der Rückblick soll nicht nur loben – **was liegengeblieben ist, steht dabei.**
+  Bewusst aufgeschobene Pflanzen zählen dabei nicht als überfällig.
+- **Abschaltbar** unter Mehr → Erinnerungen.
+- Gab es nichts zu berichten, kommt auch nichts. Eine Nachricht „Diese Woche:
+  nichts" braucht niemand.
+- Wie die Frostwarnung ein eigener Kanal mit eigener Merkspalte, sonst würde er
+  die Tageserinnerung verdrängen.
+
+### Nachgebessert
+
+- In der Frostwarnung und im Rückblick standen „draussen", „vertraegt" und
+  „ueberfaellig" – die Umschreibungen aus dem Quelltext waren in die
+  Push-Nachrichten gerutscht. Jetzt mit Umlauten, wie im Rest der App.
+
 ## v3.10.0 - 2026-09-01
 
 ### Etikettenbogen

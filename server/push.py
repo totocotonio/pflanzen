@@ -86,6 +86,7 @@ def modell_anlegen(Base):
         # Eigene Merkspalte: Die Frostwarnung laeuft neben der taeglichen
         # Erinnerung, sonst faellt eine von beiden aus.
         frost_zuletzt = Column(String(20), nullable=False, default="")
+        rueckblick_zuletzt = Column(String(20), nullable=False, default="")
         erstellt = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     return PushAbo

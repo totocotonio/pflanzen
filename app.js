@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.10.0';
+const VERSION = '3.11.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -714,6 +714,11 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.11.0', datum: '01.09.2026', punkte: [
+    'Wochenrückblick sonntags um 18 Uhr: was gegossen und erledigt wurde – und was liegengeblieben ist.',
+    'Abschaltbar unter Mehr → Erinnerungen.',
+    'Gab es nichts zu berichten, kommt auch nichts.'
+  ]},
   { v: '3.10.0', datum: '01.09.2026', punkte: [
     'Etikettenbogen: alle QR-Codes auf einer Seite, drei nebeneinander, zum Ausschneiden.',
     'Auswahl je Pflanze oder ganzer Standort, wahlweise große Etiketten.',
@@ -1523,6 +1528,7 @@ function renderMore() {
     : 'nicht eingestellt') + ' ›';
   $('#anleitungen-liste').innerHTML = anleitungenListe();
   $('#ort-name').textContent = (DB.settings.ort ? DB.settings.ort.name : 'nicht gesetzt') + ' ›';
+  $('#set-rueckblick').checked = DB.settings.rueckblick !== false;
   $('#set-wetter').value = DB.settings.wetterAn === false ? '0' : '1';
   $('#wetter-lage').textContent = wetterLageText();
   $('#konto-name').textContent = SYNC.user || 'nicht angemeldet';
@@ -6684,6 +6690,12 @@ function bind() {
   $('#zeile-sicherungen').onclick = sicherungenOeffnen;
   $('#zeile-raeume').onclick = raeumeOeffnen;
   $('#zeile-ort').onclick = ortOeffnen;
+  $('#set-rueckblick').onchange = e => {
+    DB.settings.rueckblick = e.target.checked;
+    save();
+    toast(e.target.checked ? 'Rückblick kommt sonntags um 18 Uhr'
+                           : 'Wochenrückblick abgeschaltet');
+  };
   $('#set-wetter').onchange = e => {
     DB.settings.wetterAn = e.target.value === '1';
     save(); renderAll();

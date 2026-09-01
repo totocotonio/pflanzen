@@ -102,6 +102,9 @@ def spalten_ergaenzen() -> None:
             # Die Frostwarnung laeuft neben der taeglichen Erinnerung und
             # braucht ihre eigene Merkspalte, sonst faellt eine von beiden aus.
             "frost_zuletzt": "VARCHAR(20) NOT NULL DEFAULT ''",
+            # Der Rueckblick kommt sonntags und braucht wie die Frostwarnung
+            # eine eigene Merkspalte, sonst verdraengt er die Tageserinnerung.
+            "rueckblick_zuletzt": "VARCHAR(20) NOT NULL DEFAULT ''",
         },
     }
     pruefer = inspect(engine)
