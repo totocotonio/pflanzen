@@ -1,5 +1,18 @@
 # Changelog
 
+## v3.13.2 - 2026-09-01
+
+### Behoben: Standort-Chip bei den Etiketten wählte das Falsche
+
+Ein Klick auf „Wohnzimmer" schaltete den Raum **um**, statt ihn auszuwählen. Da
+beim Öffnen alles ausgewählt ist, hieß das in der Praxis: Wohnzimmer weg, die
+sechs anderen bleiben – genau das Gegenteil dessen, was man erwartet.
+
+- Der Chip wählt jetzt **genau diesen Raum** und sonst nichts. Ein zweiter
+  Klick auf denselben Chip nimmt wieder alle.
+- Der aktive Chip ist markiert, damit sichtbar ist, was gerade gilt.
+- Die Anzahl steht am Chip: „Wohnzimmer (2)".
+
 ## v3.13.1 - 2026-09-01
 
 ### Behoben: Der Etikettendruck ergab ein weißes Blatt

@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.13.1';
+const VERSION = '3.13.2';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -714,6 +714,10 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.13.2', datum: '01.09.2026', punkte: [
+    'Behoben: Ein Klick auf einen Standort bei den Etiketten wählte das Falsche aus – er schaltete den Raum um, statt ihn auszuwählen.',
+    'Jetzt wählt der Chip genau diesen Raum, ein zweiter Klick nimmt wieder alle. Der aktive Chip ist markiert, und die Anzahl steht dabei.'
+  ]},
   { v: '3.13.1', datum: '01.09.2026', punkte: [
     'Behoben: Der Etikettendruck ergab ein weißes Blatt.',
     'Der Bogen öffnet jetzt als eigene Seite – dort steht er sichtbar vor dem Drucken, und auf dem Handy lässt er sich über Teilen → Drucken ausgeben.'
@@ -4341,8 +4345,11 @@ function etikettenZeichnen() {
       <span class="aktion" data-etikett-alle>${
         gewaehlt.length === liste.length ? 'Keine' : 'Alle'}</span></div>
     ${raeume.length > 1 ? `<div class="chip-wahl" style="margin-bottom:12px">
-      ${raeume.map(r => `<button type="button" class="chip" data-etikett-raum="${esc(r)}">${
-        esc(r)}</button>`).join('')}
+      ${raeume.map(r => {
+        const anzahl = liste.filter(p => p.raum === r).length;
+        return `<button type="button" class="chip ${etikettRaumAktiv(r) ? 'on' : ''}"
+          data-etikett-raum="${esc(r)}">${esc(r)} (${anzahl})</button>`;
+      }).join('')}
     </div>` : ''}
 
     <div class="group">
@@ -4374,14 +4381,30 @@ function etikettUmschalten(id) {
   etikettenZeichnen();
 }
 
+/** Ein Raum-Chip wählt genau diesen Raum – und sonst nichts.
+
+    Vorher schaltete er den Raum nur um. Da beim Öffnen alles ausgewählt ist,
+    hieß ein Klick auf „Wohnzimmer" in der Praxis: Wohnzimmer weg, der Rest
+    bleibt. Genau das Gegenteil dessen, was man erwartet. */
 function etikettRaum(raum) {
   const drin = aktive().filter(p => p.raum === raum);
-  const alleDrin = drin.every(p => etikettAuswahl.has(p.id));
-  for (const p of drin) {
-    if (alleDrin) etikettAuswahl.delete(p.id);
-    else etikettAuswahl.add(p.id);
-  }
+  if (!drin.length) return;
+
+  const nurDieser = etikettAuswahl.size === drin.length
+    && drin.every(p => etikettAuswahl.has(p.id));
+
+  // Noch einmal derselbe Chip hebt die Einschränkung wieder auf
+  etikettAuswahl = nurDieser
+    ? new Set(aktive().map(p => p.id))
+    : new Set(drin.map(p => p.id));
   etikettenZeichnen();
+}
+
+/** Ist gerade genau dieser Raum ausgewählt? */
+function etikettRaumAktiv(raum) {
+  const drin = aktive().filter(p => p.raum === raum);
+  return drin.length > 0 && etikettAuswahl.size === drin.length
+    && drin.every(p => etikettAuswahl.has(p.id));
 }
 
 function etikettAlle() {
