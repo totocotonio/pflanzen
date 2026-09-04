@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.15.0';
+const VERSION = '3.16.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -714,6 +714,11 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.16.0', datum: '01.09.2026', punkte: [
+    'Winterstandort: Im Herbst zeigt die App, welche Pflanzen an ihrem Platz zu wenig Licht bekommen werden.',
+    'Am selben Platz kommt im Dezember etwa ein Drittel des Sommerlichts an – das merkt man nicht, die Pflanze zeigt es erst im Februar mit langen dünnen Trieben.',
+    'Im Frühjahr die Gegenrichtung: Erinnerung, die Pflanzen zurückzustellen, bevor die Frühjahrssonne die Blätter verbrennt.'
+  ]},
   { v: '3.15.0', datum: '01.09.2026', punkte: [
     'Neu gekaufte Pflanzen bekommen einen Eingewöhnungsplan über vier Wochen – zwei Wochen getrennt aufstellen, dreimal kontrollieren.',
     'Frische Ware bringt fast immer Schädlinge mit. Im kühlen Gartencenter fällt das nicht auf, im warmen Zimmer verdoppelt sich die Population in Tagen.',
@@ -1295,6 +1300,7 @@ function renderHeute() {
 
   $('#frost-warnung').innerHTML = frostKarteHTML();
   $('#schaedling-warnung').innerHTML = schaedlingsKarteHTML();
+  $('#winterlicht-warnung').innerHTML = winterLichtKarteHTML();
 
   const sorgenkinder = liste.filter(p => zustandVon(p) !== 'gut' || behandlungVon(p));
   const sbox = $('#sorgen-hinweis');
@@ -1582,6 +1588,7 @@ function renderMore() {
     : 'nicht eingestellt') + ' ›';
   $('#anleitungen-liste').innerHTML = anleitungenListe();
   $('#ort-name').textContent = (DB.settings.ort ? DB.settings.ort.name : 'nicht gesetzt') + ' ›';
+  $('#set-winterlicht').checked = DB.settings.winterlicht !== false;
   $('#set-schaedling').checked = DB.settings.schaedlingWarnung !== false;
   $('#set-rueckblick').checked = DB.settings.rueckblick !== false;
   $('#set-wetter').value = DB.settings.wetterAn === false ? '0' : '1';
@@ -4063,6 +4070,191 @@ function rundeWeiter(pid) {
   openSheet('#sheet-runde');
 }
 
+/* ---------- Winterstandort ----------
+   Im Dezember kommt in der Wohnung ein Bruchteil des Sommerlichts an: Die
+   Sonne steht flach, der Himmel ist meist bedeckt, und die Tage sind kurz.
+   Ein Platz, der im Juli reichlich hell war, liegt im Januar oft unter dem,
+   was die Pflanze zum Wachsen braucht.
+
+   Das merkt man nicht: Der Raum sieht gleich aus, das Auge gleicht aus. Die
+   Pflanze zeigt es erst im Februar mit langen dünnen Trieben – dann ist der
+   Winter fast vorbei und der Schaden da.
+
+   Die App kennt inzwischen den Lichtbedarf der Art und die Lage des Platzes.
+   Damit lässt sich vorher sagen, wer ans Fenster sollte. */
+
+/* Grob: Im Winter kommt etwa 40 % des Sommerlichts an. Für die Einordnung in
+   vier Stufen reicht das – genauer wäre Scheingenauigkeit. */
+const WINTER_ANTEIL = 0.4;
+
+/** Geschätzte Helligkeit am Platz, aus Standort und Fensterlage. */
+function lichtAmPlatz(p) {
+  // Wurde gemessen, gilt der gemessene Wert
+  const stufe = LICHT_STUFEN.find(s => s.k === p.licht);
+  if (!stufe) return null;
+  /* Der untere Bereich der Stufe, nicht die Mitte: Wer „hell" einträgt, meint
+     fast immer den Anfang der Spanne. Standorte werden regelmäßig zu hell
+     eingeschätzt, weil das Auge Helligkeit ausgleicht. */
+  return Math.round(stufe.von * 1.5);
+}
+
+/** Was die Art braucht, als Untergrenze. */
+function lichtBedarf(p) {
+  const art = artFinden(p.name) || artFinden(p.art);
+  const soll = art && LICHT_STUFEN.find(s => s.k === art.licht);
+  return soll ? soll.von : null;
+}
+
+/** Pflanzen, die im Winter an ihrem Platz zu wenig Licht bekommen. */
+function winterLichtSorgen() {
+  const raus = [];
+  for (const p of aktive()) {
+    if (stehtDraussen(p)) continue;          // draußen gilt anderes
+    const platz = lichtAmPlatz(p);
+    const bedarf = lichtBedarf(p);
+    if (platz === null || bedarf === null) continue;
+
+    /* Wer jetzt schon zu dunkel steht, hat kein Winterproblem, sondern ein
+       Standortproblem – das meldet die Lichtmessung. Hier geht es nur um
+       Plätze, die im Sommer reichen und im Winter nicht mehr. */
+    if (platz < bedarf) continue;
+
+    /* Wer schon in der Vollsonne steht, kann nicht heller gestellt werden.
+       Für diese Arten ist im Winter die kühle Ruhephase die Antwort, nicht
+       ein neuer Standort – dafür gibt es den Winter-Modus und die
+       Raumtemperaturen. Ein Kaktus am Südfenster braucht keinen Rat, näher
+       ans Fenster zu rücken. */
+    if (p.licht === 'Vollsonne') continue;
+
+    const imWinter = platz * WINTER_ANTEIL;
+    if (imWinter >= bedarf) continue;
+
+    raus.push({
+      pflanze: p, imWinter: Math.round(imWinter), bedarf,
+      // Unter dem Minimum wird es kritisch, darüber nur eng
+      kritisch: imWinter < LICHT_MINIMUM
+    });
+  }
+  // Die knappsten zuerst
+  return raus.sort((a, b) => (a.imWinter / a.bedarf) - (b.imWinter / b.bedarf));
+}
+
+/* Der Hinweis kommt im Herbst, wenn noch Zeit zum Umstellen ist, und im
+   Frühjahr die Gegenrichtung. Dazwischen wäre er nur im Weg. */
+function winterLichtZeit() {
+  const monat = new Date().getMonth() + 1;
+  if (monat >= 9 && monat <= 11) return 'hin';
+  if (monat >= 3 && monat <= 4) return 'zurueck';
+  return null;
+}
+
+function winterLichtGesehen() {
+  const marke = new Date().getFullYear() + '-' + (new Date().getMonth() + 1);
+  return (DB.settings.winterlichtGesehen || '') === marke;
+}
+
+function winterLichtMerken() {
+  DB.settings.winterlichtGesehen =
+    new Date().getFullYear() + '-' + (new Date().getMonth() + 1);
+  save();
+  renderAll();
+}
+
+/** Karte auf der Startseite. */
+function winterLichtKarteHTML() {
+  if (DB.settings.winterlicht === false) return '';
+  const zeit = winterLichtZeit();
+  if (!zeit || winterLichtGesehen()) return '';
+
+  if (zeit === 'zurueck') {
+    const zurueck = aktive().filter(p => p.winterplatz);
+    if (!zurueck.length) return '';
+    return `
+      <div class="karte winterlicht">
+        <div class="karte-kopf">☀️ Das Licht kommt zurück</div>
+        <div class="beh-warten">${zurueck.length === 1
+          ? esc(zurueck[0].name) + ' steht seit dem Herbst am Winterplatz.'
+          : zurueck.length + ' Pflanzen stehen seit dem Herbst am Winterplatz.'}
+          Ab jetzt reicht der alte Standort wieder – und direkte Frühjahrssonne
+          verbrennt Blätter, die den Winter im Halbschatten verbracht haben.</div>
+        <button class="btn sec" data-winterlicht-zurueck>Zurückgestellt</button>
+      </div>`;
+  }
+
+  const sorgen = winterLichtSorgen().filter(x => !x.pflanze.winterplatz);
+  if (!sorgen.length) return '';
+  const namen = sorgen.slice(0, 3).map(x => esc(x.pflanze.name)).join(', ');
+  const rest = sorgen.length - 3;
+
+  return `
+    <div class="karte winterlicht">
+      <div class="karte-kopf">🌥 Wer muss im Winter ans Fenster?</div>
+      <div class="beh-warten">Im Dezember kommt in der Wohnung etwa ein Drittel
+        des Sommerlichts an. ${sorgen.length === 1
+          ? 'Bei ' + namen + ' reicht der Platz dann nicht mehr.'
+          : 'Bei ' + namen + (rest > 0 ? ` und ${rest} weiteren` : '') +
+            ' reicht der Platz dann nicht mehr.'}</div>
+      <button class="btn sec" data-winterlicht-liste>Liste ansehen</button>
+      <button class="btn sec" data-winterlicht-ok>Erledigt</button>
+    </div>`;
+}
+
+function winterLichtListe() {
+  const sorgen = winterLichtSorgen();
+  $('#winterlicht-inhalt').innerHTML = `
+    <div class="grabber"></div>
+    <h2>Winterstandort</h2>
+    <p class="sheet-hinweis">Im Dezember steht die Sonne flach, der Himmel ist meist
+      bedeckt und die Tage sind kurz – am selben Platz kommt dann etwa ein Drittel des
+      Sommerlichts an. Der Raum sieht gleich aus, deshalb merkt man es nicht. Die
+      Pflanze zeigt es im Februar mit langen dünnen Trieben, und dann ist es zu spät.</p>
+
+    ${sorgen.length ? sorgen.map(x => `
+      <div class="karte">
+        <div class="karte-kopf">${x.pflanze.emoji || '🪴'} ${esc(x.pflanze.name)}${
+          x.pflanze.raum ? ' · ' + esc(x.pflanze.raum) : ''}</div>
+        <div class="beh-warten">
+          Am Platz jetzt „${esc(x.pflanze.licht)}“, im Winter noch etwa ${
+            luxText(x.imWinter)}.<br>
+          Gebraucht werden mindestens ${luxText(x.bedarf)}.
+          ${x.kritisch ? '<b>Das ist zu wenig zum Überleben.</b>' : ''}
+        </div>
+        <button class="btn sec" data-winterplatz="${x.pflanze.id}">${
+          x.pflanze.winterplatz ? '✓ Steht am Winterplatz' : 'Ans Fenster gestellt'}</button>
+      </div>`).join('')
+      : `<div class="karte karte-ruhig" style="color:var(--text-2)">
+           Bei keiner Pflanze wird es im Winter zu dunkel – jedenfalls nicht nach den
+           Lichtangaben, die eingetragen sind. Unter „Licht am Standort messen“ lässt
+           sich das für jede Pflanze prüfen.</div>`}
+
+    <button class="btn sec" data-close>Schließen</button>`;
+  openSheet('#sheet-winterlicht');
+}
+
+function winterplatzUmschalten(id) {
+  const p = DB.plants.find(x => x.id === id);
+  if (!p) return;
+  p.winterplatz = !p.winterplatz;
+  DB.logs.push({ id: uid(), plantId: id,
+                 typ: p.winterplatz ? 'winterplatz' : 'sommerplatz', ts: Date.now() });
+  save();
+  renderAll();
+  winterLichtListe();
+  toast(p.winterplatz ? '🌥 ' + p.name + ' steht am Winterplatz'
+                      : p.name + ' steht wieder am alten Platz');
+}
+
+function winterplatzZurueck() {
+  const zurueck = aktive().filter(p => p.winterplatz);
+  for (const p of zurueck) {
+    delete p.winterplatz;
+    DB.logs.push({ id: uid(), plantId: p.id, typ: 'sommerplatz', ts: Date.now() });
+  }
+  winterLichtMerken();
+  toast(zurueck.length === 1 ? zurueck[0].name + ' steht wieder am alten Platz'
+                             : zurueck.length + ' Pflanzen zurückgestellt');
+}
+
 /* ---------- Neuzugang ----------
    Frisch gekaufte Pflanzen bringen fast immer etwas mit. Im Gartencenter
    fällt es nicht auf: dort ist es kühl, feucht und hell, die Population
@@ -6467,6 +6659,7 @@ function openDetail(id) {
       <span class="topf-art">Dünger bei jeder Gabe</span>
     </div>` : ''}
     ${istNeuzugang(p) ? `<div class="topf-arten"><span class="topf-art">🆕 In Eingewöhnung</span><span class="topf-art">getrennt aufstellen</span></div>` : ''}
+    ${p.winterplatz ? `<div class="topf-arten"><span class="topf-art">🌥 Am Winterplatz</span></div>` : ''}
     ${freilandChipsHTML(p)}
     ${phaseChipsHTML(p)}
     ${raumChipHTML(p) ? `<div class="topf-arten">${raumChipHTML(p)}</div>` : ''}
@@ -6617,6 +6810,8 @@ function logText(typ, text) {
   if (String(typ).startsWith('eigen:')) return '📌 ' + eigenName(typ);
   if (typ === 'kontrolle') return '🔍 Kontrolliert: ' + (text || 'Schädlinge');
   if (typ === 'licht') return '💡 Licht gemessen';
+  if (typ === 'winterplatz') return '🌥 An den Winterplatz gestellt';
+  if (typ === 'sommerplatz') return '☀️ Zurück an den alten Platz';
   if (typ === 'neuzugang') return '🆕 Eingewöhnung begonnen';
   if (typ === 'eingewoehnt') return '🏡 Eingewöhnt';
   if (typ === 'rausgestellt') return '🌤 Nach draußen gestellt';
@@ -7328,6 +7523,11 @@ function bind() {
   $('#zeile-sicherungen').onclick = sicherungenOeffnen;
   $('#zeile-raeume').onclick = raeumeOeffnen;
   $('#zeile-ort').onclick = ortOeffnen;
+  $('#set-winterlicht').onchange = e => {
+    DB.settings.winterlicht = e.target.checked;
+    save(); renderAll();
+    toast(e.target.checked ? 'Hinweis zum Winterstandort an' : 'Hinweis abgeschaltet');
+  };
   $('#set-schaedling').onchange = e => {
     DB.settings.schaedlingWarnung = e.target.checked;
     save(); renderAll();
@@ -7359,7 +7559,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen],[data-draussen],[data-reinholen],[data-licht],[data-schatten],[data-licht-uebernehmen],[data-licht-neu],[data-plan],[data-monat],[data-etikett],[data-etikett-raum],[data-etikett-alle],[data-etikett-druck],[data-schaedling-hilfe],[data-schaedling-ok],[data-duenger],[data-vergleich],[data-vgl-links],[data-vgl-rechts],[data-neu-schritt],[data-neu-ende]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen],[data-draussen],[data-reinholen],[data-licht],[data-schatten],[data-licht-uebernehmen],[data-licht-neu],[data-plan],[data-monat],[data-etikett],[data-etikett-raum],[data-etikett-alle],[data-etikett-druck],[data-schaedling-hilfe],[data-schaedling-ok],[data-duenger],[data-vergleich],[data-vgl-links],[data-vgl-rechts],[data-neu-schritt],[data-neu-ende],[data-winterlicht-liste],[data-winterlicht-ok],[data-winterlicht-zurueck],[data-winterplatz]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -7386,6 +7586,15 @@ function bind() {
       return;
     }
     if (t.dataset.ort) { e.stopPropagation(); ortWaehlen(t.dataset.ort); return; }
+    if (t.dataset.winterlichtListe !== undefined) { e.stopPropagation(); winterLichtListe(); return; }
+    if (t.dataset.winterlichtOk !== undefined) {
+      e.stopPropagation();
+      winterLichtMerken();
+      toast('Diesen Monat kommt der Hinweis nicht wieder');
+      return;
+    }
+    if (t.dataset.winterlichtZurueck !== undefined) { e.stopPropagation(); winterplatzZurueck(); return; }
+    if (t.dataset.winterplatz) { e.stopPropagation(); winterplatzUmschalten(t.dataset.winterplatz); return; }
     if (t.dataset.neuSchritt) {
       e.stopPropagation();
       neuzugangSchrittErledigt(t.dataset.pid, t.dataset.neuSchritt);

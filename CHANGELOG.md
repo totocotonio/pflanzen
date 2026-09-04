@@ -1,5 +1,37 @@
 # Changelog
 
+## v3.16.0 - 2026-09-01
+
+### Winterstandort: wer muss ans Fenster
+
+Im Dezember kommt in der Wohnung etwa ein Drittel des Sommerlichts an – die
+Sonne steht flach, der Himmel ist bedeckt, die Tage sind kurz. Ein Platz, der
+im Juli reichlich hell war, liegt im Januar oft unter dem, was die Pflanze zum
+Wachsen braucht.
+
+Man merkt es nicht: Der Raum sieht gleich aus, das Auge gleicht aus. Die
+Pflanze zeigt es erst im Februar mit langen dünnen Trieben – dann ist der
+Winter fast vorbei und der Schaden da.
+
+- **September bis November** nennt die App die Pflanzen, bei denen der Platz im
+  Winter nicht mehr reicht, mit den Zahlen dazu: „Am Platz jetzt ‚Hell', im
+  Winter noch etwa 1.200 lx. Gebraucht werden mindestens 2.000 lx."
+- Umgestellte Pflanzen lassen sich als **„am Winterplatz"** markieren.
+- **März und April** die Gegenrichtung: Erinnerung, sie zurückzustellen – bevor
+  die Frühjahrssonne Blätter verbrennt, die den Winter im Halbschatten
+  verbracht haben.
+- Abschaltbar unter Mehr → Erinnerungen.
+
+Beim Testen zweimal nachgeschärft, weil die Aussage sonst nicht gestimmt hätte:
+
+- Pflanzen, die **schon jetzt** zu dunkel stehen, tauchen nicht auf. Das ist
+  kein Winterproblem, sondern ein Standortproblem – dafür gibt es die
+  Lichtmessung.
+- Pflanzen in **Vollsonne** ebenfalls nicht. Ein Kaktus am Südfenster kann
+  nicht heller gestellt werden; für ihn ist die kühle Ruhephase die Antwort,
+  nicht ein neuer Platz. Ohne diese beiden Regeln wurden sechs von acht
+  Pflanzen gemeldet, die meisten davon sinnlos.
+
 ## v3.15.0 - 2026-09-01
 
 ### Neuzugang: Quarantäne und Eingewöhnung

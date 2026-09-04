@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=3.15.0">
+<link rel="stylesheet" href="style.css?v=3.16.0">
 </head>
 <body>
 
@@ -58,6 +58,7 @@
 
     <div id="frost-warnung"></div>
     <div id="schaedling-warnung"></div>
+    <div id="winterlicht-warnung"></div>
     <div id="sorgen-hinweis" hidden></div>
     <div id="wetter-hinweis" hidden></div>
     <div id="heute-liste"></div>
@@ -135,6 +136,10 @@
       <div class="field">
         <label>Erinnerung um</label>
         <input type="time" id="set-pushzeit" value="09:00">
+      </div>
+      <div class="field">
+        <label>Winterstandort-Hinweis</label>
+        <span class="hint"><input type="checkbox" class="schalter" id="set-winterlicht" checked></span>
       </div>
       <div class="field">
         <label>Schädlings-Hinweise</label>
@@ -563,6 +568,11 @@
   <div class="panel" id="sicherung-inhalt"></div>
 </div>
 
+<div class="sheet" id="sheet-winterlicht">
+  <div class="backdrop" data-close></div>
+  <div class="panel" id="winterlicht-inhalt"></div>
+</div>
+
 <div class="sheet" id="sheet-vergleich">
   <div class="backdrop" data-close></div>
   <div class="panel" id="vergleich-inhalt"></div>
@@ -629,6 +639,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=3.15.0"></script>
+<script src="app.js?v=3.16.0"></script>
 </body>
 </html>
