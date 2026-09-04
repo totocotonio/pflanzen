@@ -1,5 +1,25 @@
 # Changelog
 
+## v3.14.0 - 2026-09-01
+
+### Fotovergleich
+
+Pflanzenwachstum sieht man im Alltag nicht. Es passiert über Monate, und das
+Auge hat kein Gedächtnis für Zwischenstände – man erinnert sich nicht, wie
+klein sie mal war. Die Fotos lagen längst im Verlauf, nur nebeneinander in
+einer Reihe.
+
+- **Zwei Aufnahmen direkt gegenübergestellt**, mit dem Abstand dazwischen:
+  „10 Monate dazwischen", „2,5 Jahre dazwischen".
+- Beim Öffnen stehen automatisch **ältestes und neuestes Bild** nebeneinander –
+  der größte Abstand zeigt am meisten. Beide lassen sich frei wählen.
+- Die Reihenfolge richtet sich nach dem Datum, nicht nach der Auswahl: Wer
+  versehentlich das neuere als „Vorher" antippt, bekommt trotzdem die richtige
+  Anordnung.
+- Bewusst nebeneinander statt als Wischvergleich: Aufnahmen aus der Hand sind
+  nie deckungsgleich, ein Überblenden würde nur springen.
+- Der Knopf erscheint in der Galerie, sobald zwei Fotos da sind.
+
 ## v3.13.3 - 2026-09-01
 
 ### „Große Etiketten" war nicht erklärt

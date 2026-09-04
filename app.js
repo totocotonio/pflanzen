@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.13.3';
+const VERSION = '3.14.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -714,6 +714,11 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.14.0', datum: '01.09.2026', punkte: [
+    'Fotovergleich: zwei Aufnahmen direkt gegenübergestellt, mit dem Abstand dazwischen – „10 Monate dazwischen“.',
+    'Beim Öffnen stehen ältestes und neuestes Bild nebeneinander, beides lässt sich frei wählen.',
+    'Pflanzenwachstum sieht man im Alltag nicht, weil es zu langsam geht. Im Vergleich schon.'
+  ]},
   { v: '3.13.3', datum: '01.09.2026', punkte: [
     '„Große Etiketten" stand als nackter Schalter ohne Erklärung da. Jetzt steht dabei, was er tut und wofür er gedacht ist.',
     'Dazu die Angabe, wie viele Etiketten auf eine Seite passen.',
@@ -2146,7 +2151,10 @@ function fotoGalerieHTML(p) {
     </button>`).join('');
   const platz = liste.length < FOTOS_MAX
     ? `<button class="galerie-neu" data-foto-neu="${p.id}">＋<span>Foto</span></button>` : '';
-  return `<div class="galerie">${bilder}${platz}</div>`;
+  return `<div class="galerie">${bilder}${platz}</div>` +
+    (liste.length >= 2
+      ? `<button class="btn sec" data-vergleich="${p.id}">↔ Vorher und nachher vergleichen</button>`
+      : '');
 }
 
 async function fotoHinzufuegen(pid, datei) {
@@ -4031,6 +4039,99 @@ function rundeWeiter(pid) {
   runde.index++;
   rundeZeichnen();
   openSheet('#sheet-runde');
+}
+
+/* ---------- Fotovergleich ----------
+   Pflanzenwachstum sieht man im Alltag nicht. Es passiert über Monate, und
+   das Auge hat kein Gedächtnis für Zwischenstände – man erinnert sich nicht,
+   wie klein sie mal war. Genau dafür liegen die Fotos schon im Verlauf, nur
+   nebeneinander in einer Reihe.
+
+   Zwei Aufnahmen direkt gegenübergestellt, mit dem Abstand dazwischen: Das
+   ist der Moment, in dem aus einer Sammlung Bilder etwas Sichtbares wird.
+
+   Bewusst nebeneinander statt als Wischvergleich: Aufnahmen aus der Hand sind
+   nie deckungsgleich, ein Überblenden würde nur springen. */
+let vergleichLinks = null;
+let vergleichRechts = null;
+let vergleichPflanze = null;
+
+/** Menschlicher Abstand zwischen zwei Aufnahmen. */
+function zeitAbstand(alt, neu) {
+  // Abrunden, nicht runden: Zwei Aufnahmen zwölf Stunden auseinander sind
+  // nicht "ein Tag dazwischen", sondern derselbe Tag.
+  const tage = Math.floor((neu - alt) / 86400000);
+  if (tage < 1) return 'am selben Tag';
+  if (tage === 1) return 'ein Tag dazwischen';
+  if (tage < 14) return tage + ' Tage dazwischen';
+  if (tage < 60) return Math.round(tage / 7) + ' Wochen dazwischen';
+  if (tage < 365) return Math.round(tage / 30) + ' Monate dazwischen';
+  const jahre = tage / 365;
+  return jahre < 1.4 ? 'ein Jahr dazwischen'
+    : (Math.round(jahre * 10) / 10).toFixed(1).replace('.', ',') + ' Jahre dazwischen';
+}
+
+function vergleichOeffnen(pid) {
+  const p = DB.plants.find(x => x.id === pid);
+  const liste = fotosVon(p).slice().sort((a, b) => a.ts - b.ts);
+  if (liste.length < 2) {
+    toast('Dafür braucht es mindestens zwei Fotos');
+    return;
+  }
+  vergleichPflanze = pid;
+  // Der größte Abstand zeigt am meisten: ältestes gegen neuestes
+  vergleichLinks = liste[0].id;
+  vergleichRechts = liste[liste.length - 1].id;
+  vergleichZeichnen();
+  openSheet('#sheet-vergleich');
+}
+
+function vergleichZeichnen() {
+  const p = DB.plants.find(x => x.id === vergleichPflanze);
+  if (!p) return;
+  const liste = fotosVon(p).slice().sort((a, b) => a.ts - b.ts);
+  const links = liste.find(f => f.id === vergleichLinks) || liste[0];
+  const rechts = liste.find(f => f.id === vergleichRechts) || liste[liste.length - 1];
+
+  const datum = f => new Date(f.ts).toLocaleDateString('de-DE',
+    { day: 'numeric', month: 'long', year: 'numeric' });
+  const kurz = f => new Date(f.ts).toLocaleDateString('de-DE',
+    { day: 'numeric', month: 'short', year: '2-digit' });
+
+  // Die Reihenfolge richtet sich nach dem Datum, nicht nach der Auswahl
+  const [a, b] = links.ts <= rechts.ts ? [links, rechts] : [rechts, links];
+
+  $('#vergleich-inhalt').innerHTML = `
+    <div class="grabber"></div>
+    <h2>${esc(p.name)}</h2>
+    <p class="sheet-hinweis">${a.id === b.id ? 'Zweimal dasselbe Foto – wähle unten zwei verschiedene.'
+      : esc(zeitAbstand(a.ts, b.ts))}</p>
+
+    <div class="vergleich">
+      <figure><img src="${a.bild}" alt=""><figcaption>${datum(a)}</figcaption></figure>
+      <figure><img src="${b.bild}" alt=""><figcaption>${datum(b)}</figcaption></figure>
+    </div>
+
+    <div class="section-title">Vorher</div>
+    <div class="galerie">${liste.map(f => `
+      <button class="galerie-bild ${f.id === links.id ? 'gewaehlt' : ''}"
+              data-vgl-links="${f.id}">
+        <img src="${f.bild}" alt=""><span>${kurz(f)}</span>
+      </button>`).join('')}</div>
+
+    <div class="section-title">Nachher</div>
+    <div class="galerie">${liste.map(f => `
+      <button class="galerie-bild ${f.id === rechts.id ? 'gewaehlt' : ''}"
+              data-vgl-rechts="${f.id}">
+        <img src="${f.bild}" alt=""><span>${kurz(f)}</span>
+      </button>`).join('')}</div>
+
+    <button class="btn sec" data-close>Schließen</button>`;
+}
+
+function vergleichWaehlen(seite, id) {
+  if (seite === 'links') vergleichLinks = id; else vergleichRechts = id;
+  vergleichZeichnen();
 }
 
 /* ---------- Düngerrechner ----------
@@ -7080,7 +7181,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen],[data-draussen],[data-reinholen],[data-licht],[data-schatten],[data-licht-uebernehmen],[data-licht-neu],[data-plan],[data-monat],[data-etikett],[data-etikett-raum],[data-etikett-alle],[data-etikett-druck],[data-schaedling-hilfe],[data-schaedling-ok],[data-duenger]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen],[data-draussen],[data-reinholen],[data-licht],[data-schatten],[data-licht-uebernehmen],[data-licht-neu],[data-plan],[data-monat],[data-etikett],[data-etikett-raum],[data-etikett-alle],[data-etikett-druck],[data-schaedling-hilfe],[data-schaedling-ok],[data-duenger],[data-vergleich],[data-vgl-links],[data-vgl-rechts]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -7107,6 +7208,14 @@ function bind() {
       return;
     }
     if (t.dataset.ort) { e.stopPropagation(); ortWaehlen(t.dataset.ort); return; }
+    if (t.dataset.vergleich) {
+      e.stopPropagation();
+      closeSheets();
+      setTimeout(() => vergleichOeffnen(t.dataset.vergleich), 180);
+      return;
+    }
+    if (t.dataset.vglLinks) { e.stopPropagation(); vergleichWaehlen('links', t.dataset.vglLinks); return; }
+    if (t.dataset.vglRechts) { e.stopPropagation(); vergleichWaehlen('rechts', t.dataset.vglRechts); return; }
     if (t.dataset.duenger) {
       e.stopPropagation();
       closeSheets();

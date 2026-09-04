@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** ✅ Live (v3.13.3)
+**Status:** ✅ Live (v3.14.0)
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -41,7 +41,7 @@ Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in 
 ✅ **Semi-Hydrokultur** – Blähton, Pon, Seramis: „Nachfüllen" statt Gießen, Dünger bei jeder Gabe, Aufgabe „Substrat spülen" gegen Salzablagerungen; Umtopfen und Düngeintervall entfallen
 ✅ **Foto oder Emoji** – Kamera-/Galerie-Foto wird auf die Pixeldichte des Geräts verkleinert (bis 1100 px) und als JPEG in den localStorage gelegt; alternativ 24 Emoji zur Auswahl
 ✅ **Pflegevorschläge** – 91 Arten und Sorten mit Richtwerten für Intervall, Licht, Menge und Pflegehinweis; erkennt Zweitnamen („Benjamini"), Mehrzahl („Efeutüten") und Umlaut-Schreibweisen
-✅ **Fotoverlauf** – bis zu sechs Bilder je Pflanze mit Datum, Großansicht per Antippen
+✅ **Fotoverlauf** – bis zu sechs Bilder je Pflanze mit Datum, Großansicht per Antippen, Vorher-Nachher-Vergleich mit Zeitabstand
 ✅ **Update-Hinweis** – meldet sich, sobald eine neue Fassung bereitliegt; der Wechsel passiert erst auf Knopfdruck
 ✅ **Statistik** – Gießvorgänge je Woche, Wasserverbrauch, Pünktlichkeit je Pflanze
 ✅ **Suche** – über Name, Art, Standort, Notiz, Licht und Menge; mehrere Wörter in beliebiger Reihenfolge
@@ -112,7 +112,7 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
 | Design | warme Grün- und Erdtöne, hell und dunkel, System-Schriften, `env(safe-area-inset-*)` |
 | Speicher | `localStorage`, Schlüssel `pg_data` |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v3.13.3` |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v3.14.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
 | Push | Web Push API + VAPID, pywebpush, systemd-Timer alle 15 Minuten |
 | Hosting | LXC Container auf Proxmox |
@@ -280,6 +280,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v3.14.0** | Fotovergleich: vorher und nachher gegenübergestellt |
 | **v3.13.3** | „Große Etiketten" erklärt, unsichtbare Schalter behoben |
 | **v3.13.2** | Standort-Chip bei den Etiketten wählte das Falsche |
 | **v3.13.1** | Etikettendruck ergab ein weißes Blatt |
