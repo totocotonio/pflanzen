@@ -1,5 +1,27 @@
 # Changelog
 
+## v3.17.0 - 2026-09-01
+
+### Statistik, die etwas aussagt
+
+Zahlen sind nur etwas wert, wenn man daraus etwas ableiten kann. „412
+Gießvorgänge" ist eine Zahl. „Der Zitronenbaum macht ein Drittel deiner Arbeit"
+ist eine Erkenntnis – die kann man umsetzen.
+
+- **Wer macht die Arbeit**: Anteil aller Handgriffe der letzten drei Monate je
+  Pflanze. „In den letzten drei Monaten entfiel 71 % aller Handgriffe auf
+  Monstera – das ist viel für eine von acht."
+- **Wo es hakt**: Pflanzen mit Behandlungen, schlechtem Zustand oder langer
+  Überfälligkeit, mit dem jeweiligen Grund.
+- **Nach Standort**: Pflanzen, Sorgenkinder und Überfällige je Zimmer. Häufen
+  sich die Sorgen in einem Raum, steht der Hinweis dabei: „Bei so einer Häufung
+  liegt es meist am Standort, nicht an den Pflanzen – Licht, Zugluft oder
+  Heizung prüfen."
+- **Wasser je Monat** über die letzten sechs Monate als Balken.
+
+Alle vier Abschnitte erscheinen nur, wenn genug Daten da sind – bei drei
+Einträgen ist jede Aussage darüber Zufall.
+
 ## v3.16.0 - 2026-09-01
 
 ### Winterstandort: wer muss ans Fenster

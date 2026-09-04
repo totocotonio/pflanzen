@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.16.0';
+const VERSION = '3.17.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -714,6 +714,11 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.17.0', datum: '01.09.2026', punkte: [
+    'Die Statistik sagt jetzt etwas: Wer macht die meiste Arbeit, wo hakt es, wie sieht es je Standort aus.',
+    'Häufen sich die Sorgen in einem Zimmer, weist die App darauf hin – dann liegt es meist am Standort, nicht an den Pflanzen.',
+    'Dazu der Wasserverbrauch der letzten sechs Monate.'
+  ]},
   { v: '3.16.0', datum: '01.09.2026', punkte: [
     'Winterstandort: Im Herbst zeigt die App, welche Pflanzen an ihrem Platz zu wenig Licht bekommen werden.',
     'Am selben Platz kommt im Dezember etwa ein Drittel des Sommerlichts an – das merkt man nicht, die Pflanze zeigt es erst im Februar mit langen dünnen Trieben.',
@@ -2346,6 +2351,8 @@ function zeigeStatistik() {
       Verglichen wird der tatsächliche Abstand zwischen zwei Gießvorgängen mit
       dem eingestellten Intervall. Längere Pausen, etwa im Urlaub, bleiben außen vor.</p>`;
   }
+
+  html += auswertungHTML();
 
   // Häufigkeit je Aufgabe
   const proTyp = {};
@@ -4068,6 +4075,169 @@ function rundeWeiter(pid) {
   runde.index++;
   rundeZeichnen();
   openSheet('#sheet-runde');
+}
+
+/* ---------- Auswertung ----------
+   Zahlen sind nur dann etwas wert, wenn man daraus etwas ableiten kann.
+   „412 Gießvorgänge" ist eine Zahl. „Der Zitronenbaum macht ein Drittel
+   deiner Arbeit" ist eine Erkenntnis – die kann man umsetzen, indem man ihn
+   umstellt, umtopft oder abgibt.
+
+   Deshalb hier drei Fragen statt einer Zahlenwand: Wer macht Arbeit, wo geht
+   etwas schief, und wie sieht es je Standort aus. */
+
+/** Aufwand je Pflanze: alles, was Handeln erfordert hat. */
+function aufwandJePflanze(tage) {
+  const grenze = Date.now() - tage * 86400000;
+  const zaehler = {};
+  for (const l of DB.logs) {
+    if (l.ts < grenze) continue;
+    // Notizen und Zustandsänderungen sind keine Arbeit an der Pflanze
+    if (['notiz', 'zustand', 'licht', 'kontrolle'].includes(l.typ)) continue;
+    zaehler[l.plantId] = (zaehler[l.plantId] || 0) + 1;
+  }
+  return Object.entries(zaehler)
+    .map(([id, anzahl]) => ({ pflanze: DB.plants.find(p => p.id === id), anzahl }))
+    .filter(x => x.pflanze)
+    .sort((a, b) => b.anzahl - a.anzahl);
+}
+
+/** Wo es Ärger gab: Behandlungen, schlechter Zustand, Überfälligkeit. */
+function problemJePflanze(tage) {
+  const grenze = Date.now() - tage * 86400000;
+  const zaehler = {};
+  const zaehle = (id, punkte) => { zaehler[id] = (zaehler[id] || 0) + punkte; };
+
+  for (const l of DB.logs) {
+    if (l.ts < grenze) continue;
+    if (l.typ === 'behandlung-start') zaehle(l.plantId, 3);
+    if (l.typ === 'zustand' && /schlecht/i.test(l.text || '')) zaehle(l.plantId, 2);
+    if (l.typ === 'zustand' && /schwächelt/i.test(l.text || '')) zaehle(l.plantId, 1);
+  }
+  for (const p of aktive()) {
+    if (behandlungVon(p)) zaehle(p.id, 3);
+    if (zustandVon(p) === 'schlecht') zaehle(p.id, 2);
+    else if (zustandVon(p) === 'mittel') zaehle(p.id, 1);
+    const t = tageBis(p);
+    if (t < -7) zaehle(p.id, 1);
+  }
+
+  return Object.entries(zaehler)
+    .map(([id, punkte]) => ({ pflanze: DB.plants.find(p => p.id === id), punkte }))
+    .filter(x => x.pflanze && !x.pflanze.archiviert)
+    .sort((a, b) => b.punkte - a.punkte);
+}
+
+/** Wie läuft es je Standort? */
+function standortBilanz() {
+  const raeume = {};
+  for (const p of aktive()) {
+    const raum = p.raum || 'Ohne Standort';
+    raeume[raum] ||= { anzahl: 0, sorgen: 0, ueberfaellig: 0 };
+    raeume[raum].anzahl++;
+    if (zustandVon(p) !== 'gut' || behandlungVon(p)) raeume[raum].sorgen++;
+    if (tageBis(p) < 0) raeume[raum].ueberfaellig++;
+  }
+  return Object.entries(raeume)
+    .map(([raum, w]) => ({ raum, ...w, anteil: w.sorgen / w.anzahl }))
+    .sort((a, b) => b.anteil - a.anteil || b.anzahl - a.anzahl);
+}
+
+/** Wasserverbrauch je Monat, die letzten sechs. */
+function wasserJeMonat() {
+  const monate = [];
+  const jetzt = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(jetzt.getFullYear(), jetzt.getMonth() - i, 1);
+    monate.push({ jahr: d.getFullYear(), monat: d.getMonth(), ml: 0, anzahl: 0,
+                  name: d.toLocaleDateString('de-DE', { month: 'short' }) });
+  }
+  for (const l of DB.logs) {
+    if (l.typ !== 'wasser') continue;
+    const d = new Date(l.ts);
+    const treffer = monate.find(m => m.jahr === d.getFullYear() && m.monat === d.getMonth());
+    if (!treffer) continue;
+    treffer.anzahl++;
+    const p = DB.plants.find(x => x.id === l.plantId);
+    const ml = p && mengeMl(p);
+    if (ml) treffer.ml += ml;
+  }
+  return monate;
+}
+
+function literText(ml) {
+  return ml >= 1000 ? (ml / 1000).toFixed(1).replace('.', ',') + ' l' : Math.round(ml) + ' ml';
+}
+
+/** Der ausgewertete Teil der Statistik. */
+function auswertungHTML() {
+  const aufwand = aufwandJePflanze(90);
+  const probleme = problemJePflanze(90).filter(x => x.punkte >= 2);
+  const standorte = standortBilanz();
+  const monate = wasserJeMonat();
+  const gesamt = aufwand.reduce((n, x) => n + x.anzahl, 0);
+  let html = '';
+
+  if (aufwand.length >= 3 && gesamt >= 10) {
+    const spitze = aufwand[0];
+    const anteil = Math.round((spitze.anzahl / gesamt) * 100);
+    html += `<div class="section-title">Wer macht die Arbeit</div>
+      <div class="karte karte-ruhig" style="color:var(--text-2);line-height:1.5">
+        In den letzten drei Monaten entfiel <b>${anteil} %</b> aller Handgriffe auf
+        ${esc(spitze.pflanze.name)}${anteil >= 30
+          ? ' – das ist viel für eine von ' + aktive().length + '.' : '.'}
+      </div>
+      <div class="group">${aufwand.slice(0, 5).map(x => `
+        <div class="field"><label>${x.pflanze.emoji || '🪴'} ${esc(x.pflanze.name)}</label>
+          <span class="hint">${x.anzahl}×</span></div>`).join('')}</div>`;
+  }
+
+  if (probleme.length) {
+    html += `<div class="section-title">Wo es hakt</div>
+      <div class="group">${probleme.slice(0, 5).map(x => {
+        const p = x.pflanze;
+        const gruende = [];
+        if (behandlungVon(p)) gruende.push('in Behandlung');
+        if (zustandVon(p) === 'schlecht') gruende.push('geht ihr schlecht');
+        else if (zustandVon(p) === 'mittel') gruende.push('schwächelt');
+        if (tageBis(p) < -7) gruende.push(Math.abs(tageBis(p)) + ' Tage überfällig');
+        return `<div class="field"><label>${p.emoji || '🪴'} ${esc(p.name)}</label>
+          <span class="hint">${esc(gruende.join(' · ') || 'zuletzt auffällig')}</span></div>`;
+      }).join('')}</div>`;
+  }
+
+  if (standorte.length > 1) {
+    html += `<div class="section-title">Nach Standort</div>
+      <div class="group">${standorte.map(s => `
+        <div class="field"><label>${esc(s.raum)}</label>
+          <span class="hint">${s.anzahl} ${s.anzahl === 1 ? 'Pflanze' : 'Pflanzen'}${
+            s.sorgen ? ' · ' + s.sorgen + ' mit Sorgen' : ''}${
+            s.ueberfaellig ? ' · ' + s.ueberfaellig + ' überfällig' : ''}</span></div>`).join('')}</div>`;
+    const schlecht = standorte[0];
+    if (schlecht.sorgen && schlecht.anteil >= 0.5 && schlecht.anzahl >= 2) {
+      html += `<div class="karte karte-ruhig" style="color:var(--text-2);line-height:1.5">
+        Im ${esc(schlecht.raum)} geht es ${schlecht.sorgen} von ${schlecht.anzahl} Pflanzen
+        nicht gut. Bei so einer Häufung liegt es meist am Standort, nicht an den
+        Pflanzen – Licht, Zugluft oder Heizung prüfen.</div>`;
+    }
+  }
+
+  const mitWasser = monate.filter(m => m.ml > 0);
+  if (mitWasser.length >= 2) {
+    const hoechst = Math.max(...monate.map(m => m.ml));
+    html += `<div class="section-title">Wasser je Monat</div><div class="card"><div class="balken">`;
+    for (const m of monate) {
+      const hoehe = hoechst ? Math.round((m.ml / hoechst) * 100) : 0;
+      html += `<div class="balken-spalte">
+        <div class="balken-zahl">${m.ml ? literText(m.ml) : ''}</div>
+        <div class="balken-stab" style="height:${Math.max(hoehe, m.ml ? 6 : 2)}%"></div>
+        <div class="balken-text">${esc(m.name)}</div>
+      </div>`;
+    }
+    html += `</div></div>`;
+  }
+
+  return html;
 }
 
 /* ---------- Winterstandort ----------
