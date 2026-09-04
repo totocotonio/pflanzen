@@ -1,5 +1,33 @@
 # Changelog
 
+## v3.15.0 - 2026-09-01
+
+### Neuzugang: Quarantäne und Eingewöhnung
+
+Frisch gekaufte Pflanzen bringen fast immer etwas mit. Im Gartencenter fällt es
+nicht auf – dort ist es kühl, feucht und hell, die Population bleibt klein. Im
+warmen Wohnzimmer verdoppelt sie sich in Tagen und sitzt dann auf allem, was
+danebensteht. Das ist der häufigste Weg, wie sich ein Befall in eine Sammlung
+holt, und mit zwei Wochen Abstand fast vollständig vermeidbar.
+
+- Ein Schalter **„Neu gekauft oder geschenkt"** startet einen Plan über vier
+  Wochen: getrennt aufstellen, absuchen, nach 3, 7 und 14 Tagen kontrollieren,
+  nach 28 Tagen umtopfen.
+- Dazu, was man in dieser Zeit **nicht** tun soll: nicht umtopfen (der Ballen
+  trägt sie wochenlang), nicht düngen (Handelserde ist vorgedüngt), und
+  Blattfall nach dem Standortwechsel ist normal – kein Grund, mehr zu gießen.
+- Die offenen Schritte stehen in der Tagesansicht unter „Neu dabei" und als
+  Karte in der Pflanze, mit Fortschritt.
+- Nach dem letzten Schritt endet die Eingewöhnung von selbst.
+
+### Nebenbei behoben
+
+- In der Detailansicht standen die Freiland-Angaben („steht drinnen", „Im
+  Sommer draußen", „bis 8 °C") **doppelt**. Ursache: Ein Patch-Skript aus
+  v3.7.0 hatte denselben Ersetzungsblock zweimal enthalten. Dadurch waren auch
+  drei Felder im Speichern-Objekt doppelt vorhanden – syntaktisch erlaubt, aber
+  falsch.
+
 ## v3.14.0 - 2026-09-01
 
 ### Fotovergleich

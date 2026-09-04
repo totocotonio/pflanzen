@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** ✅ Live (v3.14.0)
+**Status:** ✅ Live (v3.15.0)
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -57,6 +57,7 @@ Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in 
 ✅ **Im Freien** – vier Kältestufen je Pflanze; sinkt das Nachtminimum darunter, warnt die App nachmittags per Push
 ✅ **Raumtemperaturen** – Sommer- und Winterbereich je Standort; ersetzt den pauschalen Winter-Modus, unter 15 °C wird nicht gedüngt
 ✅ **Zustand** – gut / schwächelt / schlecht; verlängert das Gießintervall und pausiert das Düngen, mit Begründung
+✅ **Neuzugang** – vier Wochen Eingewöhnung mit Quarantäne und Schädlingskontrolle
 ✅ **Lebensphase** – Steckling (vier Bewurzelungsmethoden), Jungpflanze oder ausgewachsen
 ✅ **Anleitungen** – geführtes Umtopfen und Bewurzeln von Stecklingen, Schritt für Schritt, mit Zeitpunkt, Anzeichen, Material und den typischen Fehlern
 ✅ **Eigene Aufgaben** – frei anlegbar je Pflanze, mit Symbol, Intervall und Push-Erinnerung; zehn Vorlagen
@@ -112,7 +113,7 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
 | Design | warme Grün- und Erdtöne, hell und dunkel, System-Schriften, `env(safe-area-inset-*)` |
 | Speicher | `localStorage`, Schlüssel `pg_data` |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v3.14.0` |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v3.15.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
 | Push | Web Push API + VAPID, pywebpush, systemd-Timer alle 15 Minuten |
 | Hosting | LXC Container auf Proxmox |
@@ -280,6 +281,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v3.15.0** | Neuzugang: Quarantäne und Eingewöhnung |
 | **v3.14.0** | Fotovergleich: vorher und nachher gegenübergestellt |
 | **v3.13.3** | „Große Etiketten" erklärt, unsichtbare Schalter behoben |
 | **v3.13.2** | Standort-Chip bei den Etiketten wählte das Falsche |

@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.14.0';
+const VERSION = '3.15.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -714,6 +714,12 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.15.0', datum: '01.09.2026', punkte: [
+    'Neu gekaufte Pflanzen bekommen einen Eingewöhnungsplan über vier Wochen – zwei Wochen getrennt aufstellen, dreimal kontrollieren.',
+    'Frische Ware bringt fast immer Schädlinge mit. Im kühlen Gartencenter fällt das nicht auf, im warmen Zimmer verdoppelt sich die Population in Tagen.',
+    'Dazu: nicht sofort umtopfen, nicht düngen, und Blattfall nach dem Standortwechsel ist normal.',
+    'Behoben: In der Detailansicht standen die Freiland-Angaben doppelt – ein Patch war zweimal gelaufen.'
+  ]},
   { v: '3.14.0', datum: '01.09.2026', punkte: [
     'Fotovergleich: zwei Aufnahmen direkt gegenübergestellt, mit dem Abstand dazwischen – „10 Monate dazwischen“.',
     'Beim Öffnen stehen ältestes und neuestes Bild nebeneinander, beides lässt sich frei wählen.',
@@ -1337,7 +1343,7 @@ function renderHeute() {
   }
 
   if (!faellig.length && !bald.length && !faelligeAufgaben().length
-      && !faelligeBehandlungen().length) {
+      && !faelligeBehandlungen().length && !faelligeNeuzugaenge().length) {
     const naechst = liste.slice().sort((a, b) => tageBis(a) - tageBis(b))[0];
     box.innerHTML = `<div class="empty"><div class="big">✅</div>
       <p><b>Alles gegossen</b></p>
@@ -1361,6 +1367,22 @@ function renderHeute() {
     html += `<div class="section-title">Demnächst</div>`;
     html += bald.sort((a, b) => tageBis(a) - tageBis(b)).map(plantRow).join('');
   }
+  const neuzugaenge = faelligeNeuzugaenge();
+  if (neuzugaenge.length) {
+    html += `<div class="section-title">Neu dabei</div>`;
+    html += neuzugaenge.map(({ pflanze, offen }) => `
+      <div class="plant" data-open="${pflanze.id}">
+        ${avatarHTML(pflanze)}
+        <div class="info">
+          <div class="nm">${esc(pflanze.name)}</div>
+          <div class="meta">Eingewöhnung · ${
+            offen.length === 1 ? 'ein Schritt' : offen.length + ' Schritte'} offen</div>
+        </div>
+        <button class="water-btn due" data-neu-schritt="${offen[0].i}" data-pid="${pflanze.id}"
+          title="${esc(offen[0].text)}">🆕</button>
+      </div>`).join('');
+  }
+
   const behandlungen = faelligeBehandlungen();
   if (behandlungen.length) {
     html += `<div class="section-title">Behandlung</div>`;
@@ -4041,6 +4063,146 @@ function rundeWeiter(pid) {
   openSheet('#sheet-runde');
 }
 
+/* ---------- Neuzugang ----------
+   Frisch gekaufte Pflanzen bringen fast immer etwas mit. Im Gartencenter
+   fällt es nicht auf: dort ist es kühl, feucht und hell, die Population
+   bleibt klein. Im warmen Wohnzimmer verdoppelt sie sich in Tagen – und
+   sitzt dann auf allem, was danebensteht.
+
+   Das ist der häufigste Weg, wie sich ein Befall in eine Sammlung holt, und
+   er ist mit zwei Wochen Abstand fast vollständig vermeidbar.
+
+   Dazu kommt die Eingewöhnung: Die Pflanze kam aus einem Gewächshaus mit
+   perfekten Bedingungen. Sie wirft danach fast immer Blätter ab – das ist
+   normal und kein Grund, mehr zu gießen oder gleich umzutopfen. */
+const NEUZUGANG_PLAN = [
+  { tag: 0, text: 'Getrennt von den anderen Pflanzen aufstellen – ein anderer Raum ' +
+      'oder wenigstens ein Meter Abstand, ohne dass sich Blätter berühren.' },
+  { tag: 0, text: 'Blattunterseiten und Blattachseln absuchen. Klebrige Stellen, feine ' +
+      'Gespinste, braune Höcker, weiße Wattebäusche.' },
+  { tag: 0, text: 'Nicht umtopfen. Der Ballen ist gut durchwurzelt, das trägt sie ' +
+      'wochenlang – und Umtopfen kostet zusätzlich Kraft.' },
+  { tag: 0, text: 'Nicht düngen. Handelserde ist vorgedüngt, meist für Monate.' },
+  { tag: 3, text: 'Nachsehen. Was im Laden übersehen wurde, ist jetzt oft sichtbar.' },
+  { tag: 7, text: 'Zweite Kontrolle. Fallen Blätter? Bei Ficus und Co. nach dem ' +
+      'Standortwechsel normal – erst mal nichts ändern.' },
+  { tag: 14, text: 'Dritte Kontrolle. Bleibt sie sauber, darf sie zu den anderen.' },
+  { tag: 28, text: 'Jetzt umtopfen, wenn nötig – und ab hier normal weiterpflegen.' }
+];
+
+function istNeuzugang(p) {
+  return !!(p && p.neuSeit);
+}
+
+function neuzugangTage(p) {
+  if (!istNeuzugang(p)) return null;
+  const tage = tageDiff(fromISO(p.neuSeit), heute0());
+  return tage >= 0 ? tage : null;
+}
+
+/** Schritte des Eingewöhnungsplans mit Fälligkeit. */
+function neuzugangSchritte(p) {
+  if (!istNeuzugang(p)) return [];
+  const erledigt = new Set(p.neuErledigt || []);
+  return NEUZUGANG_PLAN.map((s, i) => {
+    const faellig = fromISO(p.neuSeit);
+    faellig.setDate(faellig.getDate() + s.tag);
+    return { i, text: s.text, tag: s.tag, faellig: toISO(faellig),
+             tage: tageDiff(heute0(), faellig), erledigt: erledigt.has(i) };
+  });
+}
+
+function neuzugangOffen(p) {
+  return neuzugangSchritte(p).filter(s => !s.erledigt && s.tage <= 0);
+}
+
+/** Über alle Pflanzen, für die Tagesansicht. */
+function faelligeNeuzugaenge() {
+  return aktive().map(p => ({ pflanze: p, offen: neuzugangOffen(p) }))
+    .filter(x => x.offen.length);
+}
+
+function neuzugangStarten(id) {
+  const p = DB.plants.find(x => x.id === id);
+  if (!p) return;
+  p.neuSeit = toISO(new Date());
+  p.neuErledigt = [];
+  DB.logs.push({ id: uid(), plantId: id, typ: 'neuzugang', ts: Date.now() });
+  save();
+  renderAll();
+  if ($('#sheet-detail').classList.contains('open')) openDetail(id);
+  toast('Eingewöhnung gestartet – vier Wochen');
+}
+
+function neuzugangSchrittErledigt(pid, i) {
+  const p = DB.plants.find(x => x.id === pid);
+  if (!p || !istNeuzugang(p)) return;
+  const nummer = Number(i);
+  const erledigt = new Set(p.neuErledigt || []);
+  if (erledigt.has(nummer)) return;
+  erledigt.add(nummer);
+  p.neuErledigt = Array.from(erledigt).sort((a, b) => a - b);
+
+  const fertig = p.neuErledigt.length >= NEUZUGANG_PLAN.length;
+  if (fertig) {
+    delete p.neuSeit;
+    delete p.neuErledigt;
+    DB.logs.push({ id: uid(), plantId: pid, typ: 'eingewoehnt', ts: Date.now() });
+  }
+  save();
+  renderAll();
+  if ($('#sheet-detail').classList.contains('open')) openDetail(pid);
+  if (navigator.vibrate) navigator.vibrate(12);
+  toast(fertig ? '✅ ' + p.name + ' ist eingewöhnt'
+               : 'Erledigt · noch ' + (NEUZUGANG_PLAN.length - p.neuErledigt.length));
+}
+
+function neuzugangBeenden(pid) {
+  const p = DB.plants.find(x => x.id === pid);
+  if (!p || !istNeuzugang(p)) return;
+  const offen = NEUZUGANG_PLAN.length - (p.neuErledigt || []).length;
+  if (offen > 0 && !confirm('Eingewöhnung beenden?\n\n' + offen +
+      ' von ' + NEUZUGANG_PLAN.length + ' Schritten sind noch offen.')) return;
+  delete p.neuSeit;
+  delete p.neuErledigt;
+  DB.logs.push({ id: uid(), plantId: pid, typ: 'eingewoehnt', ts: Date.now() });
+  save();
+  renderAll();
+  if ($('#sheet-detail').classList.contains('open')) openDetail(pid);
+  toast('Eingewöhnung beendet');
+}
+
+/** Karte in der Detailansicht. */
+function neuzugangKarteHTML(p) {
+  if (!istNeuzugang(p)) return '';
+  const schritte = neuzugangSchritte(p);
+  const getan = schritte.filter(s => s.erledigt).length;
+  const offen = schritte.filter(s => !s.erledigt && s.tage <= 0);
+  const naechst = schritte.find(s => !s.erledigt && s.tage > 0);
+  const tage = neuzugangTage(p);
+
+  return `
+    <div class="karte neuzugang">
+      <div class="karte-kopf">🆕 Neu dabei${tage !== null
+        ? ' · ' + (tage === 0 ? 'seit heute' : tage === 1 ? 'seit gestern' : 'seit ' + tage + ' Tagen')
+        : ''}</div>
+      <div class="beh-fortschritt">
+        <div class="beh-balken"><i style="width:${Math.round(getan / schritte.length * 100)}%"></i></div>
+        <span>${getan} von ${schritte.length}</span>
+      </div>
+      ${offen.map(s => `
+        <button class="tun" data-neu-schritt="${s.i}" data-pid="${p.id}">
+          <span class="tun-kreis"></span>
+          <span class="tun-text">${esc(s.text)}</span>
+          ${s.tage < 0 ? `<span class="tun-spaet">${Math.abs(s.tage)} ${
+            Math.abs(s.tage) === 1 ? 'Tag' : 'Tage'} zu spät</span>` : ''}
+        </button>`).join('')}
+      ${!offen.length && naechst ? `<div class="beh-warten">Nächster Schritt ${
+        naechst.tage === 1 ? 'morgen' : 'in ' + naechst.tage + ' Tagen'}: ${esc(naechst.text)}</div>` : ''}
+      <button class="btn sec" data-neu-ende="${p.id}">Eingewöhnung beenden</button>
+    </div>`;
+}
+
 /* ---------- Fotovergleich ----------
    Pflanzenwachstum sieht man im Alltag nicht. Es passiert über Monate, und
    das Auge hat kein Gedächtnis für Zwischenstände – man erinnert sich nicht,
@@ -6102,6 +6264,7 @@ function openEdit(id) {
   $('#f-notiz').value = p ? (p.notiz || '') : '';
   editEmoji = p ? (p.emoji || '🪴') : '🪴';
   editFoto = p ? (p.foto || null) : null;
+  $('#f-neu').checked = p ? istNeuzugang(p) : false;
   $('#f-freiland').value = p ? freilandVon(p) : 'nein';
   $('#f-mintemp').value = String(p ? kaelteGrenze(p) : 8);
   $('#f-draussen').checked = !!(p && p.draussen);
@@ -6158,9 +6321,6 @@ function speichern() {
     freiland: $('#f-freiland').value,
     minTemp: $('#f-freiland').value === 'nein' ? null : Number($('#f-mintemp').value),
     draussen: $('#f-freiland').value !== 'nein' && $('#f-draussen').checked,
-    freiland: $('#f-freiland').value,
-    minTemp: $('#f-freiland').value === 'nein' ? null : Number($('#f-mintemp').value),
-    draussen: $('#f-freiland').value !== 'nein' && $('#f-draussen').checked,
     phase: $('#f-phase').value,
     methode: $('#f-phase').value === 'steckling' ? $('#f-methode').value : '',
     phaseSeit: $('#f-phase').value === 'erwachsen' ? ''
@@ -6184,13 +6344,28 @@ function speichern() {
     licht: $('#f-licht').value,
     notiz: $('#f-notiz').value.trim()
   };
+  const neuGewuenscht = $('#f-neu').checked;
   if (editId) {
     const p = DB.plants.find(x => x.id === editId);
     Object.assign(p, daten);
+    // Der Schalter startet die Eingewoehnung oder beendet sie
+    if (neuGewuenscht && !istNeuzugang(p)) {
+      p.neuSeit = toISO(new Date());
+      p.neuErledigt = [];
+      DB.logs.push({ id: uid(), plantId: p.id, typ: 'neuzugang', ts: Date.now() });
+    } else if (!neuGewuenscht && istNeuzugang(p)) {
+      delete p.neuSeit;
+      delete p.neuErledigt;
+    }
     toast('Gespeichert');
   } else {
-    DB.plants.push(Object.assign({ id: uid(), created: Date.now() }, daten));
-    toast('🪴 ' + name + ' angelegt');
+    const frisch = Object.assign({ id: uid(), created: Date.now() }, daten);
+    if (neuGewuenscht) { frisch.neuSeit = toISO(new Date()); frisch.neuErledigt = []; }
+    DB.plants.push(frisch);
+    if (neuGewuenscht) {
+      DB.logs.push({ id: uid(), plantId: frisch.id, typ: 'neuzugang', ts: Date.now() });
+    }
+    toast('🪴 ' + name + ' angelegt' + (neuGewuenscht ? ' · Eingewöhnung läuft' : ''));
   }
   save(); renderAll(); closeSheets();
 }
@@ -6291,7 +6466,7 @@ function openDetail(id) {
       <span class="topf-art">🪨 Semi-Hydro</span>
       <span class="topf-art">Dünger bei jeder Gabe</span>
     </div>` : ''}
-    ${freilandChipsHTML(p)}
+    ${istNeuzugang(p) ? `<div class="topf-arten"><span class="topf-art">🆕 In Eingewöhnung</span><span class="topf-art">getrennt aufstellen</span></div>` : ''}
     ${freilandChipsHTML(p)}
     ${phaseChipsHTML(p)}
     ${raumChipHTML(p) ? `<div class="topf-arten">${raumChipHTML(p)}</div>` : ''}
@@ -6303,6 +6478,7 @@ function openDetail(id) {
 
     <div class="status-reihe">${kacheln}</div>
 
+    ${neuzugangKarteHTML(p)}
     ${freilandVon(p) !== 'nein' ? `
       <div class="karte">
         <div class="karte-kopf">${stehtDraussen(p) ? '🌤 Steht draußen' : '🏠 Steht drinnen'}</div>
@@ -6441,6 +6617,8 @@ function logText(typ, text) {
   if (String(typ).startsWith('eigen:')) return '📌 ' + eigenName(typ);
   if (typ === 'kontrolle') return '🔍 Kontrolliert: ' + (text || 'Schädlinge');
   if (typ === 'licht') return '💡 Licht gemessen';
+  if (typ === 'neuzugang') return '🆕 Eingewöhnung begonnen';
+  if (typ === 'eingewoehnt') return '🏡 Eingewöhnt';
   if (typ === 'rausgestellt') return '🌤 Nach draußen gestellt';
   if (typ === 'reingeholt') return '🏠 Reingeholt';
   if (typ === 'zustand') return '🩺 Zustand: ' + (text || 'geändert');
@@ -7181,7 +7359,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen],[data-draussen],[data-reinholen],[data-licht],[data-schatten],[data-licht-uebernehmen],[data-licht-neu],[data-plan],[data-monat],[data-etikett],[data-etikett-raum],[data-etikett-alle],[data-etikett-druck],[data-schaedling-hilfe],[data-schaedling-ok],[data-duenger],[data-vergleich],[data-vgl-links],[data-vgl-rechts]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen],[data-draussen],[data-reinholen],[data-licht],[data-schatten],[data-licht-uebernehmen],[data-licht-neu],[data-plan],[data-monat],[data-etikett],[data-etikett-raum],[data-etikett-alle],[data-etikett-druck],[data-schaedling-hilfe],[data-schaedling-ok],[data-duenger],[data-vergleich],[data-vgl-links],[data-vgl-rechts],[data-neu-schritt],[data-neu-ende]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -7208,6 +7386,12 @@ function bind() {
       return;
     }
     if (t.dataset.ort) { e.stopPropagation(); ortWaehlen(t.dataset.ort); return; }
+    if (t.dataset.neuSchritt) {
+      e.stopPropagation();
+      neuzugangSchrittErledigt(t.dataset.pid, t.dataset.neuSchritt);
+      return;
+    }
+    if (t.dataset.neuEnde) { e.stopPropagation(); neuzugangBeenden(t.dataset.neuEnde); return; }
     if (t.dataset.vergleich) {
       e.stopPropagation();
       closeSheets();
