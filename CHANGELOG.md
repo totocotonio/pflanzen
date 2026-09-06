@@ -1,5 +1,29 @@
 # Changelog
 
+## v3.17.1 - 2026-09-06
+
+### Behoben: „Verschieben" tat nichts
+
+Die Tages-Chips („Morgen", „2 Tage", …) verschoben **sofort** beim Antippen,
+sahen aber wie eine Auswahl aus – einer war immer markiert. Wer den markierten
+Chip sah und auf **Verschieben** drückte, hatte ein leeres Zahlenfeld: Der
+Knopf las ausschließlich dieses Feld, meldete „Zwischen 1 und 180 Tagen" und
+tat sonst nichts.
+
+- Die Chips **wählen jetzt aus**, statt sofort zu verschieben.
+- Der Knopf sagt, was er tun wird: **„Um 5 Tage verschieben"**.
+- Eine eigene Zahl schlägt die Auswahl und hebt die Markierung auf.
+
+### Zur zweiten Meldung: Erinnerung trotz Verschieben
+
+Nachgesehen: Der Aufschub selbst **funktioniert**. Auf dem Server standen sieben
+gesetzte Aufschübe, vier davon noch gültig, und der Push-Versand überspringt
+diese Pflanzen korrekt.
+
+Die Erinnerung kam trotzdem, weil **gleichzeitig 13 andere Pflanzen fällig
+waren**. Eine einzelne Pflanze zu verschieben macht die Tagesmeldung nicht
+still, solange andere anstehen – das ist so gewollt, wirkt aber wie ein Fehler.
+
 ## v3.17.0 - 2026-09-01
 
 ### Statistik, die etwas aussagt

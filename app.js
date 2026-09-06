@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.17.0';
+const VERSION = '3.17.1';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -714,6 +714,11 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.17.1', datum: '06.09.2026', punkte: [
+    'Behoben: Der Knopf „Verschieben" tat nichts, wenn man nur einen der Tages-Chips ausgewählt hatte.',
+    'Die Chips wählen jetzt aus, statt sofort zu verschieben – und der Knopf sagt, was er tun wird: „Um 5 Tage verschieben".',
+    'Eine eigene Zahl schlägt die Auswahl.'
+  ]},
   { v: '3.17.0', datum: '01.09.2026', punkte: [
     'Die Statistik sagt jetzt etwas: Wer macht die meiste Arbeit, wo hakt es, wie sieht es je Standort aus.',
     'Häufen sich die Sorgen in einem Zimmer, weist die App darauf hin – dann liegt es meist am Standort, nicht an den Pflanzen.',
@@ -3996,10 +4001,12 @@ function aufschubTageBis(p) {
 }
 
 /** Fragt, um wie viele Tage verschoben werden soll. */
+let aufschubWahl = 2;
+
 function aufschubFragen(pid) {
   const p = DB.plants.find(x => x.id === pid);
   if (!p) return;
-  const zuletzt = Number(DB.settings.aufschubTage) || 2;
+  aufschubWahl = Number(DB.settings.aufschubTage) || 2;
   const offen = aufschubTageBis(p);
   const w = wasserWorte(p);
 
@@ -4014,23 +4021,39 @@ function aufschubFragen(pid) {
 
     <div class="chip-wahl" style="margin-bottom:16px">
       ${AUFSCHUB_VORSCHLAEGE.map(t => `
-        <button type="button" class="chip ${t === zuletzt ? 'on' : ''}"
-                data-aufschub="${t}" data-pid="${p.id}">${
+        <button type="button" class="chip ${t === aufschubWahl ? 'on' : ''}"
+                data-aufschub-wahl="${t}">${
           t === 1 ? 'Morgen' : t + ' Tage'}</button>`).join('')}
     </div>
 
     <div class="field col" style="margin-bottom:12px">
       <label>Oder eine eigene Zahl</label>
       <input type="number" id="aufschub-frei" min="1" max="180" inputmode="numeric"
-             placeholder="Tage" value="${offen || ''}">
+             placeholder="Tage">
     </div>
-    <button class="btn" id="btn-aufschub-frei" data-pid="${p.id}">Verschieben</button>
+    <button class="btn" id="btn-aufschub-frei" data-pid="${p.id}">
+      ${aufschubWahl === 1 ? 'Auf morgen verschieben'
+        : 'Um ' + aufschubWahl + ' Tage verschieben'}</button>
     ${offen ? `<button class="btn sec" data-aufschub="0" data-pid="${p.id}">
       Aufschub aufheben</button>` : ''}
     <button class="btn sec" data-close>Abbrechen</button>`;
 
+  /* Eine eigene Zahl schlägt die Chip-Auswahl – wer tippt, meint das auch.
+     Vorher verschoben nur die Chips sofort, und der Knopf las ausschließlich
+     das Zahlenfeld. Wer einen Chip markiert sah und auf „Verschieben" drückte,
+     bekam nur die Meldung „Zwischen 1 und 180 Tagen" und sonst nichts. */
+  const feld = $('#aufschub-frei');
+  feld.oninput = () => {
+    const tage = Math.round(Number(feld.value) || 0);
+    $('#btn-aufschub-frei').textContent = tage >= 1 && tage <= 180
+      ? (tage === 1 ? 'Auf morgen verschieben' : 'Um ' + tage + ' Tage verschieben')
+      : 'Verschieben';
+    $$('#aufschub-inhalt .chip').forEach(c => c.classList.remove('on'));
+  };
+
   $('#btn-aufschub-frei').onclick = () => {
-    const tage = Math.round(Number($('#aufschub-frei').value) || 0);
+    const eigene = Math.round(Number(feld.value) || 0);
+    const tage = eigene >= 1 ? eigene : aufschubWahl;
     if (tage < 1 || tage > 180) { toast('Zwischen 1 und 180 Tagen'); return; }
     aufschieben(p.id, tage);
   };
@@ -7729,7 +7752,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen],[data-draussen],[data-reinholen],[data-licht],[data-schatten],[data-licht-uebernehmen],[data-licht-neu],[data-plan],[data-monat],[data-etikett],[data-etikett-raum],[data-etikett-alle],[data-etikett-druck],[data-schaedling-hilfe],[data-schaedling-ok],[data-duenger],[data-vergleich],[data-vgl-links],[data-vgl-rechts],[data-neu-schritt],[data-neu-ende],[data-winterlicht-liste],[data-winterlicht-ok],[data-winterlicht-zurueck],[data-winterplatz]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-aufschub-wahl],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen],[data-draussen],[data-reinholen],[data-licht],[data-schatten],[data-licht-uebernehmen],[data-licht-neu],[data-plan],[data-monat],[data-etikett],[data-etikett-raum],[data-etikett-alle],[data-etikett-druck],[data-schaedling-hilfe],[data-schaedling-ok],[data-duenger],[data-vergleich],[data-vgl-links],[data-vgl-rechts],[data-neu-schritt],[data-neu-ende],[data-winterlicht-liste],[data-winterlicht-ok],[data-winterlicht-zurueck],[data-winterplatz]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -7877,6 +7900,17 @@ function bind() {
       return;
     }
     if (t.dataset.aufschubFrage) { e.stopPropagation(); aufschubFragen(t.dataset.aufschubFrage); return; }
+    if (t.dataset.aufschubWahl !== undefined) {
+      e.stopPropagation();
+      aufschubWahl = Number(t.dataset.aufschubWahl);
+      const feld = $('#aufschub-frei');
+      if (feld) feld.value = '';
+      $$('#aufschub-inhalt .chip').forEach(c =>
+        c.classList.toggle('on', Number(c.dataset.aufschubWahl) === aufschubWahl));
+      $('#btn-aufschub-frei').textContent = aufschubWahl === 1
+        ? 'Auf morgen verschieben' : 'Um ' + aufschubWahl + ' Tage verschieben';
+      return;
+    }
     if (t.dataset.aufschub !== undefined) {
       e.stopPropagation();
       aufschieben(t.dataset.pid, t.dataset.aufschub);
