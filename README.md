@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** ✅ Live (v3.19.0)
+**Status:** ✅ Live (v3.20.0)
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -103,6 +103,7 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 ✅ **Sync** – Pflanzen, Verlauf und Einstellungen liegen zusätzlich auf dem Server
 ✅ **Offline-fest** – Änderungen werden gepuffert und nachgeholt, sobald wieder Verbindung besteht
 ✅ **Konflikterkennung** – jede Änderung erhöht eine Revisionsnummer; hat ein anderes Gerät zwischendurch geschrieben, fragt die App nach, statt fremde Änderungen zu überschreiben
+✅ **Warnung bei fehlgeschlagener Sicherung** – dauerhaftes Banner über jeder Ansicht mit Ursache (zu groß / Anmeldung abgelaufen / kein Netz / Serverfehler), Zeitpunkt der letzten Sicherung und Knopf zum erneuten Versuch; überlebt einen Neustart der App
 ✅ **Ohne Anmeldung nutzbar** – dann bleiben die Daten auf dem Gerät
 
 ---
@@ -115,7 +116,7 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
 | Design | warme Grün- und Erdtöne, hell und dunkel, System-Schriften, `env(safe-area-inset-*)` |
 | Speicher | `localStorage`, Schlüssel `pg_data` |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v3.19.0` |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v3.20.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
 | Push | Web Push API + VAPID, pywebpush, systemd-Timer alle 15 Minuten |
 | Hosting | LXC Container auf Proxmox |
@@ -186,6 +187,8 @@ Alle Antworten JSON, Sitzung über das HttpOnly-Cookie `gz_session`.
 | POST | `/api/push/spaeter` | verschiebt die heutige Erinnerung um n Stunden |
 
 Der Konflikt-Fall (409) ist der Kern des Sync: der Client schickt die Revision, auf der seine Änderung aufsetzt. Stimmt sie nicht mehr, hat ein anderes Gerät geschrieben – die App zeigt dann beide Stände zur Auswahl, statt still zu überschreiben.
+
+Jede andere Antwort landet ebenfalls sichtbar in der App: `SYNC.fehler` hält `{art, seit}` in localStorage fest (413 → `gross`, 401 → `auth`, 409 → `konflikt`, sonstiges → `server`, geworfenes `fetch` → `netz`) und zeichnet daraus das Warnbanner. Ein stiller Fehlschlag – wie das monatelange 413 vor v3.18.0 – kann damit nicht mehr unbemerkt bleiben.
 
 ### Benutzer anlegen
 
@@ -283,6 +286,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v3.20.0** | Fehlgeschlagene Sicherung wird sichtbar gemeldet |
 | **v3.19.0** | Sammelaufgaben über beliebig viele Pflanzen |
 | **v3.18.0** | Datenverlust beim Anmelden behoben |
 | **v3.17.1** | „Verschieben" tat nichts bei ausgewähltem Chip |

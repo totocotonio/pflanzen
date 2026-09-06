@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.19.0';
+const VERSION = '3.20.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -724,6 +724,11 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.20.0', datum: '06.09.2026', punkte: [
+    'Eine fehlgeschlagene Sicherung bleibt nicht mehr still: Ein Banner über jeder Ansicht sagt, dass die Änderungen nur auf diesem Gerät liegen – mit Grund und dem Zeitpunkt der letzten Sicherung.',
+    'Der Hinweis überlebt einen Neustart der App. Vorher versteckte genau das Neuladen den Fehler.',
+    'Nimmt der Server den Datensatz nicht an, gibt es direkt einen Knopf „Sicherung herunterladen“.'
+  ]},
   { v: '3.19.0', datum: '06.09.2026', punkte: [
     'Sammelaufgaben: eine Tätigkeit, ein Rhythmus, beliebig viele Pflanzen – „alle 14 Tage auf Schädlinge kontrollieren".',
     'Pflanzen einzeln oder ganze Standorte auswählen, Intervall in Tagen oder Monaten, zehn Vorlagen.',
@@ -1073,7 +1078,7 @@ function zeigeHistorie() {
 const API = '/api';
 const SYNC_KEY = 'pg_sync';
 let SYNC = { rev: 0, dirty: false, user: null, lokalOk: false, status: 'lokal',
-             laeuft: false, timer: null, standZeit: 0 };
+             laeuft: false, timer: null, standZeit: 0, fehler: null };
 
 function ladeSync() {
   try {
@@ -1083,13 +1088,16 @@ function ladeSync() {
     SYNC.user = d.user || null;
     SYNC.lokalOk = !!d.lokalOk;
   SYNC.standZeit = d.standZeit || 0;
+    // Der Fehler muss den Neustart ueberleben - sonst versteckt ein
+    // Neuladen der App genau das Problem, das gemeldet werden soll.
+    SYNC.fehler = (d.fehler && d.fehler.art) ? d.fehler : null;
   } catch (e) { /* erster Start */ }
 }
 function speichereSync() {
   try {
     localStorage.setItem(SYNC_KEY, JSON.stringify(
       { rev: SYNC.rev, dirty: SYNC.dirty, user: SYNC.user, lokalOk: SYNC.lokalOk,
-        standZeit: SYNC.standZeit || 0 }));
+        standZeit: SYNC.standZeit || 0, fehler: SYNC.fehler || null }));
   } catch (e) { /* Speicher voll – der Datensatz selbst hat Vorrang */ }
 }
 
@@ -1120,25 +1128,135 @@ async function schiebeHoch() {
       method: 'PUT',
       body: JSON.stringify({ rev: SYNC.rev, daten: nutzdaten() })
     });
-    if (r.status === 401) { SYNC.user = null; speichereSync(); zeigeLogin(); return; }
+    if (r.status === 401) {
+      syncFehler('auth');
+      SYNC.user = null; speichereSync(); zeigeLogin(); return;
+    }
+    // 413: Der Server weist den Datensatz ab. Frueher sah das fuer die App
+    // aus wie jeder andere Fehler - und blieb wochenlang unbemerkt.
+    if (r.status === 413) { syncFehler('gross'); SYNC.status = 'fehler'; return; }
     if (r.status === 409) {
       const d = (await r.json()).detail;
+      syncFehler('konflikt');
       SYNC.laeuft = false;
+      speichereSync();
+      syncWarnungZeichnen();
       loeseKonflikt(d);
       return;
     }
-    if (!r.ok) throw new Error('Status ' + r.status);
+    if (!r.ok) { syncFehler('server'); throw new Error('Status ' + r.status); }
     SYNC.rev = (await r.json()).rev;
     SYNC.dirty = false;
     SYNC.standZeit = Date.now();
     SYNC.status = 'ok';
+    syncFehlerWeg();
   } catch (e) {
+    // Ein geworfenes fetch heisst: die Anfrage kam gar nicht erst an.
+    if (!SYNC.fehler) syncFehler('netz');
     SYNC.status = navigator.onLine ? 'fehler' : 'offline';
   } finally {
     SYNC.laeuft = false;
     speichereSync();
     renderMore();
+    syncWarnungZeichnen();
   }
+}
+
+/* ---------- Fehlgeschlagene Sicherung sichtbar machen ----------
+
+   Ein missglückter Upload war bisher nur eine Zeile unter „Mehr“
+   („Server nicht erreichbar“). Das reicht nicht: Als der Server wochenlang
+   413 zurückgab, arbeitete die App scheinbar normal weiter, während alles
+   nur noch lokal lag – gemerkt hat es niemand, bis Pflanzen fehlten.
+
+   Deshalb merkt sich SYNC jetzt die Ursache, überlebt damit einen Neustart
+   und zeigt sie als dauerhaftes Banner über jeder Ansicht. */
+
+const SYNC_FEHLER_TEXT = {
+  gross: {
+    was: 'Der Server nimmt den Datensatz nicht an – er ist zu groß.',
+    tun: 'Lade dir eine Sicherung herunter, damit die Fotos nicht nur hier liegen.'
+  },
+  auth: {
+    was: 'Die Anmeldung ist abgelaufen.',
+    tun: 'Melde dich wieder an, dann geht alles hoch.'
+  },
+  konflikt: {
+    was: 'Auf einem anderen Gerät wurde ebenfalls geändert.',
+    tun: 'Der Abgleich wartet auf deine Entscheidung.'
+  },
+  server: {
+    was: 'Der Server antwortet nicht wie erwartet.',
+    tun: 'Meist hilft ein neuer Versuch in ein paar Minuten.'
+  },
+  netz: {
+    was: 'Keine Verbindung zum Server.',
+    tun: 'Sobald du wieder online bist, wird nachgeholt.'
+  }
+};
+
+/** Ursache merken. Ein bestehender Fehler behält sein Datum. */
+function syncFehler(art) {
+  if (SYNC.fehler && SYNC.fehler.art === art) return;
+  SYNC.fehler = { art, seit: Date.now() };
+}
+
+function syncFehlerWeg() {
+  SYNC.fehler = null;
+}
+
+/** „vor 3 Stunden“, „am 4. September“ – oder gar nicht, wenn nie gesichert. */
+function gesichertText(ts) {
+  if (!ts) return 'Auf dem Server liegt noch nichts.';
+  const min = Math.round((Date.now() - ts) / 60000);
+  if (min < 2) return 'Zuletzt gesichert: gerade eben.';
+  if (min < 60) return 'Zuletzt gesichert: vor ' + min + ' Minuten.';
+  const std = Math.round(min / 60);
+  if (std < 24) return 'Zuletzt gesichert: vor ' + std + (std === 1 ? ' Stunde.' : ' Stunden.');
+  const tage = Math.round(std / 24);
+  if (tage <= 14) return 'Zuletzt gesichert: vor ' + tage + (tage === 1 ? ' Tag.' : ' Tagen.');
+  return 'Zuletzt gesichert am ' + new Date(ts).toLocaleDateString('de-DE',
+    { day: 'numeric', month: 'long' }) + '.';
+}
+
+function syncWarnungHTML() {
+  if (!SYNC.fehler) return '';
+  // Bei abgelaufener Anmeldung ist SYNC.user schon null. Ohne diese Ausnahme
+  // waere gerade der Fall unsichtbar, in dem am wenigsten gesichert wird -
+  // naemlich wenn der Login-Schirm wegen „ohne Anmeldung“ ausbleibt.
+  if (!SYNC.user && SYNC.fehler.art !== 'auth') return '';
+  const t = SYNC_FEHLER_TEXT[SYNC.fehler.art] || SYNC_FEHLER_TEXT.server;
+  return `
+    <div class="karte syncwarnung">
+      <div class="karte-kopf">⚠️ Nicht gesichert – deine Änderungen liegen nur auf diesem Gerät</div>
+      <div class="beh-warten">${t.was} ${t.tun}<br>${esc(gesichertText(SYNC.standZeit))}</div>
+      <button class="btn" data-sync-erneut>Jetzt erneut versuchen</button>
+      ${SYNC.fehler.art === 'gross'
+        ? `<button class="btn sec" data-sync-sicherung>Sicherung herunterladen</button>` : ''}
+    </div>`;
+}
+
+/** Steht über allen Ansichten, damit es keine Ansicht gibt, in der es fehlt. */
+function syncWarnungZeichnen() {
+  const el = $('#sync-warnung');
+  if (el) el.innerHTML = syncWarnungHTML();
+}
+
+async function syncErneut() {
+  if (SYNC.fehler && SYNC.fehler.art === 'auth') {
+    // Wer hier drueckt, will sich anmelden - dann darf „ohne Anmeldung“ den
+    // Login-Schirm nicht laenger verstecken.
+    SYNC.lokalOk = false;
+    speichereSync();
+    zeigeLogin();
+    return;
+  }
+  if (!SYNC.user) return;
+  toast('Wird gesichert …');
+  SYNC.dirty = true;
+  await schiebeHoch();
+  if (!SYNC.fehler) toast('Gesichert');
+  else toast('Klappt noch nicht: ' + SYNC_FEHLER_TEXT[SYNC.fehler.art].was);
 }
 
 /** Serverstand lokal übernehmen. */
@@ -1175,6 +1293,7 @@ function uebernehmeServer(s) {
   SYNC.dirty = nurHier.length > 0;      // das Gerettete muss noch hoch
   SYNC.standZeit = Date.now();
   SYNC.status = 'ok';
+  syncFehlerWeg();
 
   if (nurHier.length) {
     toast(nurHier.length === 1
@@ -1218,8 +1337,11 @@ function loeseKonflikt(s) {
 /** Erster Abgleich nach dem Anmelden bzw. beim Start. */
 async function abgleichen() {
   const r = await api('/data');
-  if (r.status === 401) { SYNC.user = null; speichereSync(); zeigeLogin(); return; }
-  if (!r.ok) throw new Error('Status ' + r.status);
+  if (r.status === 401) {
+    syncFehler('auth');
+    SYNC.user = null; speichereSync(); zeigeLogin(); return;
+  }
+  if (!r.ok) { syncFehler('server'); speichereSync(); throw new Error('Status ' + r.status); }
   const s = await r.json();
 
   if (s.rev === 0) {
@@ -1235,6 +1357,7 @@ async function abgleichen() {
   }
   speichereSync();
   renderMore();
+  syncWarnungZeichnen();
 }
 
 function zeigeLogin() {
@@ -1252,6 +1375,7 @@ async function anmelden(name, passwort) {
   if (!r.ok) throw new Error('Anmeldung fehlgeschlagen (' + r.status + ')');
   SYNC.user = (await r.json()).name;
   SYNC.lokalOk = false;
+  if (SYNC.fehler && SYNC.fehler.art === 'auth') syncFehlerWeg();
   speichereSync();
 }
 
@@ -1263,8 +1387,10 @@ async function abmelden() {
   SYNC.dirty = false;
   SYNC.status = 'lokal';
   SYNC.lokalOk = false;
+  syncFehlerWeg();
   speichereSync();
   renderMore();
+  syncWarnungZeichnen();
   zeigeLogin();
 }
 
@@ -1273,7 +1399,9 @@ function syncText() {
   switch (SYNC.status) {
     case 'ok': return SYNC.dirty ? 'wird gesichert …' : 'aktuell';
     case 'offline': return 'offline – wird nachgeholt';
-    case 'fehler': return 'Server nicht erreichbar';
+    case 'fehler': return SYNC.fehler && SYNC.fehler.art === 'gross'
+      ? 'Datensatz zu groß – nicht gesichert'
+      : 'Server nicht erreichbar';
     default: return SYNC.dirty ? 'noch nicht gesichert' : 'aktuell';
   }
 }
@@ -1295,6 +1423,7 @@ async function starte() {
     pushZustandPruefen();
   } catch (e) {
     // Kein Netz oder kein Server: wer die App schon nutzt, arbeitet weiter
+    if (SYNC.user && !SYNC.fehler) syncFehler('netz');
     SYNC.status = SYNC.user ? 'offline' : 'lokal';
     if (SYNC.user || SYNC.lokalOk || DB.plants.length) versteckeLogin();
     else zeigeLogin();
@@ -1342,6 +1471,7 @@ function themeUmschalten() {
 
 /* ---------- Rendering ---------- */
 function renderAll() {
+  syncWarnungZeichnen();
   renderHeute();
   renderPflanzen();
   renderPlan();
@@ -8168,9 +8298,11 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-aufschub-wahl],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen],[data-draussen],[data-reinholen],[data-licht],[data-schatten],[data-licht-uebernehmen],[data-licht-neu],[data-plan],[data-monat],[data-etikett],[data-etikett-raum],[data-etikett-alle],[data-etikett-druck],[data-schaedling-hilfe],[data-schaedling-ok],[data-duenger],[data-vergleich],[data-vgl-links],[data-vgl-rechts],[data-neu-schritt],[data-neu-ende],[data-winterlicht-liste],[data-winterlicht-ok],[data-winterlicht-zurueck],[data-winterplatz],[data-sammel-lauf],[data-sammel-ab],[data-sammel-alle],[data-sammel-bearbeiten],[data-sammel-weg],[data-sammel-vorlage],[data-sammel-emoji],[data-sammel-pflanze],[data-sammel-raum],[data-sammel-alle-waehlen]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-aufschub-wahl],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen],[data-draussen],[data-reinholen],[data-licht],[data-schatten],[data-licht-uebernehmen],[data-licht-neu],[data-plan],[data-monat],[data-etikett],[data-etikett-raum],[data-etikett-alle],[data-etikett-druck],[data-schaedling-hilfe],[data-schaedling-ok],[data-duenger],[data-vergleich],[data-vgl-links],[data-vgl-rechts],[data-neu-schritt],[data-neu-ende],[data-winterlicht-liste],[data-winterlicht-ok],[data-winterlicht-zurueck],[data-winterplatz],[data-sammel-lauf],[data-sammel-ab],[data-sammel-alle],[data-sammel-bearbeiten],[data-sammel-weg],[data-sammel-vorlage],[data-sammel-emoji],[data-sammel-pflanze],[data-sammel-raum],[data-sammel-alle-waehlen],[data-sync-erneut],[data-sync-sicherung]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
+    if (t.dataset.syncErneut !== undefined) { syncErneut(); return; }
+    if (t.dataset.syncSicherung !== undefined) { exportieren(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
     if (t.dataset.filter) {
       // Dieselbe Kachel noch einmal hebt den Filter wieder auf
@@ -8446,7 +8578,9 @@ function bind() {
     renderAll();
     if (!SYNC.user) return;
     if (SYNC.dirty) schiebeHoch();
-    else abgleichen().catch(() => { SYNC.status = 'offline'; renderMore(); });
+    else abgleichen().catch(() => {
+      SYNC.status = 'offline'; renderMore(); syncWarnungZeichnen();
+    });
   });
 }
 

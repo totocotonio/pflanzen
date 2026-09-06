@@ -566,6 +566,11 @@ a{color:var(--blue);text-decoration:none}
 /* Frostwarnung */
 .karte.frostwarnung{border:1px solid color-mix(in srgb, var(--red) 50%, transparent);
   background:color-mix(in srgb, var(--red) 7%, var(--surface))}
+/* Liegt ausserhalb der Ansichten und braucht deren Seitenabstand selbst. */
+#sync-warnung:not(:empty){padding:0 16px}
+.karte.syncwarnung{border:1px solid color-mix(in srgb, var(--red) 50%, transparent);
+  background:color-mix(in srgb, var(--red) 7%, var(--surface))}
+.karte.syncwarnung .btn{margin-top:10px}
 .topf-art.warnung{background:var(--red);color:#fff}
 /* input.schalter statt nur .schalter: `.field input` setzt Breite und
    Hintergrund und ist spezifischer. Ein ausgeschalteter Schalter wurde dadurch

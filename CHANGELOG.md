@@ -1,5 +1,48 @@
 # Changelog
 
+## v3.20.0 - 2026-09-06
+
+### Ein fehlgeschlagener Upload bleibt nicht mehr still
+
+Der Datenverlust-Schreck aus v3.18.0 hatte eine zweite Hälfte, die noch offen
+war: Der Server wies den Datensatz wochenlang mit **413** ab, und die App zeigte
+davon nichts als das Wort „Fehler" in einer Zeile unter *Mehr → Synchronisierung*.
+Wer da nicht zufällig nachsah, arbeitete weiter, während alles nur noch auf dem
+Gerät lag.
+
+**Neu:** `SYNC.fehler` merkt sich die Ursache und zeigt sie als dauerhaftes
+Banner **über jeder Ansicht**:
+
+> ⚠️ Nicht gesichert – deine Änderungen liegen nur auf diesem Gerät
+
+Dazu die Ursache im Klartext und wann zuletzt gesichert wurde („vor 3 Stunden",
+„am 4. September", oder „Auf dem Server liegt noch nichts").
+
+| Antwort | Ursache | Text |
+|---|---|---|
+| 413 | `gross` | Der Server nimmt den Datensatz nicht an – er ist zu groß. |
+| 401 | `auth` | Die Anmeldung ist abgelaufen. |
+| 409 | `konflikt` | Auf einem anderen Gerät wurde ebenfalls geändert. |
+| sonstiges `!ok` | `server` | Der Server antwortet nicht wie erwartet. |
+| geworfenes `fetch` | `netz` | Keine Verbindung zum Server. |
+
+**Der Zustand liegt in localStorage**, überlebt also einen Neustart der App –
+sonst hätte ausgerechnet das Neuladen den Fehler versteckt.
+
+**Knöpfe:** „Jetzt erneut versuchen" immer, bei `gross` zusätzlich „Sicherung
+herunterladen" – wenn der Server die Daten nicht nimmt, sollen sie wenigstens
+vom Gerät herunter.
+
+Zwei Randfälle, die sonst genau das Gegenteil bewirkt hätten:
+
+- Bei abgelaufener Anmeldung ist `SYNC.user` bereits `null`. Ohne Ausnahme wäre
+  gerade der Fall unsichtbar, in dem am wenigsten gesichert wird – nämlich wenn
+  der Login-Schirm wegen „ohne Anmeldung nutzen" ausbleibt.
+- „Jetzt erneut versuchen" setzt bei `auth` das lokale Flag zurück, sonst bliebe
+  der Login-Schirm weiterhin versteckt und der Knopf täte scheinbar nichts.
+
+Erfolgreich gesichert oder Serverstand übernommen löscht den Fehler wieder.
+
 ## v3.19.0 - 2026-09-06
 
 ### Sammelaufgaben

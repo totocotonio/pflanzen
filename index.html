@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=3.19.0">
+<link rel="stylesheet" href="style.css?v=3.20.0">
 </head>
 <body>
 
@@ -34,6 +34,10 @@
 </div>
 
 <div id="app">
+
+  <!-- Steht ueber allen Ansichten: eine fehlgeschlagene Sicherung
+       darf in keiner Ansicht unsichtbar sein. -->
+  <div id="sync-warnung"></div>
 
   <!-- ===== HEUTE ===== -->
   <section id="view-heute" class="view active">
@@ -653,6 +657,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=3.19.0"></script>
+<script src="app.js?v=3.20.0"></script>
 </body>
 </html>
