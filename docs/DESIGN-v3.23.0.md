@@ -32,4 +32,19 @@ Physische iOS-/Android-Geräte wurden nicht geprüft.
 
 Frontend-Deployment mit `python deploy.py`. Vorher Live-Dateien mit v3.22.0
 abgleichen und sichern. Danach Dateivergleich, HTTPS und Offline-Neuladen prüfen.
-Status: vorbereitet.
+Am 06.09.2026 produktiv ausgeliefert, Code-Commit `1b0d136` auf `main`.
+
+- [GitHub Actions](https://github.com/totocotonio/pflanzen/actions/runs/34041443300):
+  16 Python-Tests, 11 JavaScript-Tests, Syntaxprüfungen und beide Browser-Suiten grün.
+- Lokale Edge-Prüfung mit Screenshots: Heute, Pflanzen und Detail bei 320/390/1280 px,
+  Hell/Dunkel; kein horizontaler Überlauf und keine JavaScript-Laufzeitfehler.
+- Vorab alle statischen Serverdateien gegen v3.22.0 verglichen.
+- Sicherung von Frontend und Datenbank mit erfolgreicher Integritätsprüfung:
+  `/opt/gruenzeug-releases/v3.23.0-1b0d136/rollback-20260906T151022Z`.
+- Alle ausgelieferten Dateien entsprechen dem Release; öffentliche HTTPS-Abrufe
+  erfolgreich, HTML/Service Worker mit `no-cache`, API und Dienste/Timer aktiv.
+- Frischer Browserkontext: Version 3.23.0 online und nach Offline-Neuladen
+  verfügbar, ohne JavaScript-Fehler.
+
+Bei Bedarf lässt sich das gesicherte Frontend zurückspielen; eine Rücksetzung
+der Datenbank ist für diese Gestaltungsänderung nicht erforderlich.
