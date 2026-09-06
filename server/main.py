@@ -314,6 +314,7 @@ def daten_holen(user: User = Depends(aktueller_user), s: Session = Depends(db),
     d = s.get(Datensatz, user_id)
     if not d:
         return {"rev": 0, "daten": None, "geaendert": None}
+    rev, geaendert = d.rev, d.geaendert
     daten = json.loads(d.inhalt)
     if bilder == "referenzen":
         daten = bildspeicher.kompakt(daten, s, Bild, user_id)
@@ -322,9 +323,9 @@ def daten_holen(user: User = Depends(aktueller_user), s: Session = Depends(db),
     else:
         daten = bildspeicher.inline(daten, s, Bild, user_id)
     return {
-        "rev": d.rev,
+        "rev": rev,
         "daten": daten,
-        "geaendert": (d.geaendert.isoformat() if d.geaendert else None),
+        "geaendert": (geaendert.isoformat() if geaendert else None),
     }
 
 
