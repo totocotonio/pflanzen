@@ -2,7 +2,9 @@
 
 Datum: 6. September 2026. Ausgangspunkt: `c216bcd` (v3.20.0).
 Umfang: gezielte Prüfung von Persistenz, Geräte-Sync und Wiederherstellung.
-Keine Änderungen an Produktivdaten, kein Deployment und keine Push-Nachrichten.
+Die initiale Prüfung verwendete ausschließlich Testdaten. Nach anschließender
+Freigabe wurde die Version auf dem Produktivserver ausgerollt (siehe Protokoll).
+Es wurden keine Pflanzenbestände bearbeitet und keine Push-Nachrichten ausgelöst.
 
 ## Befunde und Korrekturen
 
@@ -71,6 +73,48 @@ Quelldatei bzw. ein separates Serververzeichnis zeigen.
 Patchversion **3.20.1**: `VERSION`, App-Konstante und App-Historie, README,
 Changelog, Service-Worker-Cache sowie HTML-Assetparameter werden gemeinsam
 aktualisiert. Frontend und Backend müssen gemeinsam ausgeliefert werden:
-`python deploy.py --api`. Das Deployment wurde im Rahmen dieser Prüfung nicht
-ausgeführt. Vor dem Einsatz auf echten Geräten sind ein Browser-Smoke-Test und
-ein Test mit zwei Geräten und einem separaten Testkonto vorgesehen.
+`python deploy.py --api`. Das freigegebene Deployment ist abgeschlossen.
+Zwei getrennte Browser-Kontexte wurden lokal mit einem Testkonto geprüft.
+Eine Prüfung auf zwei physischen Mobilgeräten wurde nicht durchgeführt.
+
+## Deployment-Protokoll
+
+06.09.2026, Anwendungscode: Commit `4ba53fd265a970a26e2f33317bac1e71f124313b`.
+
+1. [GitHub Actions](https://github.com/totocotonio/pflanzen/actions/runs/34035727992)
+   erfolgreich: beide Testsuiten und JavaScript-Syntaxprüfung.
+2. Lokaler Browser-Smoke-Test mit Microsoft Edge: Anmeldung, Pflanze über das
+   Formular anlegen, Synchronisierung in einen zweiten getrennten Browser-Kontext,
+   Offline-Änderung, Wiederverbinden und Neuladen erfolgreich. Keine
+   JavaScript-Laufzeitfehler. Separate Testdatenbank und Testkonto verwendet.
+3. Per SSH verifiziert: Live-Dateien `app.js`, `index.html`, `sw.js` und
+   `server/main.py` entsprachen vor dem Deployment dem Ausgangscommit `c216bcd`.
+4. Acht Backend-Tests auf dem Zielserver mit Python 3.13.5 und den dortigen
+   Produktionsbibliotheken bestanden (FastAPI 0.141.1, SQLAlchemy 2.0.52,
+   Pydantic 2.13.5, bcrypt 5.0.0). Zusätzliche Testabhängigkeiten wurden separat
+   unter `/opt/gruenzeug-releases/v3.20.1-4ba53fd/test-venv` installiert;
+   die produktive Python-Umgebung blieb unverändert.
+5. Vorherige Dateien einschließlich VAPID-Dateien sowie eine konsistente
+   SQLite-Sicherung liegen zugriffsbeschränkt unter:
+   `/opt/gruenzeug-releases/v3.20.1-4ba53fd/rollback-20260906T132450Z`.
+   `code.tar.gz` enthält Frontend und Backend ohne venv/Datenbank;
+   `gruenzeug.db` ist die über SQLite-Backup erstellte Sicherung.
+   Integritätsprüfung der Sicherung: `ok`.
+6. Commit per Fast-forward nach `main` übernommen und gepusht.
+   `deploy.py --api` ausgeführt; Dienst `gruenzeug` erfolgreich neu gestartet.
+7. Nachkontrolle: SHA-256 der vier geänderten Laufzeitdateien stimmt exakt mit
+   dem lokalen Commit überein. API intern und über HTTPS: HTTP 200, `ok: true`.
+   Integritätsprüfung der laufenden Datenbank: `ok`.
+8. `gruenzeug`, `nginx`, Push-Timer und Backup-Timer sind aktiv.
+   Öffentliche Auslieferung von HTML, Service Worker und App-JavaScript enthält
+   Version 3.20.1. Service Worker hat weiterhin `Cache-Control: no-cache`.
+9. Frischer Browserstart auf `https://pflanzen.michaely.de`: Version 3.20.1,
+   Anmeldung sichtbar, keine JavaScript-Laufzeitfehler. Keine Anmeldung oder
+   Bearbeitung von Produktivbeständen für diese Nachkontrolle.
+
+Bei einem notwendigen Rollback zuerst den aktuellen Datenstand sichern und den
+API-Dienst stoppen. Für diese Version genügt grundsätzlich die Rückkehr zu den
+vorherigen Codedateien, da keine Schemaänderung vorgenommen wurde. Die gesicherte
+Datenbank nicht pauschal zurückspielen: Dabei würden seit dem Deployment neu
+gespeicherte Änderungen verloren gehen. Nach Rückkehr zu den Codedateien den
+Dienst starten und API sowie Service-Worker-Auslieferung erneut prüfen.

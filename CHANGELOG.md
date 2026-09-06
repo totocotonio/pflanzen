@@ -22,7 +22,9 @@
   und Einschränkungen stehen im [Prüfbericht](docs/SYNC-REVIEW-v3.20.1.md).
 
 Deployment: Frontend und Backend gemeinsam aktualisieren (`python deploy.py --api`).
-Keine Datenbankmigration erforderlich. Produktivdeployment noch nicht ausgeführt.
+Keine Datenbankmigration erforderlich. Am 06.09.2026 auf dem Produktivserver
+ausgerollt; API, HTTPS-Auslieferung, Browserstart und Datenbankintegrität geprüft.
+Details stehen im [Deployment-Protokoll](docs/SYNC-REVIEW-v3.20.1.md#deployment-protokoll).
 
 
 ## v3.20.0 - 2026-09-06
