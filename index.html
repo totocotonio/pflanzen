@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=3.18.0">
+<link rel="stylesheet" href="style.css?v=3.19.0">
 </head>
 <body>
 
@@ -164,6 +164,10 @@
         </select>
       </div>
     </div>
+
+    <div class="section-title mit-aktion"><span>Sammelaufgaben</span>
+      <span class="aktion" id="btn-sammel-neu">＋ Neu</span></div>
+    <div class="group" id="sammel-liste"></div>
 
     <div class="section-title">Etiketten</div>
     <div class="group">
@@ -583,6 +587,16 @@
   <div class="panel" id="duenger-inhalt"></div>
 </div>
 
+<div class="sheet" id="sheet-sammel">
+  <div class="backdrop" data-close></div>
+  <div class="panel" id="sammel-inhalt"></div>
+</div>
+
+<div class="sheet" id="sheet-sammel-lauf">
+  <div class="backdrop" data-close></div>
+  <div class="panel" id="sammel-lauf-inhalt"></div>
+</div>
+
 <div class="sheet" id="sheet-etiketten">
   <div class="backdrop" data-close></div>
   <div class="panel" id="etiketten-inhalt"></div>
@@ -639,6 +653,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=3.18.0"></script>
+<script src="app.js?v=3.19.0"></script>
 </body>
 </html>

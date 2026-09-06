@@ -1,5 +1,44 @@
 # Changelog
 
+## v3.19.0 - 2026-09-06
+
+### Sammelaufgaben
+
+Gewünscht: „Eine Aufgabe erstellen, wo man Pflanzen auswählen kann, Zeiten oder
+Wiederholungen festlegen kann – z.B. auf Schädlinge kontrollieren oder Blätter
+abwaschen."
+
+Bisher hing jede Aufgabe an genau einer Pflanze. Wer alle vierzehn Tage den
+ganzen Bestand auf Schädlinge kontrollieren wollte, musste die Aufgabe bei jeder
+Pflanze einzeln anlegen – bei 55 Pflanzen macht das niemand.
+
+**Neu:** eine Tätigkeit, ein Rhythmus, beliebig viele Pflanzen.
+
+- Anlegen unter **Mehr → Sammelaufgaben → ＋ Neu**
+- Zehn Vorlagen: auf Schädlinge kontrollieren, Blätter abwaschen, abduschen,
+  Verblühtes ausputzen, Untersetzer leeren, Töpfe drehen, Erde lockern, Blätter
+  besprühen, Stützen prüfen, Fenster putzen
+- Pflanzen einzeln wählen oder ganze Standorte auf einmal; „alle" merkt sich
+  keine Liste, damit neue Pflanzen automatisch dabei sind
+- Intervall in **Tagen oder Monaten**, freies Startdatum, eigenes Symbol
+
+**Abgehakt wird einzeln, gruppiert nach Zimmern.** Man kommt selten in einem Zug
+durch die ganze Wohnung – der Durchgang merkt sich, wer schon dran war, und
+zeigt den Rest beim nächsten Öffnen wieder an. Erst wenn alle erledigt sind,
+beginnt der Rhythmus von vorn. Wer es eilig hat, hakt mit einem Knopf alle ab.
+
+Fällige Sammelaufgaben stehen in der Tagesansicht mit Fortschrittsbalken und
+kommen per **Push** mit: „Auf Schädlinge kontrollieren: 12 Pflanzen offen."
+Eine angefangene Aufgabe wird auch dann gemeldet, wenn der Rhythmus noch nicht
+wieder fällig wäre – liegengebliebene Pflanzen sollen nicht bis zum nächsten
+Durchgang warten.
+
+### Nebenbei behoben
+
+Beim Ab- oder Anwählen einer Pflanze zeichnete das Formular sich komplett neu
+und warf dabei den eingetippten Namen weg. Jetzt wird nur noch die Auswahl
+aufgefrischt.
+
 ## v3.18.0 - 2026-09-06
 
 ### Datenverlust beim Anmelden behoben

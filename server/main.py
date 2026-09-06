@@ -307,8 +307,13 @@ def daten_speichern(eingabe: SyncDaten,
     nachfragen kann, statt fremde Änderungen zu überschreiben.
     """
     inhalt = json.dumps(eingabe.daten, ensure_ascii=False, separators=(",", ":"))
-    if len(inhalt.encode()) > 12 * 1024 * 1024:
-        raise HTTPException(413, "Datensatz zu groß (max. 12 MB)")
+
+    # Die Grenze schuetzt vor einem vollaufenden Datentraeger, nicht mehr.
+    # Bei 12 MB lag sie zu eng: Ein Bestand mit 47 Fotos erreicht das schon,
+    # und jeder weitere Upload wurde abgewiesen - fuer die App sah das nur
+    # nach einem Netzfehler aus, waehrend neue Pflanzen liegen blieben.
+    if len(inhalt.encode()) > 80 * 1024 * 1024:
+        raise HTTPException(413, "Datensatz zu groß (max. 80 MB)")
 
     d = s.get(Datensatz, user.id)
     if not d:

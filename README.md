@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** ✅ Live (v3.18.0)
+**Status:** ✅ Live (v3.19.0)
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -61,6 +61,8 @@ Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in 
 ✅ **Lebensphase** – Steckling (vier Bewurzelungsmethoden), Jungpflanze oder ausgewachsen
 ✅ **Anleitungen** – geführtes Umtopfen und Bewurzeln von Stecklingen, Schritt für Schritt, mit Zeitpunkt, Anzeichen, Material und den typischen Fehlern
 ✅ **Eigene Aufgaben** – frei anlegbar je Pflanze, mit Symbol, Intervall und Push-Erinnerung; zehn Vorlagen
+
+✅ **Sammelaufgaben** – eine Tätigkeit für beliebig viele Pflanzen („alle 14 Tage auf Schädlinge kontrollieren“); Auswahl einzeln oder nach Standort, Intervall in Tagen oder Monaten, Abhaken einzeln und nach Zimmern gruppiert
 ✅ **Kommentare** – datierte Notizen im Verlauf, und jeder Eintrag lässt sich kommentieren
 ✅ **Später erinnern** – Fälligkeit um frei wählbare Tage verschieben, ohne den Rhythmus anzufassen
 ✅ **Umgebung** – Heizung, Klimaanlage, Mittagssonne, Zugluft, kalter Boden, feuchter Raum, wenig Licht je Pflanze
@@ -113,7 +115,7 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
 | Design | warme Grün- und Erdtöne, hell und dunkel, System-Schriften, `env(safe-area-inset-*)` |
 | Speicher | `localStorage`, Schlüssel `pg_data` |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v3.18.0` |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v3.19.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
 | Push | Web Push API + VAPID, pywebpush, systemd-Timer alle 15 Minuten |
 | Hosting | LXC Container auf Proxmox |
@@ -281,6 +283,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v3.19.0** | Sammelaufgaben über beliebig viele Pflanzen |
 | **v3.18.0** | Datenverlust beim Anmelden behoben |
 | **v3.17.1** | „Verschieben" tat nichts bei ausgewähltem Chip |
 | **v3.17.0** | Statistik: Aufwand, Problemzonen, Standort-Bilanz |

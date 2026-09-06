@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.18.0';
+const VERSION = '3.19.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -24,6 +24,7 @@ let DB = {
   v: 1,
   plants: [],
   logs: [],
+  sammel: [],
   settings: { winter: 'auto', vorwarn: 2, pushZeit: '09:00', pushAktiv: false, theme: 'auto',
              anzeigename: '', appName: '', avatar: '', avatarFoto: null,
              akzent: 'gruen', hintergrund: 'keiner', hintergrundFoto: null,
@@ -51,6 +52,7 @@ function load() {
              startAnsicht: 'heute' }, d.settings || {});
       DB.plants = d.plants || [];
       DB.logs = d.logs || [];
+      DB.sammel = d.sammel || [];
     }
   } catch (e) { console.error('Laden fehlgeschlagen', e); }
 }
@@ -220,6 +222,7 @@ function datensatzOhneBilder() {
       return kopie;
     }),
     logs: DB.logs,
+    sammel: sammelAufgaben(),
     settings: Object.assign({}, DB.settings, { avatarFoto: null, hintergrundFoto: null })
   };
 }
@@ -721,6 +724,11 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.19.0', datum: '06.09.2026', punkte: [
+    'Sammelaufgaben: eine Tätigkeit, ein Rhythmus, beliebig viele Pflanzen – „alle 14 Tage auf Schädlinge kontrollieren".',
+    'Pflanzen einzeln oder ganze Standorte auswählen, Intervall in Tagen oder Monaten, zehn Vorlagen.',
+    'Abgehakt wird einzeln und nach Zimmern gruppiert – man kommt selten in einem Zug durch die ganze Wohnung. Erst wenn alle dran waren, beginnt der Rhythmus von vorn.'
+  ]},
   { v: '3.18.0', datum: '06.09.2026', punkte: [
     'Wichtige Korrektur am Abgleich: Pflanzen, die nur auf diesem Gerät liegen, werden beim Anmelden nicht mehr überschrieben, sondern behalten.',
     'Ursache war, dass die Markierung „noch nicht hochgeladen“ nur gesetzt wurde, solange man angemeldet war. Wer bei abgelaufener Sitzung etwas anlegte, verlor es beim nächsten Anmelden.',
@@ -1094,7 +1102,8 @@ function api(pfad, opts) {
 
 /** Aktuellen Stand als das schicken, was der Server speichern soll. */
 function nutzdaten() {
-  return { plants: DB.plants, logs: DB.logs, settings: DB.settings };
+  return { plants: DB.plants, logs: DB.logs, settings: DB.settings,
+           sammel: sammelAufgaben() };
 }
 
 function planeSync() {
@@ -1153,6 +1162,7 @@ function uebernehmeServer(s) {
     !bekannt.has(p.id) && !p.archiviert && (p.created || 0) > grenze);
 
   DB.plants = vomServer.concat(nurHier);
+  if (Array.isArray(d.sammel)) DB.sammel = d.sammel;
 
   const logIds = new Set((d.logs || []).map(l => l.id));
   const eigeneLogs = nurHier.length
@@ -1406,7 +1416,8 @@ function renderHeute() {
   }
 
   if (!faellig.length && !bald.length && !faelligeAufgaben().length
-      && !faelligeBehandlungen().length && !faelligeNeuzugaenge().length) {
+      && !faelligeBehandlungen().length && !faelligeNeuzugaenge().length
+      && !faelligeSammel().length) {
     const naechst = liste.slice().sort((a, b) => tageBis(a) - tageBis(b))[0];
     box.innerHTML = `<div class="empty"><div class="big">✅</div>
       <p><b>Alles gegossen</b></p>
@@ -1430,6 +1441,28 @@ function renderHeute() {
     html += `<div class="section-title">Demnächst</div>`;
     html += bald.sort((a, b) => tageBis(a) - tageBis(b)).map(plantRow).join('');
   }
+  const sammel = faelligeSammel();
+  if (sammel.length) {
+    html += `<div class="section-title">Sammelaufgaben</div>`;
+    html += sammel.map(a => {
+      const alle = sammelPflanzen(a).length;
+      const offen = sammelOffen(a).length;
+      const tage = sammelTageBis(a);
+      return `
+      <div class="plant" data-sammel-lauf="${a.id}">
+        <div class="avatar" style="font-size:24px">${a.emoji}</div>
+        <div class="info">
+          <div class="nm">${esc(a.name)}</div>
+          <div class="meta">${offen} von ${alle} offen${
+            tage !== null && tage < 0 ? ' · ' + Math.abs(tage) + ' Tage überfällig' : ''}</div>
+          <div class="bar"><i style="width:${
+            Math.round((alle - offen) / Math.max(1, alle) * 100)}%"></i></div>
+        </div>
+        <button class="water-btn due" data-sammel-lauf="${a.id}">${a.emoji}</button>
+      </div>`;
+    }).join('');
+  }
+
   const neuzugaenge = faelligeNeuzugaenge();
   if (neuzugaenge.length) {
     html += `<div class="section-title">Neu dabei</div>`;
@@ -1643,6 +1676,7 @@ function renderMore() {
   $('#raeume-stand').textContent = (anzahlRaeume
     ? anzahlRaeume + (anzahlRaeume === 1 ? ' Raum' : ' Räume') + ' eingestellt'
     : 'nicht eingestellt') + ' ›';
+  $('#sammel-liste').innerHTML = sammelListeHTML();
   $('#anleitungen-liste').innerHTML = anleitungenListe();
   $('#ort-name').textContent = (DB.settings.ort ? DB.settings.ort.name : 'nicht gesetzt') + ' ›';
   $('#set-winterlicht').checked = DB.settings.winterlicht !== false;
@@ -3692,6 +3726,339 @@ function anleitungenListe() {
         font-size:13px;font-weight:400">${esc(a.kurz)}</span></span>
       <span class="problem-pfeil">›</span>
     </button>`).join('');
+}
+
+/* ---------- Sammelaufgaben ----------
+   Eigene Aufgaben gibt es bisher nur je Pflanze. Für „alle vierzehn Tage auf
+   Schädlinge kontrollieren" hieße das: bei zwanzig Pflanzen zwanzigmal
+   dasselbe eintragen und zwanzigmal einzeln abhaken.
+
+   Eine Sammelaufgabe fasst das zusammen: eine Tätigkeit, ein Rhythmus, viele
+   Pflanzen. Abgehakt wird trotzdem einzeln – man kommt selten in einem Zug
+   durch die ganze Wohnung, und der halbe Fortschritt soll nicht verlorengehen.
+   Erst wenn alle dran waren, beginnt der Rhythmus von vorn. */
+const SAMMEL_VORLAGEN = [
+  { name: 'Auf Schädlinge kontrollieren', emoji: '🔍', int: 14, einheit: 'tage' },
+  { name: 'Blätter abwaschen', emoji: '🧽', int: 1, einheit: 'monate' },
+  { name: 'Abduschen', emoji: '🚿', int: 2, einheit: 'monate' },
+  { name: 'Verblühtes ausputzen', emoji: '🌸', int: 14, einheit: 'tage' },
+  { name: 'Untersetzer leeren', emoji: '🫗', int: 7, einheit: 'tage' },
+  { name: 'Töpfe drehen', emoji: '🔄', int: 14, einheit: 'tage' },
+  { name: 'Erde lockern', emoji: '🥄', int: 2, einheit: 'monate' },
+  { name: 'Blätter besprühen', emoji: '💦', int: 3, einheit: 'tage' },
+  { name: 'Stützen prüfen', emoji: '🪵', int: 3, einheit: 'monate' },
+  { name: 'Fenster putzen', emoji: '🪟', int: 3, einheit: 'monate' }
+];
+
+function sammelAufgaben() {
+  return Array.isArray(DB.sammel) ? DB.sammel : [];
+}
+
+/** Die Pflanzen einer Sammelaufgabe. Leere Liste heißt: alle. */
+function sammelPflanzen(a) {
+  const alle = aktive();
+  if (!a.pflanzen || !a.pflanzen.length) return alle;
+  return alle.filter(p => a.pflanzen.includes(p.id));
+}
+
+function sammelTageBis(a) {
+  if (!a.int || !a.letzt) return null;
+  const d = fromISO(a.letzt);
+  const ziel = a.einheit === 'monate'
+    ? new Date(d.getFullYear(), d.getMonth() + a.int, d.getDate())
+    : new Date(d.getTime() + a.int * 86400000);
+  ziel.setHours(0, 0, 0, 0);
+  return tageDiff(heute0(), ziel);
+}
+
+/** Was in diesem Durchgang noch offen ist. */
+function sammelOffen(a) {
+  const erledigt = new Set(a.erledigt || []);
+  return sammelPflanzen(a).filter(p => !erledigt.has(p.id));
+}
+
+/** Fällige Sammelaufgaben – oder solche, die mittendrin stecken. */
+function faelligeSammel() {
+  return sammelAufgaben().filter(a => {
+    if (a.aktiv === false) return false;
+    if (!sammelPflanzen(a).length) return false;
+    const angefangen = (a.erledigt || []).length > 0;
+    const tage = sammelTageBis(a);
+    return angefangen || (tage !== null && tage <= 0);
+  });
+}
+
+function sammelErledigt(aid, pid) {
+  const a = sammelAufgaben().find(x => x.id === aid);
+  const p = DB.plants.find(x => x.id === pid);
+  if (!a || !p) return;
+
+  const erledigt = new Set(a.erledigt || []);
+  erledigt.add(pid);
+  a.erledigt = Array.from(erledigt);
+  DB.logs.push({ id: uid(), plantId: pid, typ: 'sammel', text: a.name, ts: Date.now() });
+
+  // Alle durch? Dann beginnt der Rhythmus von vorn
+  const fertig = sammelOffen(a).length === 0;
+  if (fertig) {
+    a.letzt = toISO(new Date());
+    a.erledigt = [];
+  }
+  save();
+  renderAll();
+  if ($('#sheet-sammel-lauf').classList.contains('open')) sammelLaufZeichnen(aid);
+  if (navigator.vibrate) navigator.vibrate(10);
+  toast(fertig ? '✅ ' + a.name + ' – alle erledigt'
+               : a.emoji + ' ' + p.name + ' · noch ' + sammelOffen(a).length);
+}
+
+function sammelAlleErledigt(aid) {
+  const a = sammelAufgaben().find(x => x.id === aid);
+  if (!a) return;
+  const offen = sammelOffen(a);
+  if (!offen.length) return;
+  for (const p of offen) {
+    DB.logs.push({ id: uid(), plantId: p.id, typ: 'sammel', text: a.name, ts: Date.now() });
+  }
+  a.letzt = toISO(new Date());
+  a.erledigt = [];
+  save();
+  renderAll();
+  closeSheets();
+  toast('✅ ' + a.name + ' bei ' + offen.length + ' Pflanzen erledigt');
+}
+
+/* ---------- Durchgang ---------- */
+function sammelLaufOeffnen(aid) {
+  sammelLaufZeichnen(aid);
+  openSheet('#sheet-sammel-lauf');
+}
+
+function sammelLaufZeichnen(aid) {
+  const a = sammelAufgaben().find(x => x.id === aid);
+  if (!a) return;
+  const alle = sammelPflanzen(a);
+  const erledigt = new Set(a.erledigt || []);
+  const offen = alle.filter(p => !erledigt.has(p.id));
+  const tage = sammelTageBis(a);
+
+  // Nach Standort gruppieren, damit man nicht zwischen Zimmern hin und her läuft
+  const nachRaum = {};
+  for (const p of offen) (nachRaum[p.raum || 'Ohne Standort'] ||= []).push(p);
+  const raeume = Object.keys(nachRaum).sort((x, y) => x.localeCompare(y, 'de'));
+
+  $('#sammel-lauf-inhalt').innerHTML = `
+    <div class="grabber"></div>
+    <h2>${a.emoji} ${esc(a.name)}</h2>
+    <p class="sheet-hinweis">${alle.length - offen.length} von ${alle.length} erledigt${
+      tage !== null ? ' · ' + (tage > 0 ? 'fällig in ' + tage + ' Tagen'
+        : tage === 0 ? 'heute fällig' : Math.abs(tage) + ' Tage überfällig') : ''}</p>
+
+    <div class="beh-fortschritt">
+      <div class="beh-balken"><i style="width:${
+        Math.round((alle.length - offen.length) / Math.max(1, alle.length) * 100)}%"></i></div>
+      <span>${alle.length - offen.length}/${alle.length}</span>
+    </div>
+
+    ${offen.length ? raeume.map(raum => `
+      <div class="section-title">${esc(raum)}</div>
+      <div class="group">${nachRaum[raum].map(p => `
+        <button class="tun" data-sammel-ab="${a.id}" data-pid="${p.id}">
+          <span class="tun-kreis"></span>
+          <span class="tun-text">${p.emoji || '🪴'} ${esc(p.name)}</span>
+        </button>`).join('')}</div>`).join('')
+      : `<div class="empty"><div class="big">✅</div><p>Alle erledigt.</p></div>`}
+
+    ${offen.length > 1
+      ? `<button class="btn" data-sammel-alle="${a.id}">Alle ${offen.length} erledigen</button>`
+      : ''}
+    <button class="btn sec" data-sammel-bearbeiten="${a.id}">Aufgabe bearbeiten</button>
+    <button class="btn sec" data-close>Schließen</button>`;
+}
+
+/* ---------- Anlegen und Bearbeiten ---------- */
+let sammelEdit = null;      // id oder null für neu
+let sammelAuswahl = new Set();
+let sammelEmoji = '🔍';
+
+function sammelBearbeiten(aid) {
+  const a = aid ? sammelAufgaben().find(x => x.id === aid) : null;
+  sammelEdit = a ? a.id : null;
+  sammelEmoji = a ? (a.emoji || '🔍') : '🔍';
+  // Ohne Auswahl gilt die Aufgabe für alle – dann sind zunächst alle markiert
+  sammelAuswahl = new Set(a
+    ? (a.pflanzen && a.pflanzen.length ? a.pflanzen : aktive().map(p => p.id))
+    : aktive().map(p => p.id));
+  sammelFormZeichnen(a);
+  openSheet('#sheet-sammel');
+}
+
+function sammelFormZeichnen(a) {
+  const liste = aktive();
+  const raeume = Array.from(new Set(liste.map(p => p.raum).filter(Boolean)))
+    .sort((x, y) => x.localeCompare(y, 'de'));
+
+  $('#sammel-inhalt').innerHTML = `
+    <div class="grabber"></div>
+    <h2>${a ? 'Aufgabe bearbeiten' : 'Neue Sammelaufgabe'}</h2>
+    <p class="sheet-hinweis">Eine Tätigkeit, ein Rhythmus, beliebig viele Pflanzen.
+      Abgehakt wird einzeln – man kommt selten in einem Zug durch die ganze Wohnung.</p>
+
+    ${!a ? `<div class="section-title">Vorlagen</div>
+      <div class="chip-wahl" style="margin-bottom:16px">
+        ${SAMMEL_VORLAGEN.map((v, i) => `
+          <button type="button" class="chip" data-sammel-vorlage="${i}">${
+            v.emoji} ${esc(v.name)}</button>`).join('')}
+      </div>` : ''}
+
+    <div class="group">
+      <div class="field"><label>Was ist zu tun?</label>
+        <input id="sammel-name" maxlength="40" autocomplete="off"
+               placeholder="z.B. Blätter abwaschen" value="${esc(a ? a.name : '')}"></div>
+      <div class="field"><label>Alle …</label>
+        <input type="number" id="sammel-int" min="1" max="120" inputmode="numeric"
+               value="${a ? a.int : 14}"></div>
+      <div class="field"><label>Einheit</label>
+        <select id="sammel-einheit">
+          <option value="tage"${a && a.einheit === 'tage' ? ' selected' : ''}>Tage</option>
+          <option value="monate"${a && a.einheit === 'monate' ? ' selected' : ''}>Monate</option>
+        </select></div>
+      <div class="field"><label>${a ? 'Zuletzt erledigt' : 'Startet am'}</label>
+        <input type="date" id="sammel-letzt" value="${
+          a ? (a.letzt || toISO(new Date())) : toISO(new Date())}"></div>
+    </div>
+
+    <div class="section-title">Symbol</div>
+    <div class="card"><div class="emoji-pick" id="sammel-emoji-pick"></div></div>
+
+    <div class="section-title mit-aktion"><span>Für welche Pflanzen?</span>
+      <span class="aktion" id="sammel-alle-link" data-sammel-alle-waehlen>${
+        sammelAuswahl.size === liste.length ? 'Keine' : 'Alle'}</span></div>
+    ${raeume.length > 1 ? `<div class="chip-wahl" style="margin-bottom:12px">
+      ${raeume.map(r => `<button type="button" class="chip" data-sammel-raum="${esc(r)}">${
+        esc(r)} (${liste.filter(p => p.raum === r).length})</button>`).join('')}
+    </div>` : ''}
+    <div class="group">
+      ${liste.map(p => `
+        <label class="field auswahl-zeile">
+          <span>${p.emoji || '🪴'} ${esc(p.name)}${
+            p.raum ? `<span style="color:var(--text-3)"> · ${esc(p.raum)}</span>` : ''}</span>
+          <input type="checkbox" class="schalter" data-sammel-pflanze="${p.id}"
+                 ${sammelAuswahl.has(p.id) ? 'checked' : ''}>
+        </label>`).join('')}
+    </div>
+
+    <button class="btn" id="btn-sammel-speichern">${
+      sammelAuswahl.size === 1 ? 'Für 1 Pflanze speichern'
+        : 'Für ' + sammelAuswahl.size + ' Pflanzen speichern'}</button>
+    ${a ? `<button class="btn danger" data-sammel-weg="${a.id}">Aufgabe löschen</button>` : ''}
+    <button class="btn sec" data-close>Abbrechen</button>`;
+
+  sammelEmojiZeichnen();
+  $('#btn-sammel-speichern').onclick = sammelSpeichern;
+}
+
+function sammelEmojiZeichnen() {
+  $('#sammel-emoji-pick').innerHTML = AUFGABEN_EMOJIS.map(e =>
+    `<button type="button" data-sammel-emoji="${e}" class="${
+      e === sammelEmoji ? 'on' : ''}">${e}</button>`).join('');
+}
+
+/**
+ * Nur die Auswahl auffrischen, nicht das ganze Formular.
+ *
+ * Neuzeichnen wäre einfacher, würde aber bei einer neuen Aufgabe den
+ * eingetippten Namen und das Intervall wegwerfen - beim Abwählen einer
+ * einzigen Pflanze stand plötzlich wieder ein leeres Formular da.
+ */
+function sammelAuswahlAktualisieren() {
+  const anzahl = aktive().length;
+  for (const el of document.querySelectorAll('[data-sammel-pflanze]')) {
+    el.checked = sammelAuswahl.has(el.dataset.sammelPflanze);
+  }
+  const link = $('#sammel-alle-link');
+  if (link) link.textContent = sammelAuswahl.size === anzahl ? 'Keine' : 'Alle';
+  const knopf = $('#btn-sammel-speichern');
+  if (knopf) {
+    knopf.textContent = sammelAuswahl.size === 1
+      ? 'Für 1 Pflanze speichern'
+      : 'Für ' + sammelAuswahl.size + ' Pflanzen speichern';
+  }
+}
+
+function sammelSpeichern() {
+  const name = ($('#sammel-name').value || '').trim();
+  const int = Math.round(Number($('#sammel-int').value) || 0);
+  if (!name) { toast('Die Aufgabe braucht einen Namen'); return; }
+  if (int < 1) { toast('Das Intervall fehlt'); return; }
+  if (!sammelAuswahl.size) { toast('Keine Pflanze ausgewählt'); return; }
+
+  const alleGewaehlt = sammelAuswahl.size === aktive().length;
+  const daten = {
+    name, emoji: sammelEmoji, int,
+    einheit: $('#sammel-einheit').value === 'monate' ? 'monate' : 'tage',
+    letzt: $('#sammel-letzt').value || toISO(new Date()),
+    // Sind alle gewählt, bleibt die Liste leer: Neue Pflanzen sind dann
+    // automatisch dabei, was bei „alle" die Absicht ist.
+    pflanzen: alleGewaehlt ? [] : Array.from(sammelAuswahl),
+    aktiv: true
+  };
+
+  DB.sammel = sammelAufgaben();
+  const vorhanden = DB.sammel.find(x => x.id === sammelEdit);
+  if (vorhanden) {
+    Object.assign(vorhanden, daten);
+    toast('Gespeichert');
+  } else {
+    DB.sammel.push(Object.assign({ id: uid(), erledigt: [] }, daten));
+    toast(daten.emoji + ' ' + name + ' angelegt');
+  }
+  save();
+  renderAll();
+  closeSheets();
+}
+
+function sammelLoeschen(aid) {
+  const a = sammelAufgaben().find(x => x.id === aid);
+  if (!a) return;
+  if (!confirm('„' + a.name + '" löschen?\n\nDie bereits erledigten Einträge im ' +
+               'Verlauf der Pflanzen bleiben erhalten.')) return;
+  DB.sammel = sammelAufgaben().filter(x => x.id !== aid);
+  save();
+  renderAll();
+  closeSheets();
+  toast('Aufgabe gelöscht');
+}
+
+function sammelVorlage(i) {
+  const v = SAMMEL_VORLAGEN[Number(i)];
+  if (!v) return;
+  $('#sammel-name').value = v.name;
+  $('#sammel-int').value = v.int;
+  $('#sammel-einheit').value = v.einheit;
+  sammelEmoji = v.emoji;
+  sammelEmojiZeichnen();
+}
+
+/** Übersicht unter „Mehr". */
+function sammelListeHTML() {
+  const liste = sammelAufgaben();
+  if (!liste.length) {
+    return `<div class="field"><span class="hint">noch keine</span></div>`;
+  }
+  return liste.map(a => {
+    const tage = sammelTageBis(a);
+    const offen = sammelOffen(a).length;
+    const gesamt = sammelPflanzen(a).length;
+    const stand = offen && offen < gesamt ? `${gesamt - offen}/${gesamt} erledigt`
+      : tage === null ? 'noch nie'
+      : tage > 0 ? 'in ' + tage + ' Tagen'
+      : tage === 0 ? 'heute' : Math.abs(tage) + ' Tage überfällig';
+    return `<div class="field" style="cursor:pointer" data-sammel-lauf="${a.id}">
+      <label>${a.emoji} ${esc(a.name)}</label>
+      <span class="hint">${gesamt} ${gesamt === 1 ? 'Pflanze' : 'Pflanzen'} · ${
+        esc(stand)} ›</span></div>`;
+  }).join('');
 }
 
 /* ---------- Eigene Pflegeaufgaben ----------
@@ -7048,6 +7415,7 @@ function allesHier(pid) {
 function logText(typ, text) {
   if (typ === 'notiz') return '📝 ' + (text || 'Notiz');
   if (String(typ).startsWith('eigen:')) return '📌 ' + eigenName(typ);
+  if (typ === 'sammel') return '📋 ' + (text || 'Sammelaufgabe');
   if (typ === 'kontrolle') return '🔍 Kontrolliert: ' + (text || 'Schädlinge');
   if (typ === 'licht') return '💡 Licht gemessen';
   if (typ === 'winterplatz') return '🌥 An den Winterplatz gestellt';
@@ -7759,6 +8127,7 @@ function bind() {
   $('#f-methode').onchange = phaseAnzeigen;
   $('#btn-eigen-neu').onclick = eigeneNeuOeffnen;
   $('#zeile-verwaist').onclick = verwaisteLoeschen;
+  $('#btn-sammel-neu').onclick = () => sammelBearbeiten(null);
   $('#zeile-etiketten').onclick = etikettenOeffnen;
   $('#zeile-sicherungen').onclick = sicherungenOeffnen;
   $('#zeile-raeume').onclick = raeumeOeffnen;
@@ -7799,7 +8168,7 @@ function bind() {
 
   /* Delegation für dynamische Inhalte */
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-aufschub-wahl],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen],[data-draussen],[data-reinholen],[data-licht],[data-schatten],[data-licht-uebernehmen],[data-licht-neu],[data-plan],[data-monat],[data-etikett],[data-etikett-raum],[data-etikett-alle],[data-etikett-druck],[data-schaedling-hilfe],[data-schaedling-ok],[data-duenger],[data-vergleich],[data-vgl-links],[data-vgl-rechts],[data-neu-schritt],[data-neu-ende],[data-winterlicht-liste],[data-winterlicht-ok],[data-winterlicht-zurueck],[data-winterplatz]');
+    const t = e.target.closest('[data-water],[data-dueng],[data-aufgabe],[data-alle-giessen],[data-open],[data-emoji],[data-raum],[data-edit],[data-del],[data-close],[data-farbe],[data-hg],[data-pemoji],[data-filter],[data-filter-weg],[data-foto],[data-foto-neu],[data-foto-weg],[data-runde],[data-runde-start],[data-hilfe],[data-problem],[data-problem-zurueck],[data-archiv],[data-entarchiv],[data-qr],[data-stand],[data-tun],[data-alles-hier],[data-topf-weg],[data-eintopfen],[data-plan],[data-beh-start],[data-beh-schritt],[data-beh-ende],[data-umgebung],[data-ort],[data-aufschub],[data-aufschub-frage],[data-aufschub-wahl],[data-abschnitt],[data-log],[data-notiz],[data-verlauf-alle],[data-eigen-weg],[data-eigen-vorlage],[data-eigen-emoji],[data-anleitung],[data-anleitung-schritt],[data-anleitung-fertig],[data-bewurzelt],[data-erwachsen],[data-zustand],[data-raum-vorlage],[data-sorgen],[data-draussen],[data-reinholen],[data-licht],[data-schatten],[data-licht-uebernehmen],[data-licht-neu],[data-plan],[data-monat],[data-etikett],[data-etikett-raum],[data-etikett-alle],[data-etikett-druck],[data-schaedling-hilfe],[data-schaedling-ok],[data-duenger],[data-vergleich],[data-vgl-links],[data-vgl-rechts],[data-neu-schritt],[data-neu-ende],[data-winterlicht-liste],[data-winterlicht-ok],[data-winterlicht-zurueck],[data-winterplatz],[data-sammel-lauf],[data-sammel-ab],[data-sammel-alle],[data-sammel-bearbeiten],[data-sammel-weg],[data-sammel-vorlage],[data-sammel-emoji],[data-sammel-pflanze],[data-sammel-raum],[data-sammel-alle-waehlen]');
     if (!t) return;
     if (t.dataset.close !== undefined) { closeSheets(); return; }
     if (t.dataset.filterWeg !== undefined) { heuteFilter = null; renderHeute(); return; }
@@ -7826,6 +8195,46 @@ function bind() {
       return;
     }
     if (t.dataset.ort) { e.stopPropagation(); ortWaehlen(t.dataset.ort); return; }
+    if (t.dataset.sammelLauf) { e.stopPropagation(); sammelLaufOeffnen(t.dataset.sammelLauf); return; }
+    if (t.dataset.sammelAb) { e.stopPropagation(); sammelErledigt(t.dataset.sammelAb, t.dataset.pid); return; }
+    if (t.dataset.sammelAlle) { e.stopPropagation(); sammelAlleErledigt(t.dataset.sammelAlle); return; }
+    if (t.dataset.sammelBearbeiten) {
+      e.stopPropagation();
+      closeSheets();
+      setTimeout(() => sammelBearbeiten(t.dataset.sammelBearbeiten), 180);
+      return;
+    }
+    if (t.dataset.sammelWeg) { e.stopPropagation(); sammelLoeschen(t.dataset.sammelWeg); return; }
+    if (t.dataset.sammelVorlage !== undefined) { e.stopPropagation(); sammelVorlage(t.dataset.sammelVorlage); return; }
+    if (t.dataset.sammelEmoji) {
+      e.stopPropagation();
+      sammelEmoji = t.dataset.sammelEmoji;
+      sammelEmojiZeichnen();
+      return;
+    }
+    if (t.dataset.sammelPflanze) {
+      const id = t.dataset.sammelPflanze;
+      if (sammelAuswahl.has(id)) sammelAuswahl.delete(id); else sammelAuswahl.add(id);
+      sammelAuswahlAktualisieren();
+      return;
+    }
+    if (t.dataset.sammelRaum) {
+      e.stopPropagation();
+      const drin = aktive().filter(p => p.raum === t.dataset.sammelRaum);
+      const alleDrin = drin.every(p => sammelAuswahl.has(p.id));
+      for (const p of drin) {
+        if (alleDrin) sammelAuswahl.delete(p.id); else sammelAuswahl.add(p.id);
+      }
+      sammelAuswahlAktualisieren();
+      return;
+    }
+    if (t.dataset.sammelAlleWaehlen !== undefined) {
+      e.stopPropagation();
+      sammelAuswahl = sammelAuswahl.size === aktive().length
+        ? new Set() : new Set(aktive().map(p => p.id));
+      sammelAuswahlAktualisieren();
+      return;
+    }
     if (t.dataset.winterlichtListe !== undefined) { e.stopPropagation(); winterLichtListe(); return; }
     if (t.dataset.winterlichtOk !== undefined) {
       e.stopPropagation();

@@ -315,11 +315,52 @@ def wochen_rueckblick(daten, heute):
     return "Deine Woche", text
 
 
+def sammel_offen(daten, heute):
+    """Faellige Sammelaufgaben: [(Name, offene Anzahl)].
+
+    Eine angefangene Aufgabe zaehlt auch dann, wenn der Rhythmus noch nicht
+    wieder faellig waere - liegengebliebene Pflanzen sollen nicht bis zum
+    naechsten Durchgang warten.
+    """
+    aktive_ids = {p.get("id") for p in (daten.get("plants") or [])
+                  if not p.get("archiviert")}
+    raus = []
+    for a in daten.get("sammel") or []:
+        if a.get("aktiv") is False:
+            continue
+        gewaehlt = a.get("pflanzen") or []
+        dabei = aktive_ids if not gewaehlt else (set(gewaehlt) & aktive_ids)
+        if not dabei:
+            continue
+        erledigt = set(a.get("erledigt") or [])
+        offen = dabei - erledigt
+        if not offen:
+            continue
+
+        angefangen = bool(erledigt)
+        stand = als_datum(a.get("letzt"))
+        try:
+            intervall = int(a.get("int") or 0)
+        except (TypeError, ValueError):
+            continue
+        if not angefangen:
+            if not intervall or not stand:
+                continue
+            faellig = (plus_monate(stand, intervall) if a.get("einheit") == "monate"
+                       else stand + timedelta(days=intervall))
+            if faellig > heute:
+                continue
+        raus.append((a.get("name") or "Sammelaufgabe", len(offen)))
+    return raus
+
+
 def offene_punkte(daten):
-    """Was heute ansteht: (Gießen, Wasserwechsel, Nachfüllen, Aufgaben, Behandlung)."""
+    """Was heute ansteht: Gießen, Wasserwechsel, Nachfüllen, Aufgaben,
+    Behandlung, Sammelaufgaben."""
     einstellungen = daten.get("settings") or {}
     heute = date.today()
     giessen, wechseln, nachfuellen, aufgaben, behandlung = [], [], [], [], []
+    sammel = sammel_offen(daten, heute)
 
     # Wetterlage einmal je Nutzer. Ohne Ort oder abgeschaltet bleibt sie leer,
     # dann rechnet alles wie vorher.
@@ -386,7 +427,7 @@ def offene_punkte(daten):
                 verb = (e.get("name") or "Aufgabe").strip()
                 aufgaben.append((p.get("name") or "Pflanze", verb[0].lower() + verb[1:]))
 
-    return giessen, wechseln, nachfuellen, aufgaben, behandlung
+    return giessen, wechseln, nachfuellen, aufgaben, behandlung, sammel
 
 
 def aufzaehlung(namen, einzahl, mehrzahl, gekuerzt):
@@ -399,7 +440,7 @@ def aufzaehlung(namen, einzahl, mehrzahl, gekuerzt):
     return gekuerzt.format(namen[0], namen[1], anzahl - 2)
 
 
-def nachricht(giessen, wechseln, nachfuellen, aufgaben, behandlung):
+def nachricht(giessen, wechseln, nachfuellen, aufgaben, behandlung, sammel=()):
     """Titel und Text. Gießen steht vorne, weil es das Dringendere ist."""
     teile = []
 
@@ -431,6 +472,11 @@ def nachricht(giessen, wechseln, nachfuellen, aufgaben, behandlung):
                                  "{} braucht Wasser mit Dünger.",
                                  "{} brauchen Wasser mit Dünger.",
                                  "{}, {} und {} weitere brauchen Wasser mit Dünger."))
+
+    if sammel:
+        for name, anzahl in sammel[:2]:
+            teile.append(f"{name}: {anzahl} Pflanzen offen." if anzahl > 1
+                         else f"{name}: eine Pflanze offen.")
 
     if aufgaben:
         # Nach Tätigkeit bündeln: "Orchidee und Monstera düngen"
