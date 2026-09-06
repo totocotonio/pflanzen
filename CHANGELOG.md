@@ -1,5 +1,30 @@
 # Changelog
 
+## v3.20.1 - 2026-09-06
+
+### Speicher- und Sync-Abläufe abgesichert
+
+- Ein erfolgreicher Upload bestätigt nur den tatsächlich übertragenen Stand.
+  Änderungen während der Anfrage bleiben offen und werden mit der neuen Revision
+  nachgesendet.
+- Uploads warten auf lokale Fotos. Können diese nicht gelesen werden, stoppt der
+  Upload mit sichtbarer Warnung. Auch ein Export bricht dann ab.
+- Veraltete Abgleich-Antworten dürfen einen inzwischen hochgeladenen Stand nicht
+  zurücksetzen.
+- SQLite reserviert den Schreibzugriff vor dem Revisionsvergleich. Das schützt
+  parallele Uploads, das erstmalige Anlegen und die Wiederherstellung von Versionen.
+- Abmelden erhält offene Änderungen. Eine abgelaufene
+  Anmeldung eines bekannten Kontos wird auch beim Start sichtbar gemeldet.
+- Bei vollem lokalem Speicher wird keine ungeprüfte Serversicherung zugesagt.
+  Nach einer Konfliktentscheidung erscheint die Erfolgsmeldung erst nach einem
+  erfolgreichen Upload.
+- Regressionstests und GitHub Actions ergänzt. Details, Vergleich mit v3.20.0
+  und Einschränkungen stehen im [Prüfbericht](docs/SYNC-REVIEW-v3.20.1.md).
+
+Deployment: Frontend und Backend gemeinsam aktualisieren (`python deploy.py --api`).
+Keine Datenbankmigration erforderlich. Produktivdeployment noch nicht ausgeführt.
+
+
 ## v3.20.0 - 2026-09-06
 
 ### Ein fehlgeschlagener Upload bleibt nicht mehr still

@@ -22,7 +22,7 @@ from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import (Column, DateTime, ForeignKey, Integer, String, Text,
-                        create_engine)
+                        create_engine, text)
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 BASIS = os.path.dirname(os.path.abspath(__file__))
@@ -243,6 +243,19 @@ class SyncDaten(BaseModel):
     daten: dict
 
 
+def schreibtransaktion(s: Session) -> None:
+    """Reserviert den SQLite-Schreibzugriff vor dem Lesen der Revision.
+
+    Gilt auch für den ersten Upload und Wiederherstellungen. Die Abfrage des
+    angemeldeten Benutzers kann bereits eine Lesetransaktion geöffnet haben;
+    deren unveränderten Zustand verwerfen wir vor BEGIN IMMEDIATE. Anmeldung
+    und Sitzungsverlängerung sind zu diesem Zeitpunkt bereits committed.
+    Die Reservierung gilt über Prozesse hinweg bis zum Commit/Rollback.
+    """
+    s.rollback()
+    s.execute(text("BEGIN IMMEDIATE"))
+
+
 # --------------------------------------------------------------- App
 app = FastAPI(title="Grünzeug API", docs_url=None, redoc_url=None)
 app.add_middleware(GZipMiddleware, minimum_size=1024)
@@ -315,7 +328,9 @@ def daten_speichern(eingabe: SyncDaten,
     if len(inhalt.encode()) > 80 * 1024 * 1024:
         raise HTTPException(413, "Datensatz zu groß (max. 80 MB)")
 
-    d = s.get(Datensatz, user.id)
+    user_id = user.id
+    schreibtransaktion(s)
+    d = s.get(Datensatz, user_id)
     if not d:
         d = Datensatz(user_id=user.id, inhalt=inhalt, rev=1)
         s.add(d)
@@ -362,8 +377,10 @@ def version_wiederherstellen(version_id: int,
     Der bisherige Stand wird vorher gesichert – auch ein Wiederherstellen
     soll sich rückgängig machen lassen.
     """
+    user_id = user.id
+    schreibtransaktion(s)
     v = s.get(Version, version_id)
-    if not v or v.user_id != user.id:
+    if not v or v.user_id != user_id:
         raise HTTPException(404, "Diesen Stand gibt es nicht")
 
     d = s.get(Datensatz, user.id)

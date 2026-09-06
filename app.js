@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.20.0';
+const VERSION = '3.20.1';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -83,7 +83,7 @@ function save(sync) {
     if (!speicherFehler) {
       speicherFehler = true;
       toast(SYNC.user
-        ? 'Auf diesem Gerät ist kein Platz mehr – deine Daten liegen aber auf dem Server'
+        ? 'Auf diesem Gerät ist kein Platz mehr – die letzten Änderungen sind hier nicht gespeichert. Prüfe die Synchronisierung und lade eine Sicherung herunter.'
         : 'Speicher voll (' + speicherText() + ') – unter Mehr → Daten steht, was Platz braucht',
         'Nachsehen', () => { tab('more'); renderMore(); });
     }
@@ -93,6 +93,7 @@ function save(sync) {
      werden. Sonst weiß die App beim späteren Anmelden nicht, dass hier etwas
      liegt, das der Server nicht kennt – und überschrieb es kommentarlos. */
   if (sync !== false) {
+    SYNC.aenderung++;
     SYNC.dirty = true;
     speichereSync();
     if (SYNC.user) planeSync();
@@ -724,6 +725,12 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.20.1', datum: '06.09.2026', punkte: [
+    'Änderungen während einer Sicherung werden anschließend nachgeladen.',
+    'Uploads und Exporte warten auf die Fotos; bei Lesefehlern wird abgebrochen.',
+    'Gleichzeitige Geräte-Sicherungen überschreiben sich nicht mehr unbemerkt.',
+    'Abmelden erhält offene Änderungen; Erfolgsmeldungen warten auf die Serverbestätigung.'
+  ] },
   { v: '3.20.0', datum: '06.09.2026', punkte: [
     'Eine fehlgeschlagene Sicherung bleibt nicht mehr still: Ein Banner über jeder Ansicht sagt, dass die Änderungen nur auf diesem Gerät liegen – mit Grund und dem Zeitpunkt der letzten Sicherung.',
     'Der Hinweis überlebt einen Neustart der App. Vorher versteckte genau das Neuladen den Fehler.',
@@ -1078,7 +1085,7 @@ function zeigeHistorie() {
 const API = '/api';
 const SYNC_KEY = 'pg_sync';
 let SYNC = { rev: 0, dirty: false, user: null, lokalOk: false, status: 'lokal',
-             laeuft: false, timer: null, standZeit: 0, fehler: null };
+             laeuft: false, timer: null, standZeit: 0, fehler: null, aenderung: 0 };
 
 function ladeSync() {
   try {
@@ -1124,6 +1131,12 @@ async function schiebeHoch() {
   if (!SYNC.user || SYNC.laeuft) return;
   SYNC.laeuft = true;
   try {
+    // Ein Upload ohne die noch ladenden Fotos würde den Serverstand entleeren.
+    if (!bilderGeladen) await bilderNachladen();
+    if (!bilderGeladen) {
+      syncFehler('bilder'); SYNC.status = 'fehler'; return;
+    }
+    const gesendeteAenderung = SYNC.aenderung;
     const r = await api('/data', {
       method: 'PUT',
       body: JSON.stringify({ rev: SYNC.rev, daten: nutzdaten() })
@@ -1141,15 +1154,17 @@ async function schiebeHoch() {
       SYNC.laeuft = false;
       speichereSync();
       syncWarnungZeichnen();
-      loeseKonflikt(d);
+      await loeseKonflikt(d);
       return;
     }
     if (!r.ok) { syncFehler('server'); throw new Error('Status ' + r.status); }
     SYNC.rev = (await r.json()).rev;
-    SYNC.dirty = false;
+    // Während fetch läuft, kann bereits die nächste Pflanze gegossen werden.
+    SYNC.dirty = SYNC.aenderung !== gesendeteAenderung;
     SYNC.standZeit = Date.now();
     SYNC.status = 'ok';
     syncFehlerWeg();
+    if (SYNC.dirty) planeSync();
   } catch (e) {
     // Ein geworfenes fetch heisst: die Anfrage kam gar nicht erst an.
     if (!SYNC.fehler) syncFehler('netz');
@@ -1173,6 +1188,10 @@ async function schiebeHoch() {
    und zeigt sie als dauerhaftes Banner über jeder Ansicht. */
 
 const SYNC_FEHLER_TEXT = {
+  bilder: {
+    was: 'Die Fotos auf diesem Gerät konnten nicht geladen werden.',
+    tun: 'Der Upload wurde angehalten, damit keine Fotos auf dem Server verloren gehen. Versuche es erneut.'
+  },
   gross: {
     was: 'Der Server nimmt den Datensatz nicht an – er ist zu groß.',
     tun: 'Lade dir eine Sicherung herunter, damit die Fotos nicht nur hier liegen.'
@@ -1311,7 +1330,7 @@ function uebernehmeServer(s) {
 }
 
 /** Beide Seiten wurden geändert – das kann nur der Mensch entscheiden. */
-function loeseKonflikt(s) {
+async function loeseKonflikt(s) {
   const zahl = n => (n === 1 ? '1 Pflanze' : n + ' Pflanzen');
   const aufServer = ((s.daten || {}).plants || []).length;
   const hier = DB.plants.length;
@@ -1329,13 +1348,15 @@ function loeseKonflikt(s) {
   } else {
     SYNC.rev = s.rev;         // auf den Serverstand aufsetzen und überschreiben
     speichereSync();
-    schiebeHoch();
-    toast('Dieses Gerät hat den Server überschrieben');
+    await schiebeHoch();
+    if (!SYNC.fehler && !SYNC.dirty) toast('Dieses Gerät wurde auf dem Server gesichert');
   }
 }
 
 /** Erster Abgleich nach dem Anmelden bzw. beim Start. */
 async function abgleichen() {
+  if (SYNC.laeuft) return;
+  const startRevision = SYNC.rev;
   const r = await api('/data');
   if (r.status === 401) {
     syncFehler('auth');
@@ -1343,6 +1364,8 @@ async function abgleichen() {
   }
   if (!r.ok) { syncFehler('server'); speichereSync(); throw new Error('Status ' + r.status); }
   const s = await r.json();
+  // Eine inzwischen gestartete Sicherung hat Vorrang vor dieser alten Antwort.
+  if (SYNC.laeuft || SYNC.rev !== startRevision) return;
 
   if (s.rev === 0) {
     // Server noch leer
@@ -1353,7 +1376,7 @@ async function abgleichen() {
   } else if (SYNC.rev === s.rev) {
     await schiebeHoch();
   } else {
-    loeseKonflikt(s);
+    await loeseKonflikt(s);
   }
   speichereSync();
   renderMore();
@@ -1383,8 +1406,9 @@ async function abmelden() {
   if (SYNC.dirty && !confirm('Es sind noch Änderungen nicht hochgeladen. Trotzdem abmelden?')) return;
   try { await api('/logout', { method: 'POST' }); } catch (e) { /* egal */ }
   SYNC.user = null;
+  // Das nächste Konto könnte ein anderes sein: keine alte Revision verwenden.
   SYNC.rev = 0;
-  SYNC.dirty = false;
+  // Offene Änderungen bleiben erhalten und werden beim Anmelden abgeglichen.
   SYNC.status = 'lokal';
   SYNC.lokalOk = false;
   syncFehlerWeg();
@@ -1411,8 +1435,9 @@ async function starte() {
   try {
     const r = await api('/me');
     if (r.status === 401) {
+      if (SYNC.user) syncFehler('auth');
       SYNC.user = null; SYNC.status = 'lokal'; speichereSync();
-      zeigeLogin(); renderMore(); return;
+      zeigeLogin(); renderMore(); syncWarnungZeichnen(); return;
     }
     if (!r.ok) throw new Error('Status ' + r.status);
     SYNC.user = (await r.json()).name;
@@ -7769,6 +7794,10 @@ async function exportieren() {
   if (!bilderGeladen) {
     toast('Bilder werden noch geladen …');
     await bilderNachladen();
+    if (!bilderGeladen) {
+      toast('Sicherung abgebrochen: Die Fotos konnten nicht geladen werden. Bitte erneut versuchen.');
+      return;
+    }
   }
   const inhalt = JSON.stringify(DB, null, 2);
   const blob = new Blob([inhalt], { type: 'application/json' });
