@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.17.1';
+const VERSION = '3.18.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -87,7 +87,14 @@ function save(sync) {
     }
   }
   bilderSichern();
-  if (sync !== false && SYNC.user) { SYNC.dirty = true; speichereSync(); planeSync(); }
+  /* Die Markierung „noch nicht hochgeladen" muss auch ohne Anmeldung gesetzt
+     werden. Sonst weiß die App beim späteren Anmelden nicht, dass hier etwas
+     liegt, das der Server nicht kennt – und überschrieb es kommentarlos. */
+  if (sync !== false) {
+    SYNC.dirty = true;
+    speichereSync();
+    if (SYNC.user) planeSync();
+  }
 }
 
 /* ---------- Bildspeicher ----------
@@ -714,6 +721,11 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.18.0', datum: '06.09.2026', punkte: [
+    'Wichtige Korrektur am Abgleich: Pflanzen, die nur auf diesem Gerät liegen, werden beim Anmelden nicht mehr überschrieben, sondern behalten.',
+    'Ursache war, dass die Markierung „noch nicht hochgeladen“ nur gesetzt wurde, solange man angemeldet war. Wer bei abgelaufener Sitzung etwas anlegte, verlor es beim nächsten Anmelden.',
+    'Die App sagt jetzt, wenn sie etwas gerettet hat.'
+  ]},
   { v: '3.17.1', datum: '06.09.2026', punkte: [
     'Behoben: Der Knopf „Verschieben" tat nichts, wenn man nur einen der Tages-Chips ausgewählt hatte.',
     'Die Chips wählen jetzt aus, statt sofort zu verschieben – und der Knopf sagt, was er tun wird: „Um 5 Tage verschieben".',
@@ -1052,7 +1064,8 @@ function zeigeHistorie() {
    Änderungen eines anderen unbemerkt überschreibt. */
 const API = '/api';
 const SYNC_KEY = 'pg_sync';
-let SYNC = { rev: 0, dirty: false, user: null, lokalOk: false, status: 'lokal', laeuft: false, timer: null };
+let SYNC = { rev: 0, dirty: false, user: null, lokalOk: false, status: 'lokal',
+             laeuft: false, timer: null, standZeit: 0 };
 
 function ladeSync() {
   try {
@@ -1061,12 +1074,14 @@ function ladeSync() {
     SYNC.dirty = !!d.dirty;
     SYNC.user = d.user || null;
     SYNC.lokalOk = !!d.lokalOk;
+  SYNC.standZeit = d.standZeit || 0;
   } catch (e) { /* erster Start */ }
 }
 function speichereSync() {
   try {
     localStorage.setItem(SYNC_KEY, JSON.stringify(
-      { rev: SYNC.rev, dirty: SYNC.dirty, user: SYNC.user, lokalOk: SYNC.lokalOk }));
+      { rev: SYNC.rev, dirty: SYNC.dirty, user: SYNC.user, lokalOk: SYNC.lokalOk,
+        standZeit: SYNC.standZeit || 0 }));
   } catch (e) { /* Speicher voll – der Datensatz selbst hat Vorrang */ }
 }
 
@@ -1106,6 +1121,7 @@ async function schiebeHoch() {
     if (!r.ok) throw new Error('Status ' + r.status);
     SYNC.rev = (await r.json()).rev;
     SYNC.dirty = false;
+    SYNC.standZeit = Date.now();
     SYNC.status = 'ok';
   } catch (e) {
     SYNC.status = navigator.onLine ? 'fehler' : 'offline';
@@ -1119,12 +1135,43 @@ async function schiebeHoch() {
 /** Serverstand lokal übernehmen. */
 function uebernehmeServer(s) {
   const d = s.daten || {};
-  DB.plants = d.plants || [];
-  DB.logs = d.logs || [];
+  const vomServer = d.plants || [];
+
+  /* Rettungsnetz gegen Datenverlust.
+
+     Bis hierher wurde der lokale Bestand einfach ersetzt. Wer Pflanzen anlegt,
+     während die Sitzung abgelaufen ist, verliert sie damit beim nächsten
+     Anmelden – der Server kennt sie nicht, also waren sie weg.
+
+     Deshalb: Pflanzen, die es nur hier gibt und die *nach* dem letzten
+     erfolgreichen Abgleich angelegt wurden, bleiben erhalten. Die
+     Zeitbedingung ist wichtig – ohne sie käme eine auf einem anderen Gerät
+     gelöschte Pflanze bei jedem Abgleich zurück. */
+  const bekannt = new Set(vomServer.map(p => p.id));
+  const grenze = SYNC.standZeit || 0;
+  const nurHier = DB.plants.filter(p =>
+    !bekannt.has(p.id) && !p.archiviert && (p.created || 0) > grenze);
+
+  DB.plants = vomServer.concat(nurHier);
+
+  const logIds = new Set((d.logs || []).map(l => l.id));
+  const eigeneLogs = nurHier.length
+    ? DB.logs.filter(l => !logIds.has(l.id) && nurHier.some(p => p.id === l.plantId))
+    : [];
+  DB.logs = (d.logs || []).concat(eigeneLogs);
+
   DB.settings = Object.assign(DB.settings, d.settings || {});
   SYNC.rev = s.rev;
-  SYNC.dirty = false;
+  SYNC.dirty = nurHier.length > 0;      // das Gerettete muss noch hoch
+  SYNC.standZeit = Date.now();
   SYNC.status = 'ok';
+
+  if (nurHier.length) {
+    toast(nurHier.length === 1
+      ? '1 Pflanze war nur auf diesem Gerät – behalten'
+      : nurHier.length + ' Pflanzen waren nur auf diesem Gerät – behalten');
+    planeSync();
+  }
   save(false);          // schreibt auch die Bilder vom Server nach IndexedDB
   // Hatte der Server keine Bilder – etwa weil das andere Gerät sie nie
   // hochgeladen hat –, kommen die lokalen wieder rein. Ergänzt nur, wo fehlt.

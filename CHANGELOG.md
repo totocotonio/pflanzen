@@ -1,5 +1,39 @@
 # Changelog
 
+## v3.18.0 - 2026-09-06
+
+### Datenverlust beim Anmelden behoben
+
+Gemeldet: Pflanzen, die am Vortag eingetragen wurden, waren verschwunden – „die
+waren gerade eben noch da".
+
+**Die Ursache**, in zwei Teilen:
+
+1. `save()` setzte die Markierung „noch nicht hochgeladen" **nur, solange man
+   angemeldet war**. Wer Pflanzen anlegt, während die Sitzung abgelaufen ist,
+   bekam diese Markierung nicht.
+2. Beim nächsten Anmelden sah `abgleichen()` keine offenen Änderungen und rief
+   `uebernehmeServer()` – und das **ersetzte den lokalen Bestand vollständig**
+   durch den Serverstand. Die lokal angelegten Pflanzen waren damit weg, ohne
+   Nachfrage und ohne Meldung.
+
+**Behoben:**
+
+- Die Markierung wird jetzt **immer** gesetzt, auch ohne Anmeldung.
+- `uebernehmeServer()` ersetzt nicht mehr blind: Pflanzen, die es nur lokal
+  gibt und die **nach dem letzten erfolgreichen Abgleich** angelegt wurden,
+  bleiben erhalten – mitsamt ihren Verlaufseinträgen. Die App sagt, wenn sie
+  etwas gerettet hat.
+- Die Zeitbedingung ist wichtig: Ohne sie käme eine auf einem anderen Gerät
+  gelöschte Pflanze bei jedem Abgleich zurück. Gegengeprüft.
+- Dafür merkt sich die App jetzt den Zeitpunkt des letzten Abgleichs.
+
+**Zu den verlorenen Pflanzen:** Alle acht täglichen Sicherungen und alle 20
+gespeicherten Versionsstände wurden durchsucht. In keinem davon sind sie
+enthalten – der höchste Stand war durchgehend 47 Pflanzen, die letzten
+Neuanlagen stammen vom 3. September. Sie sind nie beim Server angekommen und
+lassen sich von dort nicht zurückholen.
+
 ## v3.17.1 - 2026-09-06
 
 ### Behoben: „Verschieben" tat nichts
