@@ -1,5 +1,25 @@
 # Changelog
 
+## v3.21.0 - 2026-09-06
+
+### Heute: sehen, was jetzt zu tun ist
+
+- Aufgabenüberblick mit offenen Gieß- und Pflegeaufgaben sowie Hinweis auf
+  überfälliges Gießen. Die Gieß-Runde startet direkt aus dem Überblick.
+- Drei Filter: Gießen, Pflege und Demnächst. Pflege umfasst auch Behandlungen,
+  Eingewöhnung und Sammelaufgaben; der gesamte Bestand ist separat erreichbar.
+- Fällige Behandlungen zuerst; anschließend Gießen, weitere Pflege, Sammelaufgaben
+  und Eingewöhnung. Kommende Gießtermine stehen erst darunter.
+- Allgemeine Saison- und Wetterhinweise sind aufklappbar. Frostwarnung und
+  Hinweise auf Pflanzen mit Problemen bleiben direkt sichtbar.
+- Abhakflächen auf Heute auf 44 px vergrößert; Metadaten dürfen umbrechen.
+  Filter melden ihren Auswahlzustand über `aria-pressed`.
+- Browser-Regressionen für Filter, Abhaken/Rückgängig, leere und erledigte
+  Bestände, Pflegearten, Archiv und mobile/desktop Ansichten ergänzt.
+
+Details: [Heute-Prüfbericht](docs/HEUTE-v3.21.0.md). Deployment ausstehend.
+
+
 ## v3.20.1 - 2026-09-06
 
 ### Speicher- und Sync-Abläufe abgesichert

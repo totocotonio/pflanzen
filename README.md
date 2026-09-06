@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** ✅ Live (v3.20.1) – Deployment und Prüfung am 06.09.2026 abgeschlossen.
+**Version:** v3.21.0 – neue Heute-Ansicht; Deployment ausstehend.
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -20,7 +20,7 @@ Grünzeug beantwortet eine einzige Frage zuverlässig: *Welche Pflanze braucht h
 
 ### Gießplan
 
-Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in zwei Tagen fällig, Gesamtzahl) und darunter die Pflanzen gruppiert nach Dringlichkeit.
+Der Kern der App. Die Ansicht **Heute** zeigt einen Überblick über offene Aufgaben und drei Filter: **Gießen**, **Pflege** und **Demnächst**. Fällige Behandlungen, Gieß- und Pflegeaufgaben stehen vor kommenden Gießterminen. Der gesamte Pflanzenbestand bleibt über einen eigenen Knopf erreichbar.
 
 ✅ **Fälligkeitsberechnung** – letztes Gießdatum + Intervall, tagesgenau
 ✅ **Ein-Tipp-Gießen** – Tropfen-Button in Liste und Detailansicht, mit Haptik-Feedback
@@ -28,7 +28,7 @@ Der Kern der App. Die Ansicht **Heute** zeigt oben drei Kennzahlen (fällig, in 
 ✅ **Nachtragen** – „war gestern" in der Meldung oder freie Datumswahl in der Aufgabenkarte, falls das Abhaken vergessen wurde
 ✅ **Farbcodierung** – grün (heute fällig), orange (demnächst), rot (überfällig)
 ✅ **Fortschrittsbalken** – zeigt, wie weit das Intervall aufgebraucht ist
-✅ **Kacheln als Filter** – Tippen auf „fällig", „in 2 Tagen" oder „Pflanzen" zeigt nur diese Auswahl
+✅ **Kacheln als Filter** – Gießen, Pflege und Demnächst einzeln ansehen; erneut tippen oder „Alle Aufgaben“ hebt den Filter auf
 ✅ **Winter-Modus** – verlängert die Intervalle von November bis Februar; je Pflanze auf keine, ×1,5, ×2 oder ×3 einstellbar
 ✅ **Vorwarnung** – 0 bis 7 Tage vor Fälligkeit; Kachel und „Demnächst“ folgen der Einstellung
 ✅ **Plan-Ansicht** – die nächsten 14 Tage nach Kalendertagen gruppiert
@@ -116,7 +116,7 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
 | Design | warme Grün- und Erdtöne, hell und dunkel, System-Schriften, `env(safe-area-inset-*)` |
 | Speicher | `localStorage`, Schlüssel `pg_data` |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v3.20.1` |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v3.21.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
 | Push | Web Push API + VAPID, pywebpush, systemd-Timer alle 15 Minuten |
 | Hosting | LXC Container auf Proxmox |
@@ -272,6 +272,22 @@ Netzwerkantworten und Browser-Speichern. GitHub Actions führt beide Suiten aus.
 Details zu Befunden, Korrekturen, Testergebnissen und verbleibenden Grenzen:
 [Sync-Prüfbericht v3.20.1](docs/SYNC-REVIEW-v3.20.1.md).
 
+Browser-Prüfung der Heute-Ansicht (startet einen lokalen Server mit Testdatenbank):
+
+```bash
+npm ci
+npx playwright install chromium
+npm run test:browser
+```
+
+`PYTHON` kann auf die Python-Umgebung mit den Projektabhängigkeiten zeigen.
+`HEUTE_BASE_URL` verwendet einen bereits laufenden lokalen Testserver;
+`BROWSER_CHANNEL=msedge` nutzt ein installiertes Microsoft Edge.
+`HEUTE_SCREENSHOTS` legt optional Screenshots in einem angegebenen Verzeichnis ab.
+Für alle Prüfungen ausschließlich Testumgebungen verwenden.
+
+Änderungen, Zählweise und Prüfungen: [Heute v3.21.0](docs/HEUTE-v3.21.0.md).
+
 ## Deployment
 
 ```bash
@@ -303,6 +319,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v3.21.0** | Heute: Aufgabenüberblick, Pflegefilter und fällige Aufgaben vor der Vorschau |
 | **v3.20.1** | Gleichzeitige Uploads, Foto-Laden und offene Änderungen beim Abmelden abgesichert |
 | **v3.20.0** | Fehlgeschlagene Sicherung wird sichtbar gemeldet |
 | **v3.19.0** | Sammelaufgaben über beliebig viele Pflanzen |

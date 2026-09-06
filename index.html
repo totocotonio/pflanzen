@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=3.20.1">
+<link rel="stylesheet" href="style.css?v=3.21.0">
 </head>
 <body>
 
@@ -54,18 +54,23 @@
       </div>
     </div>
 
-    <div class="stat-row">
-      <button class="stat" data-filter="faellig"><b id="st-faellig">0</b><span>fällig</span></button>
-      <button class="stat" data-filter="bald"><b id="st-bald">0</b><span id="st-bald-text">in 2 Tagen</span></button>
-      <button class="stat" data-filter="alle"><b id="st-gesamt">0</b><span>Pflanzen</span></button>
-    </div>
-
     <div id="frost-warnung"></div>
-    <div id="schaedling-warnung"></div>
-    <div id="winterlicht-warnung"></div>
+    <div id="heute-ueberblick" class="heute-ueberblick"></div>
+    <div class="stat-row" aria-label="Aufgaben filtern">
+      <button class="stat" data-filter="faellig" aria-pressed="false"><b id="st-faellig">0</b><span>Gießen</span></button>
+      <button class="stat" data-filter="pflege" aria-pressed="false"><b id="st-pflege">0</b><span>Pflege</span></button>
+      <button class="stat" data-filter="bald" aria-pressed="false"><b id="st-bald">0</b><span>Demnächst</span><small id="st-bald-text">in 2 Tagen</small></button>
+    </div>
+    <div class="heute-bestand"><span>Dein Bestand</span><button data-filter="alle" aria-pressed="false">Alle <span id="st-gesamt">0</span> Pflanzen ansehen →</button></div>
+
     <div id="sorgen-hinweis" hidden></div>
-    <div id="wetter-hinweis" hidden></div>
     <div id="heute-liste"></div>
+    <details class="heute-hinweise" id="heute-hinweise" hidden>
+      <summary>Hinweise für deine Pflanzen</summary>
+      <div id="schaedling-warnung"></div>
+      <div id="winterlicht-warnung"></div>
+      <div id="wetter-hinweis" hidden></div>
+    </details>
   </section>
 
   <!-- ===== PFLANZEN ===== -->
@@ -657,6 +662,6 @@
 
 <div id="toast"></div>
 
-<script src="app.js?v=3.20.1"></script>
+<script src="app.js?v=3.21.0"></script>
 </body>
 </html>

@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.20.1';
+const VERSION = '3.21.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -34,7 +34,7 @@ let editId = null;      // null = neue Pflanze
 let editEmoji = '🪴';
 let editFoto = null;
 let raumFilter = 'alle';
-let heuteFilter = null;   // null | 'faellig' | 'bald' | 'alle'
+let heuteFilter = null;   // null | 'faellig' | 'pflege' | 'bald' | 'alle'
 let suchText = '';
 let sortierung = 'dringlich';
 let letzteAktion = null;  // für "Rückgängig" nach Gießen/Düngen
@@ -725,6 +725,12 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.21.0', datum: '06.09.2026', punkte: [
+    'Heute zeigt alle offenen Gieß- und Pflegeaufgaben in einem Überblick.',
+    'Neue Filter: Gießen, Pflege und Demnächst. Behandlungen und fällige Pflege stehen vor der Vorschau.',
+    'Gieß-Runde direkt starten, allgemeine Pflanzentipps bei Bedarf aufklappen.',
+    'Größere Abhakflächen und mehr Platz für Standort und Fälligkeit.'
+  ] },
   { v: '3.20.1', datum: '06.09.2026', punkte: [
     'Änderungen während einer Sicherung werden anschließend nachgeladen.',
     'Uploads und Exporte warten auf die Fotos; bei Lesefehlern wird abgebrochen.',
@@ -1513,12 +1519,36 @@ function renderHeute() {
   const faellig = liste.filter(p => tageBis(p) <= 0);
   const bald = liste.filter(p => { const t = tageBis(p); return t > 0 && t <= fenster; });
 
+  const pflege = faelligeAufgaben().sort((a, b) => a.tage - b.tage);
+  const sammel = faelligeSammel();
+  const neuzugaenge = faelligeNeuzugaenge();
+  const behandlungen = faelligeBehandlungen();
+  // Eine sichtbare Aufgabenkarte zählt einmal, auch bei mehreren Teilschritten.
+  const pflegeZahl = pflege.length + sammel.length + neuzugaenge.length + behandlungen.length;
+  const offen = faellig.length + pflegeZahl;
+  const ueberfaellig = faellig.filter(p => tageBis(p) < 0).length;
+  const wasser = rundeWassermenge(faellig);
+  $('#heute-ueberblick').hidden = !liste.length;
+  $('#heute-ueberblick').innerHTML = `<h2>${offen
+    ? (offen === 1 ? 'Eine Aufgabe für heute' : offen + ' Aufgaben für heute')
+    : 'Heute ist alles erledigt'}</h2>
+    <p>${ueberfaellig
+      ? ueberfaellig + (ueberfaellig === 1 ? ' Pflanze wartet schon länger auf Wasser.' : ' Pflanzen warten schon länger auf Wasser.')
+      : offen ? 'Gießen und Pflege – hier siehst du, was jetzt fällig ist.'
+      : 'Keine fälligen Gieß- oder Pflegeaufgaben. Zeit, deine Pflanzen zu genießen.'}</p>
+    ${faellig.length > 1 && (!heuteFilter || heuteFilter === 'faellig')
+      ? `<button class="btn" data-runde-start><span>Gieß-Runde starten →</span><small>${faellig.length} Pflanzen${wasser ? ' · ' + esc(wasser.text) : ''}</small></button>` : ''}`;
+  $('#st-pflege').textContent = pflegeZahl;
   $('#st-faellig').textContent = faellig.length;
   $('#st-bald').textContent = bald.length;
   $('#st-gesamt').textContent = liste.length;
   $('#st-bald-text').textContent = fenster === 1 ? 'morgen' : 'in ' + fenster + ' Tagen';
 
-  $$('.stat').forEach(k => k.classList.toggle('on', k.dataset.filter === heuteFilter));
+  $$('#view-heute [data-filter]').forEach(k => {
+    const aktiv = k.dataset.filter === heuteFilter;
+    k.classList.toggle('on', aktiv);
+    k.setAttribute('aria-pressed', String(aktiv));
+  });
 
   $('#frost-warnung').innerHTML = frostKarteHTML();
   $('#schaedling-warnung').innerHTML = schaedlingsKarteHTML();
@@ -1540,6 +1570,9 @@ function renderHeute() {
   wbox.hidden = !wz;
   if (wz) wbox.innerHTML = `<span class="wetter-emoji">${wz.emoji}</span><span>${wz.text}</span>`;
 
+  $('#heute-hinweise').hidden = !liste.length || !(
+    $('#schaedling-warnung').innerHTML.trim() || $('#winterlicht-warnung').innerHTML.trim() || wz);
+
   const box = $('#heute-liste');
   if (!liste.length) {
     box.innerHTML = `<div class="empty"><div class="big">🌱</div>
@@ -1550,7 +1583,7 @@ function renderHeute() {
     $('#btn-beispiele-leer').onclick = beispieleLaden;
     return;
   }
-  if (heuteFilter) {
+  if (heuteFilter && heuteFilter !== 'pflege') {
     const auswahl = heuteFilter === 'faellig' ? faellig
       : heuteFilter === 'bald' ? bald
       : liste.slice();
@@ -1559,10 +1592,10 @@ function renderHeute() {
         ? (fenster === 1 ? 'Morgen fällig' : 'In den nächsten ' + fenster + ' Tagen')
         : 'Alle Pflanzen';
     const kopf = `<div class="section-title mit-aktion"><span>${ueberschrift}</span>` +
-                 `<span class="aktion" data-filter-weg>Filter aufheben</span></div>`;
+                 `<button class="aktion" data-filter-weg>Alle Aufgaben</button></div>`;
     if (!auswahl.length) {
       box.innerHTML = kopf + `<div class="empty"><div class="big">✅</div>
-        <p>Hier ist gerade nichts.</p></div>`;
+        <p>${heuteFilter === 'faellig' ? 'Gerade braucht keine Pflanze Wasser.' : 'In dieser Vorschau ist nichts fällig.'}</p></div>`;
       return;
     }
     auswahl.sort((a, b) => tageBis(a) - tageBis(b));
@@ -1570,33 +1603,51 @@ function renderHeute() {
     return;
   }
 
-  if (!faellig.length && !bald.length && !faelligeAufgaben().length
-      && !faelligeBehandlungen().length && !faelligeNeuzugaenge().length
-      && !faelligeSammel().length) {
-    const naechst = liste.slice().sort((a, b) => tageBis(a) - tageBis(b))[0];
-    box.innerHTML = `<div class="empty"><div class="big">✅</div>
-      <p><b>Alles gegossen</b></p>
-      <p>Nächste Pflanze: ${esc(naechst.name)} ${statusText(naechst).toLowerCase()}.</p></div>`;
+  let html = heuteFilter === 'pflege'
+    ? '<div class="section-title mit-aktion"><span>Fällige Pflege</span><button class="aktion" data-filter-weg>Alle Aufgaben</button></div>' : '';
+  if (heuteFilter === 'pflege' && !pflegeZahl) {
+    box.innerHTML = html + '<div class="empty"><div class="big">✅</div><p>Gerade ist keine Pflegeaufgabe fällig.</p></div>';
     return;
   }
 
-  let html = '';
-  if (faellig.length) {
+  if (behandlungen.length) {
+    html += `<div class="section-title">Behandlung</div>`;
+    html += behandlungen.map(({ pflanze, offen }) => `
+      <div class="plant" data-open="${pflanze.id}">
+        ${avatarHTML(pflanze)}
+        <div class="info">
+          <div class="nm">${esc(pflanze.name)}</div>
+          <div class="meta">${esc(behandlungVon(pflanze).ursache.was)} · ${
+            offen.length === 1 ? 'ein Schritt' : offen.length + ' Schritte'} offen</div>
+        </div>
+        <button class="water-btn due" data-beh-schritt="${offen[0].i}" data-pid="${pflanze.id}"
+          title="${esc(offen[0].text)}">${behandlungVon(pflanze).problem.emoji}</button>
+      </div>`).join('');
+  }
+
+
+  if (!heuteFilter && faellig.length) {
     html += `<div class="section-title mit-aktion"><span>Jetzt gießen</span>` +
-            (faellig.length > 1 ? `<span class="aktion" data-alle-giessen>Alle ${faellig.length} gießen</span>` : '') +
+            (faellig.length > 1 ? `<button class="aktion" data-alle-giessen>Alle ${faellig.length} gießen</button>` : '') +
             `</div>`;
-    if (faellig.length > 2) {
-      const wasser = rundeWassermenge(faellig);
-      html += `<button class="btn" data-runde-start style="margin:0 0 12px">🚿 Gieß-Runde starten${
-        wasser ? ` · ${wasser.text}` : ''}</button>`;
-    }
     html += faellig.sort((a, b) => tageBis(a) - tageBis(b)).map(plantRow).join('');
   }
-  if (bald.length) {
-    html += `<div class="section-title">Demnächst</div>`;
-    html += bald.sort((a, b) => tageBis(a) - tageBis(b)).map(plantRow).join('');
+
+  if (pflege.length) {
+    html += `<div class="section-title">Weitere Pflege</div>`;
+    html += pflege.map(({ pflanze, aufgabe }) => `
+      <div class="plant" data-open="${pflanze.id}">
+        ${avatarHTML(pflanze)}
+        <div class="info">
+          <div class="nm">${esc(pflanze.name)}</div>
+          <div class="meta">${aufgabe.name} fällig${pflanze.raum ? ' · ' + esc(pflanze.raum) : ''}</div>
+        </div>
+        <button class="water-btn due" data-aufgabe="${aufgabe.schluessel}" data-pid="${pflanze.id}"
+          title="${aufgabe.name}">${aufgabe.emoji}</button>
+      </div>`).join('');
   }
-  const sammel = faelligeSammel();
+
+
   if (sammel.length) {
     html += `<div class="section-title">Sammelaufgaben</div>`;
     html += sammel.map(a => {
@@ -1618,7 +1669,8 @@ function renderHeute() {
     }).join('');
   }
 
-  const neuzugaenge = faelligeNeuzugaenge();
+
+
   if (neuzugaenge.length) {
     html += `<div class="section-title">Neu dabei</div>`;
     html += neuzugaenge.map(({ pflanze, offen }) => `
@@ -1634,35 +1686,15 @@ function renderHeute() {
       </div>`).join('');
   }
 
-  const behandlungen = faelligeBehandlungen();
-  if (behandlungen.length) {
-    html += `<div class="section-title">Behandlung</div>`;
-    html += behandlungen.map(({ pflanze, offen }) => `
-      <div class="plant" data-open="${pflanze.id}">
-        ${avatarHTML(pflanze)}
-        <div class="info">
-          <div class="nm">${esc(pflanze.name)}</div>
-          <div class="meta">${esc(behandlungVon(pflanze).ursache.was)} · ${
-            offen.length === 1 ? 'ein Schritt' : offen.length + ' Schritte'} offen</div>
-        </div>
-        <button class="water-btn due" data-beh-schritt="${offen[0].i}" data-pid="${pflanze.id}"
-          title="${esc(offen[0].text)}">${behandlungVon(pflanze).problem.emoji}</button>
-      </div>`).join('');
-  }
 
-  const pflege = faelligeAufgaben();
-  if (pflege.length) {
-    html += `<div class="section-title">Weitere Pflege</div>`;
-    html += pflege.map(({ pflanze, aufgabe }) => `
-      <div class="plant" data-open="${pflanze.id}">
-        ${avatarHTML(pflanze)}
-        <div class="info">
-          <div class="nm">${esc(pflanze.name)}</div>
-          <div class="meta">${aufgabe.name} fällig${pflanze.raum ? ' · ' + esc(pflanze.raum) : ''}</div>
-        </div>
-        <button class="water-btn due" data-aufgabe="${aufgabe.schluessel}" data-pid="${pflanze.id}"
-          title="${aufgabe.name}">${aufgabe.emoji}</button>
-      </div>`).join('');
+  if (!heuteFilter && bald.length) {
+    html += `<div class="section-title">Demnächst</div>`;
+    html += bald.sort((a, b) => tageBis(a) - tageBis(b)).map(plantRow).join('');
+  }
+  if (!html) {
+    const naechst = liste.slice().sort((a, b) => tageBis(a) - tageBis(b))[0];
+    html = '<div class="empty"><div class="big">🌿</div><p>Nächster Gießtermin: ' +
+      esc(naechst.name) + ' · ' + esc(statusText(naechst)) + '.</p></div>';
   }
   box.innerHTML = html;
 }

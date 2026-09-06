@@ -17,3 +17,6 @@ jobs:
       - run: python -m unittest discover -s tests -p 'test_*.py' -v
       - run: node --test tests/sync.test.cjs
       - run: node --check app.js && node --check sw.js
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
