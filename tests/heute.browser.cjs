@@ -121,6 +121,21 @@ const path = require('node:path');
       await page.evaluate(theme => { DB.settings.theme = theme; applyTheme(); }, theme);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${width}px ${theme}: kein horizontaler Überlauf`);
       if (shots) await page.screenshot({ path: path.join(shots, `heute-${width}-${theme}.png`), fullPage: true, animations: 'disabled' });
+      await page.evaluate(() => {
+        DB.plants[0].name = 'Monstera mit einem besonders langen Pflanzennamen';
+        renderPflanzen();
+      });
+      await page.locator('[data-tab="pflanzen"]').click();
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${width}px: Pflanzen ohne Überlauf`);
+      if (shots) await page.screenshot({ path: path.join(shots, `pflanzen-${width}-${theme}.png`), fullPage: true, animations: 'disabled' });
+      await page.locator('#pflanzen-grid [data-open="a"]').click();
+      assert.ok(await page.locator('#sheet-detail').evaluate(el => el.classList.contains('open')));
+      assert.ok(await page.locator('#detail-body').evaluate(el => el.scrollWidth <= el.clientWidth), `${width}px: Detail ohne Überlauf`);
+      if (shots) await page.screenshot({ path: path.join(shots, `detail-${width}-${theme}.png`), animations: 'disabled' });
+      await page.evaluate(() => {
+        closeSheets();
+      });
+      await page.locator('[data-tab="heute"]').click();
     }
     assert.deepEqual(errors, []);
     console.log('PASS: 320/390/1280 px, Hell/Dunkel, kein Überlauf oder JavaScript-Laufzeitfehler');

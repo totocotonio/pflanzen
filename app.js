@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.22.0';
+const VERSION = '3.23.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -469,7 +469,7 @@ function loeschePflanze(id) {
    synchronisiert. Jedes Konto hat eigene Einstellungen. */
 
 const AKZENTE = {
-  gruen:   { name: 'Blattgrün', dunkel: '#5FBF7F', hell: '#2F7D4F', auf: '#FFFFFF' },
+  gruen:   { name: 'Blattgrün', dunkel: '#5FBF7F', hell: '#285438', auf: '#FFFFFF' },
   salbei:  { name: 'Salbei',    dunkel: '#8FBFA0', hell: '#5E8C6A', auf: '#FFFFFF' },
   oliv:    { name: 'Oliv',      dunkel: '#A8B96A', hell: '#6E7F32', auf: '#FFFFFF' },
   terra:   { name: 'Terrakotta',dunkel: '#D4795E', hell: '#B0563A', auf: '#FFFFFF' },
@@ -729,6 +729,12 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.23.0', datum: '06.09.2026', punkte: [
+    'Ruhige Heute-Ansicht mit weißen Karten, mehr Abstand und dunkelgrüner Gieß-Runde.',
+    'Größere Pflanzenfotos, sichtbare Standorte und großzügigere Detailansicht.',
+    'Klarere Gießaktionen, größere Bedienelemente und markierter aktiver Navigationspunkt.',
+    'Hell- und Dunkelmodus sowie persönliche Farben bleiben verfügbar.'
+  ] },
   { v: '3.22.0', datum: '06.09.2026', punkte: [
     'Fotos werden nur noch übertragen, wenn sie auf dem Server fehlen. Gießen und andere kleine Änderungen senden keine unveränderten Bilder mehr.',
     'Vorhandene Fotos werden automatisch übernommen. Ältere App-Versionen bleiben kompatibel.',
@@ -1545,7 +1551,7 @@ function renderHeute() {
   const ueberfaellig = faellig.filter(p => tageBis(p) < 0).length;
   const wasser = rundeWassermenge(faellig);
   $('#heute-ueberblick').hidden = !liste.length;
-  $('#heute-ueberblick').innerHTML = `<h2>${offen
+  $('#heute-ueberblick').innerHTML = `<div class="heute-kicker">Dein Pflanzentag</div><h2>${offen
     ? (offen === 1 ? 'Eine Aufgabe für heute' : offen + ' Aufgaben für heute')
     : 'Heute ist alles erledigt'}</h2>
     <p>${ueberfaellig
@@ -1730,7 +1736,7 @@ function plantRow(p) {
         statusText(p)}${p.raum ? ' · ' + esc(p.raum) : ''}${p.menge ? ' · ' + esc(p.menge) : ''}</div>
       <div class="bar"><i class="${st === 'over' ? 'over' : st === 'soon' ? 'soon' : ''}" style="width:${pct}%"></i></div>
     </div>
-    <button class="water-btn ${st === 'over' ? 'over' : st === 'due' ? 'due' : ''}" data-water="${p.id}" title="Gegossen">💧</button>
+    <button class="water-btn ${st === 'over' ? 'over' : st === 'due' ? 'due' : ''}" data-water="${p.id}" title="Gegossen" aria-label="${esc(p.name)} als gegossen markieren">💧</button>
   </div>`;
 }
 
@@ -1809,9 +1815,10 @@ function renderPflanzen() {
     <div class="tile ${p.archiviert ? 'archiviert' : ''}" data-open="${p.id}">
       ${avatarHTML(p)}
       <div class="nm">${esc(p.name)}</div>
+      ${p.raum ? `<div class="tile-ort">${esc(p.raum)}</div>` : ''}
       <div class="meta ${st}">${p.archiviert ? 'archiviert' : statusText(p)}</div>
       ${faellig ? `<button class="tile-kreis ${st}" data-water="${p.id}"
-        title="Gegossen"></button>` : ''}
+        title="Gegossen" aria-label="${esc(p.name)} als gegossen markieren"></button>` : ''}
     </div>`;
   };
 

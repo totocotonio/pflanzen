@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Version:** v3.22.0 – getrennter Bild-Sync; am 06.09.2026 produktiv ausgeliefert und geprüft.
+**Version:** v3.23.0 – natürliche Gestaltung; Deployment vorbereitet.
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -117,7 +117,7 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
 | Design | warme Grün- und Erdtöne, hell und dunkel, System-Schriften, `env(safe-area-inset-*)` |
 | Speicher | Metadaten: `localStorage` (`pg_data`); Bilder: IndexedDB; Server: SQLite mit Bildtabelle |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v3.22.0` |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v3.23.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
 | Push | Web Push API + VAPID, pywebpush, systemd-Timer alle 15 Minuten |
 | Hosting | LXC Container auf Proxmox |
@@ -330,6 +330,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v3.23.0** | Natürliche Gestaltung: größere Fotos, ruhige Pflegekarten und klare Navigation |
 | **v3.22.0** | Fotos separat synchronisieren, Inhalte deduplizieren und ältere Clients unterstützen |
 | **v3.21.0** | Heute: Aufgabenüberblick, Pflegefilter und fällige Aufgaben vor der Vorschau |
 | **v3.20.1** | Gleichzeitige Uploads, Foto-Laden und offene Änderungen beim Abmelden abgesichert |

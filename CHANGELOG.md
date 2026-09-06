@@ -1,5 +1,19 @@
 # Changelog
 
+## v3.23.0 - 2026-09-06
+
+- Heute mit weißen, großzügigen Karten, dunkelgrünem Hauptbutton und farblich
+  unterscheidbaren Aufgabenzählern auf dem salbeigrünen Hintergrund.
+- Größere Pflanzenbilder in Aufgaben und Sammlung; Standorte unter dem Namen.
+- Größeres Detailfoto, abgerundete Pflegekarten und klarer aktiver Navigationseintrag.
+- 44-Pixel-Gießaktionen mit pflanzenspezifischen zugänglichen Namen,
+  sichtbare Tastaturfokusse und Berücksichtigung reduzierter Bewegung.
+- Dunkelmodus und persönliche Akzentfarben/Hintergründe bleiben verfügbar.
+- Browserprüfung um Sammlung und Detail mit langen Pflanzennamen erweitert.
+
+Prüfung und Deployment: [Design v3.23.0](docs/DESIGN-v3.23.0.md).
+
+
 ## v3.22.0 - 2026-09-06
 
 ### Neue Fotos einmal übertragen, kleine Änderungen klein halten
