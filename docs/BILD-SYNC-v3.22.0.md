@@ -109,4 +109,27 @@ Frontend und Backend gemeinsam mit `python deploy.py --api` ausliefern.
 Das Skript startet zuerst die kompatible API, dann lädt es das Frontend hoch.
 `bild-sync.js` gehört zu Deployment und Service-Worker-Cache. Version 3.22.0
 steht in App, Versionsdatei, Historie, HTML-/Cacheparametern und Dokumentation.
-Produktivdeployment und Migration stehen noch aus.
+Am 06.09.2026 produktiv ausgeliefert; Code-Stand `25bcb00` auf `main`.
+GitHub Actions für diesen Stand erfolgreich:
+[Testlauf](https://github.com/totocotonio/pflanzen/actions/runs/34040647368).
+
+- Vorab sämtliche vorhandenen Deployment-Dateien mit v3.21.0 verglichen.
+- Code und SQLite-Datenbank gesichert unter
+  `/opt/gruenzeug-releases/v3.22.0-preflight/rollback-20260906T145513Z`
+  (geschütztes Verzeichnis auf dem Server).
+- Alle 16 API-Tests mit den Produktionsbibliotheken erfolgreich.
+- Migration an einer Serverkopie: 21 Daten-/Versionsstände und 57 Bilder;
+  Hin-/Rückmigration und Wiederholung erhalten Inhalte und Revisionen.
+  Die JSON-Stände schrumpften von 199.280.746 auf 560.074 Bytes; die Bilder
+  werden zusätzlich einmalig gespeichert. Dies ist keine Messung der gesamten DB-Datei.
+- Frontend und Backend ausgeliefert, alle Dateien mit dem lokalen Release
+  abgeglichen. Produktiv 21 Stände migriert; alle Bildreferenzen auflösbar,
+  57 Bilder vorhanden, SQLite-Integritätsprüfung erfolgreich.
+- API und Nginx sowie Push-/Backup-Timer aktiv. Interner Health-Endpunkt und
+  öffentliches HTTPS erfolgreich, Bildabruf ohne Anmeldung korrekt mit HTTP 401.
+  HTML und Service Worker mit `no-cache`, neue JavaScript-Datei erreichbar.
+- Live-App in frischem Edge-Browserkontext online und nach Offline-Neuladen
+  ohne JavaScript-Fehler; neuer Bildbaustein in beiden Fällen verfügbar.
+- HTTPS wurde vom Entwicklungsrechner geprüft: Der serverinterne Zugriff auf
+  den öffentlichen Hostnamen trifft auf ein selbstsigniertes Zertifikat.
+  Die externe Zertifikatsprüfung war erfolgreich; keine Prüfung wurde deaktiviert.

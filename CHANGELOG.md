@@ -21,7 +21,9 @@
 - 8 neue API-/Migrationstests und eine Browser-Prüfung mit zwei Gerätekontexten.
 
 Details und Grenzen: [Bild-Sync-Prüfbericht](docs/BILD-SYNC-v3.22.0.md).
-Deployment und Migration ausstehend.
+Am 06.09.2026 produktiv ausgeliefert. 21 aktuelle/historische Datenstände
+umgestellt, 57 Bilder getrennt gespeichert; Referenzen und DB-Integrität geprüft.
+Sicherung und Prüfprotokoll: [Bild-Sync](docs/BILD-SYNC-v3.22.0.md#deployment).
 
 
 ## v3.21.0 - 2026-09-06
