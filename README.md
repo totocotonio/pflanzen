@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Version:** v3.21.0 – neue Heute-Ansicht; Deployment ausstehend.
+**Status:** ✅ Live (v3.21.0) – neue Heute-Ansicht, geprüft und ausgerollt am 06.09.2026.
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 

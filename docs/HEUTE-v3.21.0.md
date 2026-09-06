@@ -72,4 +72,37 @@ Version 3.21.0 in App, Versionsdatei, App-Historie, HTML-Assetparametern,
 Service Worker, README und Changelog. Neue npm-Abhängigkeiten dienen ausschließlich
 den Tests; das Frontend bleibt ohne Frameworks und externe Laufzeitbibliotheken.
 Nur statische Dateien müssen ausgeliefert werden (`python deploy.py`).
-Deployment und abschließende Live-Prüfung stehen noch aus.
+Deployment und abschließende Live-Prüfung sind abgeschlossen.
+
+## Deployment-Protokoll
+
+06.09.2026, Anwendungscode: `392387a5c839cf0596c8bc2ac5223492cbd4c93a`.
+
+- Die [GitHub-Prüfung](https://github.com/totocotonio/pflanzen/actions/runs/34036928010)
+  war erfolgreich, einschließlich der neuen Browser-Prüfung mit Chromium.
+  Lokal bestanden alle 19 bisherigen Regressionstests sowie die Browser-Szenarien
+  in Microsoft Edge. Die Screenshots wurden auf 320/390/1280 px und in Hell/Dunkel
+  visuell geprüft.
+- Vor dem Upload wurden alle elf statischen Live-Dateien mit v3.20.1 verglichen;
+  keine Abweichungen. Frontend und konsistente SQLite-Sicherung liegen unter
+  `/opt/gruenzeug-releases/v3.21.0-392387a/rollback-20260906T134404Z`.
+  Das Verzeichnis ist zugriffsbeschränkt; die Datenbankprüfung ergab `ok`.
+- `deploy.py` hat die statischen Dateien hochgeladen. Backend, Datenbankschema
+  und produktive Python-Abhängigkeiten wurden nicht geändert.
+- Nach erneuter Bestätigung wurde der geprüfte Commit per Fast-forward nach
+  `main` übernommen und gepusht.
+- Nachkontrolle: Alle elf ausgelieferten Dateien entsprechen v3.21.0
+  (Vergleich mit normalisierten Zeilenenden). API intern und öffentlich erreichbar,
+  HTTPS liefert HTML, JavaScript, Stylesheet und Service Worker erfolgreich aus.
+  `sw.js` bleibt auf `Cache-Control: no-cache`.
+- API, Nginx, Push-Timer und Backup-Timer sind aktiv.
+- Frischer Live-Browser bei 390 px: Version 3.21.0, die Filter Gießen/Pflege/Demnächst,
+  der leere Bestand und die mobile Darstellung sind korrekt. Keine JavaScript-
+  Laufzeitfehler. Diese Prüfung lief ohne Konto und ohne Schreiben von
+  Produktivdaten; umfassende Bedienprüfungen fanden in der Testumgebung statt.
+
+Bestehende Installationen wechseln über den Update-Hinweis „Jetzt laden“ zur
+neuen Fassung. Bei einem Rollback die vorherigen Frontend-Dateien aus
+`frontend.tar.gz` zurückspielen und die Service-Worker-Auslieferung prüfen.
+Die Datenbanksicherung ist keine Voraussetzung für einen Frontend-Rollback und
+darf nicht pauschal zurückgespielt werden, da neuere Änderungen verloren gingen.

@@ -17,7 +17,8 @@
 - Browser-Regressionen für Filter, Abhaken/Rückgängig, leere und erledigte
   Bestände, Pflegearten, Archiv und mobile/desktop Ansichten ergänzt.
 
-Details: [Heute-Prüfbericht](docs/HEUTE-v3.21.0.md). Deployment ausstehend.
+Details: [Heute-Prüfbericht](docs/HEUTE-v3.21.0.md). Am 06.09.2026 ausgerollt;
+Dateivergleich, öffentliche HTTPS-Auslieferung und mobiler Browserstart erfolgreich.
 
 
 ## v3.20.1 - 2026-09-06
