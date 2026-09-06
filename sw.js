@@ -1,11 +1,12 @@
 /* Grünzeug Service Worker
    © 2026 Torsten Michaely – Alle Rechte vorbehalten */
-const CACHE = 'gruenzeug-v3.21.0';
+const CACHE = 'gruenzeug-v3.22.0';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=3.21.0',
-  './app.js?v=3.21.0',
+  './style.css?v=3.22.0',
+  './app.js?v=3.22.0',
+  './bild-sync.js?v=3.22.0',
   './manifest.json',
   './favicon.svg',
   './icon-192.png',

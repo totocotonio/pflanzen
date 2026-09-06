@@ -1,5 +1,29 @@
 # Changelog
 
+## v3.22.0 - 2026-09-06
+
+### Neue Fotos einmal übertragen, kleine Änderungen klein halten
+
+- Neuer Bild-Sync: fehlende Bilder separat hochladen, danach Metadaten mit
+  SHA-256-Bildverweisen speichern. Bereits vorhandene Bilder werden übersprungen.
+- Neue Clients laden kompakte Datensätze und verwenden lokale Fotos erneut;
+  ältere Clients erhalten weiterhin vollständige Inline-Bilder.
+- Neue kontogebundene SQLite-Tabelle für unveränderliche Bildinhalte. Backups
+  enthalten weiterhin sämtliche Daten in einer Datenbankdatei.
+- Migration für aktuelle und historische Stände mit Inhaltsvergleich;
+  Rückmigration nach Inline ist für einen Code-Rollback vorgesehen.
+- Exporte bleiben vollständig. Entfernte Haupt-, Profil- und Hintergrundbilder
+  werden beim Neuladen nicht aus alten lokalen Slots zurückgeholt.
+- Ein fehlgeschlagener Bildtransfer bestätigt keine Metadaten; Änderungen
+  während eines Bild-Uploads werden anschließend nachgesendet.
+- Deployment startet zuerst die kompatible API und veröffentlicht danach das
+  Frontend; ein fehlgeschlagener API-Neustart bricht ab.
+- 8 neue API-/Migrationstests und eine Browser-Prüfung mit zwei Gerätekontexten.
+
+Details und Grenzen: [Bild-Sync-Prüfbericht](docs/BILD-SYNC-v3.22.0.md).
+Deployment und Migration ausstehend.
+
+
 ## v3.21.0 - 2026-09-06
 
 ### Heute: sehen, was jetzt zu tun ist

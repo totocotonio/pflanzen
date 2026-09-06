@@ -18,6 +18,7 @@ import time
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
+import bilder as bildspeicher
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel, Field
@@ -60,6 +61,13 @@ class Datensatz(Base):
     inhalt = Column(Text, nullable=False, default="{}")
     rev = Column(Integer, nullable=False, default=0)
     geaendert = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class Bild(Base):
+    __tablename__ = "bild"
+    user_id = Column(Integer, ForeignKey("user.id"), primary_key=True)
+    id = Column(String(64), primary_key=True)
+    inhalt = Column(Text, nullable=False)
 
 
 class Version(Base):
@@ -298,13 +306,24 @@ def me(user: User = Depends(aktueller_user)):
 
 
 @app.get("/api/data")
-def daten_holen(user: User = Depends(aktueller_user), s: Session = Depends(db)):
-    d = s.get(Datensatz, user.id)
+def daten_holen(user: User = Depends(aktueller_user), s: Session = Depends(db),
+                bilder: str = "inline"):
+    user_id = user.id
+    if bilder == "referenzen":
+        schreibtransaktion(s)
+    d = s.get(Datensatz, user_id)
     if not d:
         return {"rev": 0, "daten": None, "geaendert": None}
+    daten = json.loads(d.inhalt)
+    if bilder == "referenzen":
+        daten = bildspeicher.kompakt(daten, s, Bild, user_id)
+        d.inhalt = json.dumps(daten, ensure_ascii=False, separators=(",", ":"))
+        s.commit()  # Nur die Darstellung wird migriert, die Revision bleibt gleich.
+    else:
+        daten = bildspeicher.inline(daten, s, Bild, user_id)
     return {
         "rev": d.rev,
-        "daten": json.loads(d.inhalt),
+        "daten": daten,
         "geaendert": (d.geaendert.isoformat() if d.geaendert else None),
     }
 
@@ -312,7 +331,7 @@ def daten_holen(user: User = Depends(aktueller_user), s: Session = Depends(db)):
 @app.put("/api/data")
 def daten_speichern(eingabe: SyncDaten,
                     user: User = Depends(aktueller_user),
-                    s: Session = Depends(db)):
+                    s: Session = Depends(db), bilder: str = "inline"):
     """Speichert den kompletten Datensatz.
 
     Passt `rev` nicht zur gespeicherten Revision, hat ein anderes Gerät
@@ -331,17 +350,22 @@ def daten_speichern(eingabe: SyncDaten,
     user_id = user.id
     schreibtransaktion(s)
     d = s.get(Datensatz, user_id)
+    if d and eingabe.rev != d.rev:
+        stand = json.loads(d.inhalt)
+        stand = (bildspeicher.kompakt(stand, s, Bild, user_id) if bilder == "referenzen"
+                 else bildspeicher.inline(stand, s, Bild, user_id))
+        # Referenzen in der Konfliktantwort müssen bereits abrufbar sein.
+        rev = d.rev
+        s.commit()
+        raise HTTPException(409, detail={"grund": "konflikt", "rev": rev, "daten": stand})
+
+    daten = bildspeicher.kompakt(eingabe.daten, s, Bild, user_id)
+    inhalt = json.dumps(daten, ensure_ascii=False, separators=(",", ":"))
     if not d:
         d = Datensatz(user_id=user.id, inhalt=inhalt, rev=1)
         s.add(d)
         s.commit()
         return {"rev": d.rev}
-
-    if eingabe.rev != d.rev:
-        raise HTTPException(
-            409,
-            detail={"grund": "konflikt", "rev": d.rev, "daten": json.loads(d.inhalt)},
-        )
 
     version_sichern(s, user.id, d, len(eingabe.daten.get("plants") or []))
     d.inhalt = inhalt
@@ -371,7 +395,7 @@ def versionen_liste(user: User = Depends(aktueller_user), s: Session = Depends(d
 @app.post("/api/versionen/{version_id}/wiederherstellen")
 def version_wiederherstellen(version_id: int,
                              user: User = Depends(aktueller_user),
-                             s: Session = Depends(db)):
+                             s: Session = Depends(db), bilder: str = "inline"):
     """Macht einen früheren Stand zum aktuellen.
 
     Der bisherige Stand wird vorher gesichert – auch ein Wiederherstellen
@@ -383,18 +407,66 @@ def version_wiederherstellen(version_id: int,
     if not v or v.user_id != user_id:
         raise HTTPException(404, "Diesen Stand gibt es nicht")
 
-    d = s.get(Datensatz, user.id)
+    daten = bildspeicher.kompakt(json.loads(v.inhalt), s, Bild, user_id)
+    inhalt = json.dumps(daten, ensure_ascii=False, separators=(",", ":"))
+    d = s.get(Datensatz, user_id)
     if d:
         s.add(Version(user_id=user.id, inhalt=d.inhalt, rev=d.rev,
                       pflanzen=len((json.loads(d.inhalt).get("plants") or []))))
-        d.inhalt = v.inhalt
+        d.inhalt = inhalt
         d.rev += 1
         d.geaendert = datetime.now(timezone.utc)
     else:
-        d = Datensatz(user_id=user.id, inhalt=v.inhalt, rev=1)
+        d = Datensatz(user_id=user_id, inhalt=inhalt, rev=1)
         s.add(d)
     s.commit()
-    return {"rev": d.rev, "daten": json.loads(d.inhalt)}
+    return {"rev": d.rev, "daten": daten if bilder == "referenzen"
+            else bildspeicher.inline(daten, s, Bild, user_id)}
+
+
+class BildListe(BaseModel):
+    ids: list[str] = Field(max_length=2000)
+
+
+class BildDaten(BaseModel):
+    inhalt: str = Field(max_length=bildspeicher.MAX_BILD)
+
+
+@app.post("/api/bilder/abgleichen")
+def bilder_abgleichen(eingabe: BildListe, user: User = Depends(aktueller_user),
+                      s: Session = Depends(db)):
+    ids = set(eingabe.ids)
+    for id_ in ids:
+        bildspeicher.pruefe_id(id_)
+    vorhanden = set()
+    # Auch SQLite-Versionen mit kleinerem Parameterlimit unterstützen.
+    liste = list(ids)
+    for start in range(0, len(liste), 400):
+        vorhanden.update(id_ for (id_,) in s.query(Bild.id).filter(
+            Bild.user_id == user.id, Bild.id.in_(liste[start:start + 400])).all())
+    return {"fehlen": sorted(ids - vorhanden)}
+
+
+@app.put("/api/bilder/{bild_id}")
+def bild_speichern(bild_id: str, eingabe: BildDaten,
+                    user: User = Depends(aktueller_user), s: Session = Depends(db)):
+    bildspeicher.pruefe_id(bild_id)
+    if not eingabe.inhalt.startswith("data:image/") or bildspeicher.kennung(eingabe.inhalt) != bild_id:
+        raise HTTPException(422, "Bildinhalt passt nicht zur Kennung")
+    bildspeicher.ablegen(s, Bild, user.id, eingabe.inhalt)
+    s.commit()
+    return {"id": bild_id}
+
+
+@app.get("/api/bilder/{bild_id}")
+def bild_holen(bild_id: str, response: Response,
+               user: User = Depends(aktueller_user), s: Session = Depends(db)):
+    bildspeicher.pruefe_id(bild_id)
+    bild = s.get(Bild, (user.id, bild_id))
+    if bild is None:
+        raise HTTPException(404, "Bild nicht gefunden")
+    response.headers["Cache-Control"] = "private, no-store"
+    return {"id": bild_id, "inhalt": bild.inhalt}
 
 
 @app.get("/api/qr")

@@ -16,7 +16,7 @@ import sys
 
 import bcrypt
 
-from main import Datensatz, Sitzung, SessionLocal, User
+from main import Bild, Datensatz, PushAbo, Sitzung, SessionLocal, User, Version
 
 
 def frage_passwort() -> str:
@@ -76,6 +76,9 @@ def main() -> None:
             sys.exit("Abgebrochen.")
         s.query(Sitzung).filter(Sitzung.user_id == u.id).delete()
         s.query(Datensatz).filter(Datensatz.user_id == u.id).delete()
+        s.query(Version).filter(Version.user_id == u.id).delete()
+        s.query(Bild).filter(Bild.user_id == u.id).delete()
+        s.query(PushAbo).filter(PushAbo.user_id == u.id).delete()
         s.delete(u)
         s.commit()
         print("Gelöscht.")

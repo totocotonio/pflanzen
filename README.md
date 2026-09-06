@@ -2,7 +2,7 @@
 
 Progressive Web App zur Pflege von Zimmerpflanzen: Gießplan, Pflanzen-Datenbank und Push-Erinnerungen. Läuft offline, speichert alles lokal im Browser und ist auf dem Handy als App installierbar.
 
-**Status:** ✅ Live (v3.21.0) – neue Heute-Ansicht, geprüft und ausgerollt am 06.09.2026.
+**Version:** v3.22.0 – getrennter Bild-Sync; Deployment ausstehend.
 **Live:** https://pflanzen.michaely.de
 **© 2026 Torsten Michaely** – Alle Rechte vorbehalten.
 
@@ -39,7 +39,7 @@ Der Kern der App. Die Ansicht **Heute** zeigt einen Überblick über offene Aufg
 ✅ **Mehrere Pflanzen im Topf** – der Topf bleibt die Einheit, die App prüft ob die Arten zusammenpassen
 ✅ **Ableger im Wasser** – Erinnerung ans Wasserwechseln statt ans Gießen, mit Übergang zum Eintopfen
 ✅ **Semi-Hydrokultur** – Blähton, Pon, Seramis: „Nachfüllen" statt Gießen, Dünger bei jeder Gabe, Aufgabe „Substrat spülen" gegen Salzablagerungen; Umtopfen und Düngeintervall entfallen
-✅ **Foto oder Emoji** – Kamera-/Galerie-Foto wird auf die Pixeldichte des Geräts verkleinert (bis 1100 px) und als JPEG in den localStorage gelegt; alternativ 24 Emoji zur Auswahl
+✅ **Foto oder Emoji** – Kamera-/Galerie-Foto wird auf die Pixeldichte des Geräts verkleinert (bis 1100 px) und als JPEG in IndexedDB gespeichert; alternativ 24 Emoji zur Auswahl
 ✅ **Pflegevorschläge** – 91 Arten und Sorten mit Richtwerten für Intervall, Licht, Menge und Pflegehinweis; erkennt Zweitnamen („Benjamini"), Mehrzahl („Efeutüten") und Umlaut-Schreibweisen
 ✅ **Fotoverlauf** – bis zu sechs Bilder je Pflanze mit Datum, Großansicht per Antippen, Vorher-Nachher-Vergleich mit Zeitabstand
 ✅ **Update-Hinweis** – meldet sich, sobald eine neue Fassung bereitliegt; der Wechsel passiert erst auf Knopfdruck
@@ -101,6 +101,7 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 ✅ **Anmeldung** – Benutzername und Passwort, Sitzung als HttpOnly-Cookie (90 Tage)
 ✅ **Keine offene Registrierung** – die Seite ist öffentlich erreichbar, Benutzer legt `manage.py` auf dem Server an
 ✅ **Sync** – Pflanzen, Verlauf und Einstellungen liegen zusätzlich auf dem Server
+✅ **Getrennter Bildtransfer** – nur neue Fotos hochladen; vorhandene Bilder werden per Inhaltskennung wiederverwendet
 ✅ **Offline-fest** – Änderungen werden gepuffert und nachgeholt, sobald wieder Verbindung besteht
 ✅ **Konflikterkennung** – jede Änderung erhöht eine Revisionsnummer; hat ein anderes Gerät zwischendurch geschrieben, fragt die App nach, statt fremde Änderungen zu überschreiben
 ✅ **Warnung bei fehlgeschlagener Sicherung** – dauerhaftes Banner über jeder Ansicht mit Ursache (zu groß / Anmeldung abgelaufen / kein Netz / Serverfehler), Zeitpunkt der letzten Sicherung und Knopf zum erneuten Versuch; überlebt einen Neustart der App
@@ -115,8 +116,8 @@ Alles gehört zum Konto und wird mitsynchronisiert – zwei Konten können unter
 | Frontend | HTML, CSS, Vanilla JavaScript – keine Frameworks, keine externen Libraries |
 | Backend | Python, FastAPI, SQLAlchemy, SQLite, bcrypt |
 | Design | warme Grün- und Erdtöne, hell und dunkel, System-Schriften, `env(safe-area-inset-*)` |
-| Speicher | `localStorage`, Schlüssel `pg_data` |
-| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v3.21.0` |
+| Speicher | Metadaten: `localStorage` (`pg_data`); Bilder: IndexedDB; Server: SQLite mit Bildtabelle |
+| Offline | Service Worker (`sw.js`), Cache `gruenzeug-v3.22.0` |
 | Icons | in `gen_icons.py` mit Pillow generiert |
 | Push | Web Push API + VAPID, pywebpush, systemd-Timer alle 15 Minuten |
 | Hosting | LXC Container auf Proxmox |
@@ -205,7 +206,7 @@ venv/bin/python manage.py passwd torsten
 
 ## Datenmodell
 
-Alles liegt unter dem localStorage-Schlüssel `pg_data`:
+Das folgende Beispiel zeigt den vollständigen Arbeitsspeicher-/Exportstand. In `pg_data` liegen Metadaten und Bildvorhanden-Markierungen; Bildinhalte liegen lokal in IndexedDB. Der Server speichert Bildverweise und Bildinhalte getrennt in derselben SQLite-Datei:
 
 ```jsonc
 {
@@ -288,6 +289,16 @@ Für alle Prüfungen ausschließlich Testumgebungen verwenden.
 
 Änderungen, Zählweise und Prüfungen: [Heute v3.21.0](docs/HEUTE-v3.21.0.md).
 
+Bildtransfer im Browser prüfen (nur lokaler Testserver mit Testkonto):
+
+```bash
+npm run test:bilder
+```
+
+Die Prüfung startet eine separate Testdatenbank. `PYTHON` und
+`BROWSER_CHANNEL` funktionieren wie bei der Heute-Prüfung.
+Protokoll, Migration, API und Rollback: [Bild-Sync v3.22.0](docs/BILD-SYNC-v3.22.0.md).
+
 ## Deployment
 
 ```bash
@@ -319,6 +330,7 @@ Erzeugt `icon-192.png`, `icon-512.png`, `icon-maskable.png`, `apple-touch-icon.p
 
 | Version | Änderungen |
 |---------|-----------|
+| **v3.22.0** | Fotos separat synchronisieren, Inhalte deduplizieren und ältere Clients unterstützen |
 | **v3.21.0** | Heute: Aufgabenüberblick, Pflegefilter und fällige Aufgaben vor der Vorschau |
 | **v3.20.1** | Gleichzeitige Uploads, Foto-Laden und offene Änderungen beim Abmelden abgesichert |
 | **v3.20.0** | Fehlgeschlagene Sicherung wird sichtbar gemeldet |

@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "test": "node --test tests/sync.test.cjs",
-    "test:browser": "node tests/heute.browser.cjs"
+    "test:browser": "node tests/heute.browser.cjs",
+    "test:bilder": "node tests/bilder.browser.cjs"
   },
   "devDependencies": {
     "playwright": "1.62.1"

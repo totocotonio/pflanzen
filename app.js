@@ -6,7 +6,7 @@
    ============================================================ */
 'use strict';
 
-const VERSION = '3.21.0';
+const VERSION = '3.22.0';
 
 const KEY = 'pg_data';
 /* Standorte, die es in fast jeder Wohnung gibt. Eigene Räume kommen aus den
@@ -109,9 +109,8 @@ function save(sync) {
    Die Bilder liegen deshalb in IndexedDB, wo deutlich mehr Platz ist. Im
    localStorage steht nur noch der Rest: Pflanzen, Verlauf, Einstellungen.
 
-   Wichtig: Für den Sync bleibt alles zusammen. Der Server bekommt weiterhin
-   den vollständigen Datensatz mit Bildern, damit sie auf allen Geräten
-   ankommen – nur der lokale Zwischenspeicher wird entlastet. */
+   Der Sync überträgt neue Bilder separat und verwendet danach Inhalts-Hashes.
+   Im Arbeitsspeicher und in vollständigen JSON-Exporten bleiben die Bilddaten. */
 const BILD_DB = 'gruenzeug-bilder';
 const BILD_STORE = 'bilder';
 let bildDb = null;
@@ -216,6 +215,7 @@ function datensatzOhneBilder() {
     v: DB.v,
     plants: DB.plants.map(p => {
       const kopie = Object.assign({}, p);
+      kopie.fotoVorhanden = bilderGeladen ? !!p.foto : (p.foto ? true : p.fotoVorhanden);
       if (kopie.foto) kopie.foto = '';
       if (Array.isArray(kopie.fotos)) {
         kopie.fotos = kopie.fotos.map(f => ({ id: f.id, ts: f.ts, bild: '' }));
@@ -224,7 +224,11 @@ function datensatzOhneBilder() {
     }),
     logs: DB.logs,
     sammel: sammelAufgaben(),
-    settings: Object.assign({}, DB.settings, { avatarFoto: null, hintergrundFoto: null })
+    settings: Object.assign({}, DB.settings, {
+      avatarFoto: null, hintergrundFoto: null,
+      avatarFotoVorhanden: bilderGeladen ? !!DB.settings.avatarFoto : (DB.settings.avatarFoto ? true : DB.settings.avatarFotoVorhanden),
+      hintergrundFotoVorhanden: bilderGeladen ? !!DB.settings.hintergrundFoto : (DB.settings.hintergrundFoto ? true : DB.settings.hintergrundFotoVorhanden)
+    })
   };
 }
 
@@ -242,13 +246,13 @@ function bilderNachladen() {
   return bilderLesen().then(karte => {
     let gefunden = 0;
     for (const p of DB.plants) {
-      if (!p.foto && karte['p:' + p.id]) { p.foto = karte['p:' + p.id]; gefunden++; }
+      if (!p.foto && p.fotoVorhanden !== false && karte['p:' + p.id]) { p.foto = karte['p:' + p.id]; gefunden++; }
       for (const f of (Array.isArray(p.fotos) ? p.fotos : [])) {
         if (!f.bild && karte['g:' + f.id]) { f.bild = karte['g:' + f.id]; gefunden++; }
       }
     }
-    if (!DB.settings.avatarFoto && karte['s:avatar']) DB.settings.avatarFoto = karte['s:avatar'];
-    if (!DB.settings.hintergrundFoto && karte['s:hintergrund']) {
+    if (!DB.settings.avatarFoto && DB.settings.avatarFotoVorhanden !== false && karte['s:avatar']) DB.settings.avatarFoto = karte['s:avatar'];
+    if (!DB.settings.hintergrundFoto && DB.settings.hintergrundFotoVorhanden !== false && karte['s:hintergrund']) {
       DB.settings.hintergrundFoto = karte['s:hintergrund'];
     }
     bilderGeladen = true;
@@ -725,6 +729,12 @@ function bindePersoenlich() {
    Muss bei jedem Release zusammen mit VERSION, VERSION-Datei, CHANGELOG.md
    und der Tabelle in README.md gepflegt werden. Neueste Version oben. */
 const HISTORIE = [
+  { v: '3.22.0', datum: '06.09.2026', punkte: [
+    'Fotos werden nur noch übertragen, wenn sie auf dem Server fehlen. Gießen und andere kleine Änderungen senden keine unveränderten Bilder mehr.',
+    'Vorhandene Fotos werden automatisch übernommen. Ältere App-Versionen bleiben kompatibel.',
+    'Offline-Fotos, vollständige Exporte und frühere Versionen bleiben erhalten.',
+    'Entfernte Haupt- und Profilbilder tauchen nach dem Neuladen nicht mehr aus dem lokalen Cache auf.'
+  ] },
   { v: '3.21.0', datum: '06.09.2026', punkte: [
     'Heute zeigt alle offenen Gieß- und Pflegeaufgaben in einem Überblick.',
     'Neue Filter: Gießen, Pflege und Demnächst. Behandlungen und fällige Pflege stehen vor der Vorschau.',
@@ -1143,9 +1153,10 @@ async function schiebeHoch() {
       syncFehler('bilder'); SYNC.status = 'fehler'; return;
     }
     const gesendeteAenderung = SYNC.aenderung;
-    const r = await api('/data', {
+    const daten = await bildSyncVorbereiten(nutzdaten());
+    const r = await api('/data?bilder=referenzen', {
       method: 'PUT',
-      body: JSON.stringify({ rev: SYNC.rev, daten: nutzdaten() })
+      body: JSON.stringify({ rev: SYNC.rev, daten })
     });
     if (r.status === 401) {
       syncFehler('auth');
@@ -1155,7 +1166,7 @@ async function schiebeHoch() {
     // aus wie jeder andere Fehler - und blieb wochenlang unbemerkt.
     if (r.status === 413) { syncFehler('gross'); SYNC.status = 'fehler'; return; }
     if (r.status === 409) {
-      const d = (await r.json()).detail;
+      const d = await serverStand((await r.json()).detail);
       syncFehler('konflikt');
       SYNC.laeuft = false;
       speichereSync();
@@ -1195,8 +1206,8 @@ async function schiebeHoch() {
 
 const SYNC_FEHLER_TEXT = {
   bilder: {
-    was: 'Die Fotos auf diesem Gerät konnten nicht geladen werden.',
-    tun: 'Der Upload wurde angehalten, damit keine Fotos auf dem Server verloren gehen. Versuche es erneut.'
+    was: 'Die Fotos konnten nicht vollständig geladen oder übertragen werden.',
+    tun: 'Der Abgleich wurde angehalten, damit keine Bilder verloren gehen. Versuche es erneut.'
   },
   gross: {
     was: 'Der Server nimmt den Datensatz nicht an – er ist zu groß.',
@@ -1314,6 +1325,12 @@ function uebernehmeServer(s) {
   DB.logs = (d.logs || []).concat(eigeneLogs);
 
   DB.settings = Object.assign(DB.settings, d.settings || {});
+  // Die Antwort ist bereits vollständig aufgelöst. Gelöschte Serverbilder
+  // dürfen nicht aus alten lokalen Bild-Slots wieder eingesetzt werden.
+  for (const p of DB.plants) p.fotoVorhanden = !!p.foto;
+  DB.settings.avatarFotoVorhanden = !!DB.settings.avatarFoto;
+  DB.settings.hintergrundFotoVorhanden = !!DB.settings.hintergrundFoto;
+  bilderGeladen = true;
   SYNC.rev = s.rev;
   SYNC.dirty = nurHier.length > 0;      // das Gerettete muss noch hoch
   SYNC.standZeit = Date.now();
@@ -1327,9 +1344,6 @@ function uebernehmeServer(s) {
     planeSync();
   }
   save(false);          // schreibt auch die Bilder vom Server nach IndexedDB
-  // Hatte der Server keine Bilder – etwa weil das andere Gerät sie nie
-  // hochgeladen hat –, kommen die lokalen wieder rein. Ergänzt nur, wo fehlt.
-  bilderNachladen();
   speichereSync();
   applyTheme();
   renderAll();
@@ -1363,13 +1377,13 @@ async function loeseKonflikt(s) {
 async function abgleichen() {
   if (SYNC.laeuft) return;
   const startRevision = SYNC.rev;
-  const r = await api('/data');
+  const r = await api('/data?bilder=referenzen');
   if (r.status === 401) {
     syncFehler('auth');
     SYNC.user = null; speichereSync(); zeigeLogin(); return;
   }
   if (!r.ok) { syncFehler('server'); speichereSync(); throw new Error('Status ' + r.status); }
-  const s = await r.json();
+  const s = await serverStand(await r.json());
   // Eine inzwischen gestartete Sicherung hat Vorrang vor dieser alten Antwort.
   if (SYNC.laeuft || SYNC.rev !== startRevision) return;
 
@@ -1460,6 +1474,8 @@ async function starte() {
     else zeigeLogin();
     hashOeffnen(true);
     renderMore();
+    speichereSync();
+    syncWarnungZeichnen();
   }
 }
 
@@ -7065,10 +7081,10 @@ async function standWiederherstellen(id, anzahl) {
   if (!confirm(text)) return;
 
   try {
-    const r = await api('/versionen/' + encodeURIComponent(id) + '/wiederherstellen',
+    const r = await api('/versionen/' + encodeURIComponent(id) + '/wiederherstellen?bilder=referenzen',
                         { method: 'POST' });
     if (!r.ok) throw new Error('Status ' + r.status);
-    const antwort = await r.json();
+    const antwort = await serverStand(await r.json());
     uebernehmeServer({ rev: antwort.rev, daten: antwort.daten });
     closeSheets();
     toast('Stand wiederhergestellt');

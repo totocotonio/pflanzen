@@ -11,6 +11,8 @@ function app() {
   const timers = [];
   const messages = [];
   const ctx = vm.createContext({
+    bildSyncVorbereiten: async daten => JSON.parse(JSON.stringify(daten)),
+    serverStand: async stand => stand,
     console, window: { matchMedia: () => ({ matches: false }), addEventListener() {} }, navigator: { onLine: true },
     localStorage: { getItem: k => storage.get(k) || null,
       setItem: (k, v) => storage.set(k, v) },

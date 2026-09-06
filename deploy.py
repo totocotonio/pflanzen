@@ -16,13 +16,13 @@ KEY = r"C:\Users\Torst\.ssh\id_ed25519"
 
 STATISCH_ZIEL = "/opt/gruenzeug/"
 STATISCH = [
-    "index.html", "app.js", "style.css", "sw.js", "manifest.json",
+    "index.html", "app.js", "bild-sync.js", "style.css", "sw.js", "manifest.json",
     "favicon.svg", "favicon.ico", "apple-touch-icon.png",
     "icon-192.png", "icon-512.png", "icon-maskable.png",
 ]
 
 API_ZIEL = "/opt/gruenzeug-api/"
-API = ["main.py", "push.py", "cron.py", "wetter.py", "backup.py", "manage.py", "requirements.txt",
+API = ["bilder.py", "main.py", "bilder_migration.py", "push.py", "cron.py", "wetter.py", "backup.py", "manage.py", "requirements.txt",
        "gruenzeug.service", "gruenzeug-push.service", "gruenzeug-push.timer",
        "gruenzeug-backup.service", "gruenzeug-backup.timer",
        "install_api.sh"]
@@ -53,14 +53,6 @@ ssh.connect(HOST, username=USER, key_filename=KEY)
 lauf(ssh, f"mkdir -p {STATISCH_ZIEL}")
 sftp = ssh.open_sftp()
 
-for f in STATISCH:
-    local = os.path.join(script_dir, f)
-    if not os.path.exists(local):
-        print(f"  Übersprungen (fehlt): {f}")
-        continue
-    print(f"  Upload: {f} → {STATISCH_ZIEL}{f}")
-    sftp.put(local, STATISCH_ZIEL + f)
-
 if mit_api:
     lauf(ssh, f"mkdir -p {API_ZIEL}")
     for f in API:
@@ -74,12 +66,24 @@ if mit_api:
         else:
             sftp.put(local, API_ZIEL + f)
 
-sftp.close()
-
 if mit_api:
     print("Starte Dienst gruenzeug neu...")
     code, text = lauf(ssh, "systemctl restart gruenzeug && sleep 1 && systemctl is-active gruenzeug")
     print("  Status:", text or code)
+    if code != 0:
+        sftp.close()
+        ssh.close()
+        raise RuntimeError("API-Neustart fehlgeschlagen; Frontend nicht aktualisiert")
+
+# Erst wenn die kompatible API bereit ist, darf das neue Frontend erscheinen.
+for f in STATISCH:
+    local = os.path.join(script_dir, f)
+    if not os.path.exists(local):
+        raise FileNotFoundError(local)
+    print(f"  Upload: {f} → {STATISCH_ZIEL}{f}")
+    sftp.put(local, STATISCH_ZIEL + f)
+
+sftp.close()
 
 ssh.close()
 print("✅ Grünzeug aktualisiert – Seite neu laden (Service Worker!)")
